@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#101418">
+<meta name="description" content="A play aid for Caught in the Rain, the solo mystery roleplaying game.">
+<title>Caught in the Rain</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="app-header">
+  <a class="brand" href="#/home"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">Caught in the Rain</span></a>
+  <div class="header-tools">
+    <button class="icon-btn" id="undo-btn" type="button" aria-label="Undo the last step" title="Undo">&#8630;</button>
+    <button class="icon-btn" id="theme-btn" type="button" aria-label="Switch theme" title="Theme">&#9681;</button>
+  </div>
+</header>
+<div id="resource-header" class="resource-header" hidden></div>
+<main id="screen" class="screen" tabindex="-1"></main>
+<div id="action-host"></div>
+<nav class="tab-bar" id="tab-bar" aria-label="Main"></nav>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

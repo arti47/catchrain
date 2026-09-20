@@ -6,10 +6,17 @@ import * as D from "../data.js";
 export const genre = (id) => D.GENRES[id] || D.GENRES.noir;
 export const genreTable = (id, kind) => genre(id)[kind];
 
+// House aid (labelled as such in the UI): rows the player has chosen to skip.
+let blocked = new Set();
+export const setBlocked = (list) => { blocked = new Set(list || []); };
+export const blockedList = () => [...blocked];
+export const isBlocked = (v) => blocked.has(v);
+
 /** Roll 1d66 on a table; returns the dice, the d66 code and the row. */
 export function rollTable(table) {
-  const r = d66();
-  return { dice: r.dice, code: r.code, index: r.index, value: table[r.index] };
+  let r = d66();
+  for (let i = 0; i < 20 && blocked.size && blocked.has(table[r.index]); i++) r = d66();
+  return { dice: r.dice, code: r.code, index: r.index, value: table[r.index], filtered: blocked.has(table[r.index]) };
 }
 export const rollGenre = (id, kind) => rollTable(genreTable(id, kind));
 

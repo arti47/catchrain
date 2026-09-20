@@ -53,7 +53,9 @@ export function closeModal() {
 }
 
 export function confirmModal({ title, message, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = false }) {
-  return new Promise((resolve) => {
+  return new Promise((resolveRaw) => {
+    let settled = false;
+    const resolve = (v) => { if (!settled) { settled = true; resolveRaw(v); } };
     modal({
       title,
       body: el("p", { class: "muted", text: message }),
@@ -68,7 +70,9 @@ export function confirmModal({ title, message, confirmLabel = "Confirm", cancelL
 }
 
 export function promptModal({ title, message, value = "", placeholder = "", multiline = false, confirmLabel = "Save" }) {
-  return new Promise((resolve) => {
+  return new Promise((resolveRaw) => {
+    let settled = false;
+    const resolve = (v) => { if (!settled) { settled = true; resolveRaw(v); } };
     const input = multiline
       ? el("textarea", { class: "input", rows: 4, placeholder })
       : el("input", { class: "input", type: "text", placeholder });
@@ -88,19 +92,23 @@ export function promptModal({ title, message, value = "", placeholder = "", mult
 
 export function chooseModal({ title, message, options, allowCancel = true }) {
   return new Promise((resolve) => {
+    // closeModal() fires onClose, so the choice must be recorded before the
+    // dialog closes or the cancel path resolves first and the pick is lost.
+    let picked = false;
+    const settle = (value) => { if (!picked) { picked = true; resolve(value); } };
     const list = el("div", { class: "choice-list" });
     options.forEach((o) => {
       add(list, el("button", {
         class: "choice", type: "button",
-        onclick: () => { closeModal(); resolve(o.value); },
+        onclick: () => { settle(o.value); closeModal(); },
       }, el("span", { class: "choice-label", text: o.label }), o.note ? el("span", { class: "choice-note", text: o.note }) : null));
     });
     modal({
       title,
       body: el("div", {}, message ? el("p", { class: "muted", text: message }) : null, list),
       dismissable: allowCancel,
-      onClose: () => resolve(null),
-      actions: allowCancel ? [{ label: "Cancel", kind: "ghost", onClick: () => resolve(null) }] : [],
+      onClose: () => settle(null),
+      actions: allowCancel ? [{ label: "Cancel", kind: "ghost", onClick: () => settle(null) }] : [],
     });
   });
 }

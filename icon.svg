@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Rain on a window">
+  <rect width="512" height="512" rx="96" fill="#101418"/>
+  <g stroke="#6fa8c7" stroke-width="18" stroke-linecap="round" opacity="0.85">
+    <line x1="120" y1="110" x2="80" y2="230"/>
+    <line x1="220" y1="90" x2="180" y2="210"/>
+    <line x1="320" y1="120" x2="280" y2="240"/>
+    <line x1="420" y1="100" x2="380" y2="220"/>
+    <line x1="170" y1="280" x2="130" y2="400"/>
+    <line x1="370" y1="290" x2="330" y2="410"/>
+  </g>
+  <circle cx="300" cy="330" r="86" fill="none" stroke="#e8b25c" stroke-width="22"/>
+  <line x1="362" y1="392" x2="430" y2="460" stroke="#e8b25c" stroke-width="30" stroke-linecap="round"/>
+</svg>
