@@ -274,7 +274,8 @@ async function afterIndividualScene() {
   await rerender();
 }
 
-async function startTruth() {
+/** Also reachable from the Clues tab, where a player is looking at the sets. */
+export async function startTruth() {
   const m = Store.mystery;
   const open = D.openSets(m).filter((s) => s.cards.length > 0);
   if (!open.length) { showToast("You need a clue set that is not a false lead."); return; }
@@ -405,9 +406,7 @@ export function renderPlay(host) {
       ? "Play the scene out. Each stage needs one successful test; failure and success-at-a-cost both bring consequences, and every threat that you did not act against gets a roll of its own."
       : "Pick the scene that fits what your investigator needs: clues, certainty, recovery, or the rest of their life. Ending a scene marks the clock; four scenes make a day."));
 
-  add(host, section("The problem", el("p", { class: "premise", text: R.problemText(m) }),
-    m.motivation ? row("Motivation", m.motivation) : null,
-    row("Danger", el("span", { class: `pill ${m.danger >= 6 ? "danger" : ""}`, text: String(m.danger) }))));
+  add(host, problemBlock(m, inScene));
 
   if (inScene && scene.type === "investigation") return renderInvestigation(host, m, scene);
 
@@ -432,22 +431,27 @@ export function renderPlay(host) {
     return { action: actionBar(`Play as ${next.name}`, () => { Store.setActive(next.id); rerender(); }, `${waiting.length} still to go`) };
   }
 
-  // Scene picker, in the book's own order. Once a round of individual scenes
-  // has begun, the investigators still owing one take a scene of their own.
+  // Scene picker, in the book's own order. A scene the rules do not allow right
+  // now says why before you tap it, and tapping still explains the rule.
   const list = el("div", { class: "choice-list" });
   for (const t of SCENE_TYPES) {
     const handler = { investigation: startInvestigation, truth: startTruth, rest: startRest, obligation: startObligation }[t.id];
     const shared = Life.SHARED_SCENES.has(t.id);
-    const barred = individualRound && shared && party.length > 1;
+    const barred = individualRound && shared && party.length > 1
+      ? { why: "Not this round: the party is taking separate scenes.",
+          rule: "An investigation or truth scene is played by everybody. Once the round is one of separate scenes, the investigators still owing one take a scene of their own (Ch.3, Game turns)." }
+      : sceneBlocked(t.id, m);
     const note = party.length > 1
       ? `${shared ? "The whole party plays this one." : "Each investigator takes their own."} ${t.text}`
       : t.text;
     add(list, el("button", {
       class: "choice", type: "button",
-      onclick: barred ? () => showToast("This round is already a round of separate scenes.") : handler,
+      onclick: barred
+        ? () => modal({ title: t.name, body: el("div", {}, el("p", { text: barred.why }), el("p", { class: "small muted", text: barred.rule })), actions: [{ label: "Back" }] })
+        : handler,
       "aria-disabled": barred ? "true" : null,
     }, el("span", { class: "choice-label", text: t.name }),
-       el("span", { class: "choice-note", text: barred ? "Not this round — the party is taking separate scenes." : note })));
+       el("span", { class: "choice-note", text: barred ? barred.why : note })));
   }
   add(host, section(party.length > 1 ? `Choose a scene — ${Store.investigator.name}` : "Choose a scene", list));
   add(host, section("Or stop here",
@@ -457,6 +461,40 @@ export function renderPlay(host) {
     return { action: actionBar("Rest scene", startRest, `${Store.investigator.name} takes a scene`) };
   }
   return { action: actionBar("Investigation scene", startInvestigation, `Roll 1d6 + ${m.danger} danger`) };
+}
+
+/** The premise: a card between scenes, a line you can unfold during one. */
+function problemBlock(m, inScene) {
+  const rows = [
+    m.motivation ? row("Motivation", m.motivation) : null,
+    row("Danger", el("span", { class: `pill ${m.danger >= 6 ? "danger" : ""}`, text: String(m.danger) })),
+  ];
+  if (!inScene) return section("The problem", el("p", { class: "premise", text: R.problemText(m) }), ...rows);
+  const fold = el("details", { class: "acc" });
+  add(fold, el("summary", { text: "The problem" }),
+    el("div", { class: "acc-body" }, el("p", { class: "premise", text: R.problemText(m) }), ...rows));
+  return fold;
+}
+
+/** Why a scene type cannot be taken right now, or null when it can. */
+export function sceneBlocked(type, mystery) {
+  const m = mystery || Store.mystery;
+  if (!m) return null;
+  if (type === "truth") {
+    if (!D.openSets(m).filter((s) => s.cards.length).length) {
+      return { why: "No clue set to turn over yet.",
+               rule: "A truth scene establishes a clue set you already hold. Take a clue in an investigation scene first (Ch.2, Truth scenes)." };
+    }
+    if (!m.truthDeck.length) {
+      return { why: "Every truth card is already known.",
+               rule: "A truth scene reveals cards from the truth deck. With the deck empty there is nothing left to rule out (Ch.2, Truth scenes)." };
+    }
+  }
+  if (type === "obligation" && !D.openObligations(Store.investigator).length) {
+    return { why: "Every obligation is attended for today.",
+             rule: "An obligation scene strikes one obligation. They come back when the day turns (Ch.2, The clock)." };
+  }
+  return null;
 }
 
 /** Where the round stands: who has taken a scene this segment, and who has not. */

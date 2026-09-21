@@ -398,6 +398,93 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8c. the sequence of play: what each screen offers, and when
+{
+  const { ctx, page, errors } = await newPage();
+  const patch = async (src) => {
+    await page.evaluate((code) => {
+      const s = JSON.parse(localStorage.getItem("citr:v1"));
+      // eslint-disable-next-line no-eval
+      eval(code)(s.careers[s.activeId]);
+      localStorage.setItem("citr:v1", JSON.stringify(s));
+    }, src);
+    await page.reload();
+  };
+
+  // Mid-scene the premise folds away; between scenes it is a card again.
+  await seed(page, base, "mid-session");
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(180);
+  const folded = await page.evaluate(() => {
+    const d = [...document.querySelectorAll("#screen details")].find((n) => /The problem/.test(n.querySelector("summary").textContent));
+    return d ? { open: d.open } : null;
+  });
+  if (!folded) fail("mid-scene the premise is not folded away");
+  else if (folded.open) fail("the premise fold starts open mid-scene");
+
+  await patch("(c) => { c.mystery.scene = null; c.mystery.threats = []; }");
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(180);
+  const premise = await page.evaluate(() => !!document.querySelector("#screen .card .premise"));
+  if (!premise) fail("between scenes the premise is not shown in full");
+
+  // A scene the rules do not allow says so before it is tapped.
+  await patch("(c) => { c.mystery.scene = null; c.mystery.clueSets = {}; c.investigator = null; }");
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(180);
+  const truth = await page.evaluate(() => {
+    const n = [...document.querySelectorAll("#screen .choice")].find((x) => /^Truth$/.test(x.querySelector(".choice-label").textContent));
+    return n ? { disabled: n.getAttribute("aria-disabled"), note: n.querySelector(".choice-note").textContent } : null;
+  });
+  if (!truth) fail("the picker has no Truth choice");
+  else if (truth.disabled !== "true") fail("a truth scene with no clue set is offered as if it were legal");
+  else if (!/clue set/i.test(truth.note)) fail(`the blocked truth scene does not say why ("${truth.note}")`);
+
+  // The Clues tab plays the truth scene instead of pointing at another screen.
+  await seed(page, base, "mid-session");
+  await patch("(c) => { c.mystery.scene = null; c.mystery.threats = []; }");
+  await page.goto(`${base}#/clues`);
+  await page.waitForTimeout(180);
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem("citr:v1")).careers.c1.mystery.truthRevealed.length);
+  await page.locator(".action-bar .btn").click();
+  await page.waitForTimeout(250);
+  const chooser = await page.locator(".modal-title").innerText().catch(() => "");
+  if (!/establish a truth/i.test(chooser)) fail(`the Clues action did not start a truth scene (saw "${chooser}")`);
+  else {
+    await page.locator(".modal-overlay .choice").first().click();
+    await page.waitForTimeout(200);
+    for (let i = 0; i < 3; i++) {
+      const act = page.locator(".modal-actions .btn").first();
+      if (!(await act.count())) break;
+      await act.click();
+      await page.waitForTimeout(120);
+    }
+    const after = await page.evaluate(() => JSON.parse(localStorage.getItem("citr:v1")).careers.c1.mystery.truthRevealed.length);
+    if (!(after > before)) fail("the truth scene played from Clues revealed nothing");
+  }
+
+  // Careers ends where the book ends: the next mystery.
+  await seed(page, base, "mid-session");
+  await patch("(c) => { c.mystery = null; }");
+  await page.goto(`${base}#/careers`);
+  await page.waitForTimeout(180);
+  const careersAction = await page.locator(".action-bar .btn").innerText().catch(() => "");
+  if (!/next mystery/i.test(careersAction)) fail(`Careers does not offer the next mystery (saw "${careersAction.split("\n")[0]}")`);
+
+  // Destructive controls sit at the end of the scroll.
+  await page.goto(`${base}#/settings`);
+  await page.waitForTimeout(180);
+  const lastSection = await page.evaluate(() => {
+    const titles = [...document.querySelectorAll("#screen .card-title")].map((n) => n.textContent.trim());
+    return titles[titles.length - 1];
+  });
+  if (!/start over/i.test(lastSection)) fail(`Settings does not end with the destructive section (ends with "${lastSection}")`);
+
+  if (errors.length) fail(`console error during the sequence checks: ${errors[0].slice(0, 120)}`);
+  if (!failures.length) ok("each screen offers what the sequence of play calls for next");
+  await ctx.close();
+}
+
 // 9. a roll keeps your place on the screen
 {
   const { ctx, page, errors } = await newPage();

@@ -4,9 +4,11 @@
 import { el, add } from "./core.js";
 import { DECK } from "../data.js";
 import { rankName } from "./deck.js";
+import { startTruth, sceneBlocked } from "./play.js";
 import * as D from "./derived.js";
+import * as R from "./rules.js";
 import { Store } from "./store.js";
-import { section, row, btn, pill, explain, promptModal, emptyState, actionBar, cardFace } from "./ui.js";
+import { section, row, btn, pill, explain, promptModal, emptyState, actionBar, cardFace, showToast } from "./ui.js";
 import { go } from "./router.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());
@@ -67,6 +69,14 @@ export function renderClues(host) {
       el("p", { class: "small muted", text: "None of these are among the three set aside. Everything still unseen might be." })));
   }
 
-  const canGuess = m.ended;
-  return { action: actionBar(canGuess ? "Resolve the mystery" : "Establish a truth", () => go(canGuess ? "solve" : "play"), canGuess ? "Name the three cards" : "Play a truth scene") };
+  // The action follows the sequence of play, not the tab: resolve when the
+  // mystery is over, get back to a scene in progress, mark the clock when one
+  // has just finished, and otherwise play the truth scene from right here.
+  const scene = m.scene;
+  if (m.ended) return { action: actionBar("Resolve the mystery", () => go("solve"), "Name the three cards") };
+  if (scene && !scene.done) return { action: actionBar("Back to the scene", () => go("play"), `${R.sceneType(scene.type).name} in progress`) };
+  if (scene && scene.done) return { action: actionBar("End the scene", () => go("play"), "Mark the clock, then choose again") };
+  const blocked = sceneBlocked("truth", m);
+  return { action: actionBar("Establish a truth", () => (blocked ? showToast(blocked.why) : startTruth()),
+    blocked ? blocked.why : "Turn a clue set over") };
 }

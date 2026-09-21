@@ -126,7 +126,7 @@ export function renderTables(host) {
   const c = Store.career;
   const genreId = (Store.mystery && Store.mystery.genre) || (c && c.defaultGenre) || "noir";
   add(host, el("h1", { text: "Tables" }),
-    explain("Every d66 table in the book, plus a roll button on each. Rolling here changes nothing in your game — it just hands you a word. The genre tables follow whichever genre your mystery uses; switch freely for a stranger mystery."));
+    explain("Every d66 table in the book, in the order you reach for them: the genre tables and the oracles you roll every scene, then the ones you roll once a mystery or once an investigator. Rolling here changes nothing in your game — it just hands you a word."));
 
   const resultHost = el("div", { class: "card" }, el("p", { class: "muted small", text: "Roll a table and the result lands here." }));
   add(host, resultHost);
@@ -153,12 +153,6 @@ export function renderTables(host) {
     return det;
   };
 
-  for (const g of TABLE_GROUPS) {
-    const wrap = el("div", {});
-    for (const [name, table] of g.tables) add(wrap, tableBlock(name, table));
-    add(host, section(g.name, wrap));
-  }
-
   const genreWrap = el("div", {});
   const genreBtns = el("div", { class: "btn-row" }, ...DATA.GENRE_IDS.map((g) =>
     optionBtn(DATA.GENRES[g].name, () => { current = g; paint(); }, g === genreId)));
@@ -183,6 +177,13 @@ export function renderTables(host) {
     tableBlock("Oracle · Descriptor", DATA.ORACLE_DESCRIPTOR),
     tableBlock("Oracle · Focus", DATA.ORACLE_FOCUS));
   add(host, section("Subject oracles", oracleWrap));
+
+  // Rolled once a mystery, or once an investigator: last.
+  for (const g of TABLE_GROUPS) {
+    const wrap = el("div", {});
+    for (const [name, table] of g.tables) add(wrap, tableBlock(name, table));
+    add(host, section(g.name, wrap));
+  }
 
   function filter() {
     const q = search.value.trim().toLowerCase();
@@ -408,8 +409,15 @@ export function renderCareers(host) {
   }
 
   add(host, section("Start another",
-    btn("New investigator", () => { resetDrafts(); Store.newCareer("New career"); go("wizard"); }, "primary")));
-  return {};
+    btn("New investigator", () => { resetDrafts(); Store.newCareer("New career"); go("wizard"); })));
+
+  // Between cases the book's order ends here: the answers, a lingering
+  // question, experience spent, then the next problem.
+  if (!c) return {};
+  const running = Store.mystery;
+  if (!running) return { action: actionBar("Set up the next mystery", () => go("mystery"), c.history.length ? `${c.history.length} case(s) closed` : "Roll the problem") };
+  if (running.solved) return { action: actionBar("Close the case", () => go("solve"), "Then the next mystery") };
+  return { action: actionBar("Back to the case", () => go(running.ended ? "solve" : "play"), running.ended ? "Name the three cards" : "A mystery is running") };
 }
 
 async function spendXP(benefit) {
@@ -516,6 +524,29 @@ export function renderSettings(host) {
       }),
       btn("Check my data", () => showToast(Store.integrityCheck())))));
 
+  // An installed app cannot be "reloaded" the way a tab can, so it gets a button.
+  const versionLine = el("p", { class: "small muted", text: "Checking which version is installed\u2026" });
+  Updates.version().then((v) => {
+    versionLine.textContent = v ? `Installed version: ${v}.` : "Running from the network, not an installed copy.";
+  });
+  add(host, section("Updates",
+    versionLine,
+    el("p", { class: "small muted", text: "An app added to the home screen only looks for a new version when it opens or comes back to the foreground. This asks now." }),
+    el("div", { class: "btn-row" },
+      btn("Check for updates", async () => {
+        showToast("Checking\u2026");
+        const result = await Updates.check({ force: true });
+        if (result === "update") return;                       // the update toast is already up
+        if (result === "current") showToast("You are on the latest version.");
+        else if (result === "offline") showToast("No connection \u2014 try again when you are online.");
+        else showToast("Updates apply to the installed app, not to a plain browser tab.");
+      }))));
+
+  add(host, section("About",
+    el("p", { class: "small", text: "A personal play aid for Caught in the Rain by Nicholas Robinia (The Ravensridge Emporium, 2025). It holds the rules and tables you need at the table; it is not the book and does not reproduce it." }),
+    el("p", { class: "small muted", text: "Built from the owner's own copy. If you share or publish this app, the licensing is yours to sort out." }),
+    el("div", { class: "btn-row" }, btn("Open the tutorial", () => go("tutorial")), btn("Rules library", () => go("rules")))));
+
   // Destructive, and at the end of the scroll rather than under the thumb.
   add(host, section("Start over",
     el("p", { class: "small muted", text: "Two different sizes of clean slate. Export a backup first if there is anything here you might want back." }),
@@ -556,28 +587,6 @@ export function renderSettings(host) {
         go("home");
       }, "danger"))));
 
-  // An installed app cannot be "reloaded" the way a tab can, so it gets a button.
-  const versionLine = el("p", { class: "small muted", text: "Checking which version is installed\u2026" });
-  Updates.version().then((v) => {
-    versionLine.textContent = v ? `Installed version: ${v}.` : "Running from the network, not an installed copy.";
-  });
-  add(host, section("Updates",
-    versionLine,
-    el("p", { class: "small muted", text: "An app added to the home screen only looks for a new version when it opens or comes back to the foreground. This asks now." }),
-    el("div", { class: "btn-row" },
-      btn("Check for updates", async () => {
-        showToast("Checking\u2026");
-        const result = await Updates.check({ force: true });
-        if (result === "update") return;                       // the update toast is already up
-        if (result === "current") showToast("You are on the latest version.");
-        else if (result === "offline") showToast("No connection \u2014 try again when you are online.");
-        else showToast("Updates apply to the installed app, not to a plain browser tab.");
-      }))));
-
-  add(host, section("About",
-    el("p", { class: "small", text: "A personal play aid for Caught in the Rain by Nicholas Robinia (The Ravensridge Emporium, 2025). It holds the rules and tables you need at the table; it is not the book and does not reproduce it." }),
-    el("p", { class: "small muted", text: "Built from the owner's own copy. If you share or publish this app, the licensing is yours to sort out." }),
-    el("div", { class: "btn-row" }, btn("Open the tutorial", () => go("tutorial")), btn("Rules library", () => go("rules")))));
   return {};
 }
 

@@ -400,6 +400,47 @@ and worker untouched with only a stylesheet changed — and the second
 was watched failing. It also asserts the prompt is a toast, blocks nothing, and
 that a dismissed update is never lost.
 
+## Cycle 18 — every control, against the sequence of play
+
+A sweep of every button on every tab in every state (fresh, picker, mid-scene,
+scene done, ended, solved, between cases), read against the book's order of
+play. Six findings, all about *when* a control is offered rather than what it does.
+
+### F29 — The premise outranked the live scene
+Mid-scene the problem card sat above the stage rail and the threats, pushing the
+things you touch down the screen. It now folds to a line while a scene runs and
+returns as a card between scenes.
+
+### F30 — The Clues tab pointed instead of acting
+Its action read "Establish a truth" but only navigated to Play, where you then
+picked Truth from the list — and it said that even mid-scene, when
+a truth scene is not legal. It now plays the truth scene from where you are
+looking at the sets, and reads "Back to the scene", "End the scene" or "Resolve
+the mystery" when the sequence calls for those instead.
+
+### F31 — Illegal scenes looked legal
+Truth with no clue set, or Obligation with everything attended, were offered like
+any other choice and refused with a toast after the tap. They are now dimmed with
+the reason in place of the description, and tapping states the rule.
+
+### F32 — Careers had no onward route
+The book's between-cases order ends with the next problem; the screen ended with
+"New investigator". It now carries "Set up the next mystery" between cases,
+"Close the case" when one is solved, and "Back to the case" while one runs.
+
+### F33 — Destructive controls were not last
+Settings ran Start over — erase everything and put down the case
+— before Updates and About. It now ends the scroll.
+
+### F34 — The tables were in print order, not play order
+Genre tables and the oracles are rolled every scene; names and traits once per
+investigator. The tab now runs genre — oracles —
+the problem — the investigator.
+
+*Guards:* one smoke block covers all six — the folded premise, the
+dimmed truth scene with its reason, a truth scene played from Clues, the Careers
+action, and Settings ending on Start over. Two were watched failing.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -435,6 +476,8 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - Stacked choices share one width and keep real gaps.
 - An installed app finds a new version on resume, and finds one even when the
   deploy left the service worker untouched.
+- Every screen's action is the next step the sequence of play calls for, in
+  every state; a scene the rules forbid says so before it is tapped.
 - Every scene carries the book's framing questions, and what is written reaches
   the journal.
 - A whole session runs end to end: creation → scenes → day boundaries → the
