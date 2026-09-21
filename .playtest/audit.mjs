@@ -7,14 +7,23 @@
 // picks (so different seeds walk different paths instead of the same path in
 // different flavour text).
 //
-//   node .playtest/audit.mjs [seed ...]
+//   node .playtest/audit.mjs [seed ...]            solo, digital dice
+//   node .playtest/audit.mjs --coop [seed ...]     a party of two sharing one case
+//   node .playtest/audit.mjs --manual [seed ...]   every resolution roll typed in
+//   node .playtest/audit.mjs --coop --manual ...   both
 //
 // Exits non-zero on a stall, a finding or a console error, so it works as a gate.
 
-import { open, doIt, choose, typeText, pick, goScreen, readState, startNew } from "./driver.mjs";
+import { open, doIt, choose, typeText, pick, goScreen, readState, startNew, makeInvestigator } from "./driver.mjs";
 import { writeFileSync, mkdirSync } from "node:fs";
 
-const SEEDS = process.argv.slice(2).map(Number).filter(Boolean);
+const argv = process.argv.slice(2);
+const COOP = argv.includes("--coop");
+const MANUAL = argv.includes("--manual");
+const MODE = `${COOP ? "co-op" : "solo"}, ${MANUAL ? "dice typed in" : "digital dice"}`;
+const TAG = `${COOP ? "coop" : "solo"}-${MANUAL ? "manual" : "digital"}`;
+const SETTINGS = { career: true, rivals: true, multiplayer: COOP, manualDice: MANUAL };
+const SEEDS = argv.filter((a) => !a.startsWith("--")).map(Number).filter(Boolean);
 const seeds = SEEDS.length ? SEEDS : [1, 7, 11, 23, 42];
 const MAX_BEATS = 220;
 const RANKS = ["J", "Q", "K"], SUITS = ["Spades", "Hearts", "Diamonds", "Clubs"];
@@ -31,10 +40,16 @@ async function settle(s, seed, beat, trail) {
     const d = st.dialog;
     chain.push(d.title);
     if (d.field) {
-      await typeText(s, `Beat ${beat}: written at the table.`);
+      // A typed-dice session asks for faces, not prose: roll them here, in the
+      // driver's own stream, the way a player rolls them on the table.
+      const face = () => 1 + Math.floor(s.rng() * 6);
+      const answer = /enter your dice/i.test(d.title) ? `${face()} ${face()}`
+        : /enter your die/i.test(d.title) ? String(face())
+        : `Beat ${beat}: written at the table.`;
+      await typeText(s, answer);
       const save = d.actions.find((a) => /save|done|confirm|keep/i.test(a)) || d.actions[0];
       if (!save) { note(seed, beat, "unanswerable prompt", `“${d.title}” asks for text and offers no way to submit it`); return st; }
-      trail.push(`dialog “${d.title}” ← typed, ${save}`);
+      trail.push(`dialog “${d.title}” ← ${answer}, ${save}`);
       await choose(s, save);
       continue;
     }
@@ -60,20 +75,23 @@ async function settle(s, seed, beat, trail) {
   return readState(s);
 }
 
-/** The action bar's own label, which is the app's highlighted default. */
-const defaultAction = (st) => (st.controls || []).filter((c) => !/\[dimmed\]/.test(c)).slice(-6)
-  .find((c) => /^(Investigation scene|Rest scene|End the scene|Find a way in|Find where the clue is|Take the clue|Get out|Play as )/.test(c));
-
 async function playSeed(seed) {
-  console.log(`\n── seed ${seed} ─────────────────────────────`);
-  const stateFile = `.playtest/audit-${seed}.json`;
+  console.log(`\n── seed ${seed} · ${MODE} ─────────────────────────────`);
+  const stateFile = `.playtest/audit-${TAG}-${seed}.json`;
   mkdirSync(".playtest", { recursive: true });
   writeFileSync(stateFile, JSON.stringify({ local: {}, rngCalls: 0 }));
-  const s = await open({ seed, stateFile });
+  const s = await open({ seed, stateFile, settings: SETTINGS });
   const trail = [];
   let beat = 0, closed = false, lastSig = "", sameFor = 0;
   try {
     await startNew(s);
+    if (COOP) {
+      // A second investigator joins the case; the party shares one mystery,
+      // one clock and one danger track (Ch.3).
+      await makeInvestigator(s, {});
+      const party = (await readState(s)).who;
+      trail.push(`a second investigator joined; in context: ${party && party.name}`);
+    }
     await goScreen(s, "play");
     for (; beat < MAX_BEATS; beat++) {
       let st = await settle(s, seed, beat, trail);
@@ -109,42 +127,58 @@ async function playSeed(seed) {
         continue;
       }
 
-      // --- inside a scene ----------------------------------------------------
-      const inScene = sit.scene !== "none" && !/\(done\)/.test(sit.scene);
-      if (inScene && /^investigation/.test(sit.scene)) {
+      // What to press is read off the screen, not out of the save: in co-op the
+      // scene on record belongs to whoever played it, which is not necessarily
+      // whoever the app is now asking.
+      const controls = st.controls || [];
+      const stage = controls.find((c) => /^(Find a way in|Find where the clue is|Take the clue|Get out)/.test(c));
+      const legal = controls.filter((c) => /^(Investigation|Truth|Rest|Obligation)\b/.test(c) && !/\[dimmed\]/.test(c));
+      const ender = controls.find((c) => /^End the scene/.test(c));
+      const handOver = controls.find((c) => /^Play as/.test(c));
+
+      // --- inside an investigation scene -------------------------------------
+      if (stage) {
         if (sit.threats.length && s.rng() < 0.45) {
           const t = sit.threats[Math.floor(s.rng() * sit.threats.length)].split(" L")[0];
           const r = await doIt(s, `${t} > Act against it`);
           if (r.ok) { trail.push(`acted against ${t}`); await settle(s, seed, beat, trail); continue; }
         }
-        const act = defaultAction(st);
-        if (!act) { note(seed, beat, "STALL", `in the ${sit.scene} stage with no stage action offered: ${(st.controls || []).join(" | ")}`); break; }
-        const r = await doIt(s, act.split(" ROLL")[0].split(" DANGER")[0].split("\n")[0]);
-        if (!r.ok) { note(seed, beat, "STALL", `“${act}” could not be pressed: ${r.error}`); break; }
+        const r = await doIt(s, stage.split(" ROLL")[0].split(" DANGER")[0].split(" INFILTRATION")[0].split("\n")[0]);
+        if (!r.ok) { note(seed, beat, "STALL", `“${stage}” could not be pressed: ${r.error}`); break; }
         trail.push(`${sit.scene}: ${r.pressed.split("\n")[0]}`);
         await settle(s, seed, beat, trail);
         continue;
       }
 
-      // --- between scenes ----------------------------------------------------
-      if (/\(done\)/.test(sit.scene) || (inScene && !/^investigation/.test(sit.scene))) {
+      // --- the scene picker --------------------------------------------------
+      if (legal.length) {
+        let wanted = legal[0];
+        if (s.rng() > 0.55) wanted = legal[Math.floor(s.rng() * legal.length)];
+        const name = wanted.split("\n")[0].split(" ")[0];
+        const r = await doIt(s, name);
+        if (!r.ok) { note(seed, beat, "STALL", `“${wanted}” is offered and could not be started: ${r.error}`); break; }
+        trail.push(`${st.who ? st.who.name + " chose " : "chose "}${name}`);
+        await settle(s, seed, beat, trail);
+        continue;
+      }
+
+      // --- the clock, or the next investigator -------------------------------
+      if (ender) {
         const r = await doIt(s, "End the scene");
         if (!r.ok) { note(seed, beat, "STALL", `a finished ${sit.scene} scene offered no way to end it: ${r.error}`); break; }
         trail.push("ended the scene");
         await settle(s, seed, beat, trail);
         continue;
       }
-
-      // --- the scene picker --------------------------------------------------
-      const legal = (st.controls || []).filter((c) => /^(Investigation|Truth|Rest|Obligation)\b/.test(c) && !/\[dimmed\]/.test(c));
-      if (!legal.length) { note(seed, beat, "STALL", `the picker offered no legal scene: ${(st.controls || []).join(" | ")}`); break; }
-      const roll = s.rng();
-      let wanted = legal[0];
-      if (roll > 0.55) wanted = legal[Math.floor(s.rng() * legal.length)];
-      const r = await doIt(s, wanted.split("\n")[0].split(" ")[0]);
-      if (!r.ok) { note(seed, beat, "STALL", `“${wanted}” is offered and could not be started: ${r.error}`); break; }
-      trail.push(`chose ${wanted.split("\n")[0].split(" ")[0]}`);
-      await settle(s, seed, beat, trail);
+      if (handOver) {
+        const r = await doIt(s, handOver.split("\n")[0]);
+        if (!r.ok) { note(seed, beat, "STALL", `“${handOver}” could not be pressed: ${r.error}`); break; }
+        trail.push(`handed over: ${r.pressed.split("\n")[0]}`);
+        await settle(s, seed, beat, trail);
+        continue;
+      }
+      note(seed, beat, "STALL", `nothing here moves play on (scene ${sit.scene}, round ${sit.round}): ${controls.join(" | ")}`);
+      break;
     }
 
     const end = await readState(s);
@@ -163,7 +197,7 @@ async function playSeed(seed) {
 const runs = [];
 for (const seed of seeds) runs.push(await playSeed(seed));
 
-console.log("\n══ verdict ══════════════════════════════");
+console.log(`\n══ verdict · ${MODE} ══════════════════════`);
 for (const r of runs) console.log(`  seed ${String(r.seed).padStart(3)}: ${r.closed ? "played to a closed case" : "DID NOT FINISH"} (${r.trail.length} presses)`);
 if (findings.length) {
   console.log(`\n  ${findings.length} finding(s):`);

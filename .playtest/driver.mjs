@@ -55,7 +55,7 @@ export function makeRng(seed) {
   return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return (s >>> 0) / 4294967296; };
 }
 
-export async function open({ seed = 1, stateFile = null, width = 390 } = {}) {
+export async function open({ seed = 1, stateFile = null, width = 390, settings = null } = {}) {
   const { server, port } = await serve(process.cwd());
   const browser = await launch(chromium);
   const ctx = await browser.newContext({ viewport: { width, height: 780 } });
@@ -68,10 +68,11 @@ export async function open({ seed = 1, stateFile = null, width = 390 } = {}) {
   await page.goto(base);
 
   const saved = stateFile && existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, "utf8")) : null;
-  await page.evaluate(({ store, keys }) => {
+  await page.evaluate(({ store, keys, cfg }) => {
     localStorage.clear();
     for (const k of keys) if (store && store[k] != null) localStorage.setItem(k, store[k]);
-  }, { store: saved ? saved.local : null, keys: KEYS });
+    if (cfg) localStorage.setItem("citr:v1:settings", JSON.stringify({ ...JSON.parse(localStorage.getItem("citr:v1:settings") || "{}"), ...cfg }));
+  }, { store: saved ? saved.local : null, keys: KEYS, cfg: settings });
   await page.reload();
   await page.waitForTimeout(220);
 
@@ -215,6 +216,8 @@ export async function readState(s) {
         clueSets: Object.values(m.clueSets || {}).map((s2) => `${s2.rank}×${s2.cards.length}${s2.truth ? " TRUTH" : ""}${s2.falseLead ? " FALSE LEAD" : ""}${s2.description ? " — " + s2.description : ""}`),
         threats: (m.threats || []).filter((t) => !t.removed).map((t) => `${t.name} L${t.level} ${t.marks}/${t.level}`),
         scene: m.scene ? `${m.scene.type}${m.scene.stage ? " / " + m.scene.stage : ""}${m.scene.done ? " (done)" : ""}` : "none",
+        round: m.round ? `${m.round.mode}: ${Object.keys(m.round.scenes || {}).length} of ${(c.investigators || []).length} have had a scene` : "none",
+        party: (c.investigators || []).map((i) => i.name + (i.id === c.activeInvestigatorId ? " (in context)" : "")),
         ended: !!m.ended, endTrigger: m.endTrigger || null, solved: !!m.solved,
       } : null,
       journalTail: c ? (c.journal || []).slice(-4).map((e) => `d${e.day || 1} ${e.kind}: ${e.text}`) : [],
@@ -256,7 +259,8 @@ export async function readJournal(s) {
 }
 
 // --- a fresh career -----------------------------------------------------------
-export async function startNew(s, { name = null } = {}) {
+/** The investigator wizard, four steps, exactly as a player walks it. */
+export async function makeInvestigator(s, { name = null } = {}) {
   const steps = [];
   const step = async (fn, what) => { const r = await fn(); steps.push({ what, ...r }); if (!r.ok) throw new Error(`${what}: ${r.error}`); };
   await goScreen(s, "wizard");
@@ -277,10 +281,24 @@ export async function startNew(s, { name = null } = {}) {
   }
   await step(() => doIt(s, "Roll a trait"), "roll trait");
   await step(() => doIt(s, "Create the investigator"), "create");
+  return steps;
+}
+
+/** The mystery wizard: roll the problem, take a motivation, build both decks. */
+export async function makeMystery(s) {
+  const steps = [];
+  const step = async (fn, what) => { const r = await fn(); steps.push({ what, ...r }); if (!r.ok) throw new Error(`${what}: ${r.error}`); };
+  await goScreen(s, "mystery");
   await step(() => doIt(s, "Roll all three"), "roll the problem");
   await step(() => doIt(s, "Roll one"), "roll motivation");
   await step(() => doIt(s, "Start the mystery"), "start");
   return steps;
+}
+
+export async function startNew(s, opts = {}) {
+  const a = await makeInvestigator(s, opts);
+  const b = await makeMystery(s);
+  return [...a, ...b];
 }
 
 // --- CLI ----------------------------------------------------------------------
