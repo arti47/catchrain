@@ -4,52 +4,48 @@
  "careers": {
   "c1": {
    "id": "c1",
-   "name": "Amine Deckard",
+   "name": "Yorinna Wilder",
    "createdAt": 1730000000000,
+   "xp": 6,
    "rivals": [],
    "history": [],
    "questions": [],
    "journal": [],
    "rollLog": [],
-   "activeInvestigatorId": "inv1",
-   "investigators": [
-    {
-     "id": "inv1",
-     "name": "Amine Deckard",
-     "trait": "Insomniac",
-     "notes": "Ex-detective.",
-     "xp": 4,
-     "attributes": {
-      "power": 2,
-      "insight": 1,
-      "method": 0
-     },
-     "struck": {},
-     "fatigue": 0,
-     "clock": 0,
-     "day": 1,
-     "obligations": [
-      {
-       "id": "o1",
-       "text": "Run the lake",
-       "struck": false
-      }
-     ],
-     "keywords": [
-      {
-       "id": "k1",
-       "text": "Smooth talker",
-       "signature": true,
-       "struck": false
-      }
-     ]
-    }
-   ],
+   "investigator": {
+    "name": "Yorinna Wilder",
+    "trait": "Stoic",
+    "notes": "",
+    "attributes": {
+     "power": 1,
+     "insight": 2,
+     "method": 0
+    },
+    "struck": {},
+    "fatigue": 1,
+    "clock": 2,
+    "day": 3,
+    "obligations": [
+     {
+      "id": "o1",
+      "text": "Pay off debts",
+      "struck": false
+     }
+    ],
+    "keywords": [
+     {
+      "id": "k1",
+      "text": "Polaroid",
+      "signature": true,
+      "struck": false
+     }
+    ]
+   },
    "mystery": {
     "id": "m1",
     "genre": "noir",
     "difficulty": "standard",
-    "danger": 3,
+    "danger": 2,
     "motivation": "Right a wrong",
     "location": "Shopping centre",
     "object": "Resident",
@@ -57,9 +53,24 @@
     "secondObject": null,
     "clueDeck": [
      {
-      "id": "JOKER1",
-      "rank": "JOKER",
-      "suit": null
+      "id": "2D",
+      "rank": "2",
+      "suit": "D"
+     },
+     {
+      "id": "2C",
+      "rank": "2",
+      "suit": "C"
+     },
+     {
+      "id": "3S",
+      "rank": "3",
+      "suit": "S"
+     },
+     {
+      "id": "3H",
+      "rank": "3",
+      "suit": "H"
      },
      {
       "id": "3D",
@@ -295,60 +306,9 @@
       "suit": "S"
      }
     ],
-    "clueSets": {
-     "5": {
-      "rank": "5",
-      "cards": [
-       {
-        "id": "5S",
-        "rank": "5",
-        "suit": "S"
-       }
-      ],
-      "entries": [
-       "A second witness"
-      ],
-      "description": "A second witness",
-      "truth": false,
-      "falseLead": false,
-      "truthCards": []
-     },
-     "7": {
-      "rank": "7",
-      "cards": [
-       {
-        "id": "7S",
-        "rank": "7",
-        "suit": "S"
-       },
-       {
-        "id": "7H",
-        "rank": "7",
-        "suit": "H"
-       }
-      ],
-      "entries": [
-       "A strong person took the console"
-      ],
-      "description": "A strong person took the console",
-      "truth": false,
-      "falseLead": false,
-      "truthCards": []
-     }
-    },
+    "clueSets": {},
     "threats": [],
-    "scene": {
-     "id": "s1",
-     "type": "investigation",
-     "stage": "acquisition",
-     "order": [
-      "discovery",
-      "acquisition"
-     ],
-     "index": 1,
-     "done": false,
-     "forceEscape": false
-    },
+    "scene": null,
     "jokersDrawn": 0,
     "ended": false
    }

@@ -24,9 +24,11 @@ const state = () => page.evaluate(() => {
   const s = JSON.parse(localStorage.getItem("citr:v1") || "{}");
   const c = s.careers && s.activeId ? s.careers[s.activeId] : null;
   if (!c) return { none: true };
+  const inv = (c.investigators || []).find((i) => i.id === c.activeInvestigatorId) || (c.investigators || [])[0];
+  if (!inv) return { none: true };
   const m = c.mystery;
   return {
-    day: c.investigator.day, clock: c.investigator.clock, fatigue: c.investigator.fatigue,
+    day: inv.day, clock: inv.clock, fatigue: inv.fatigue, party: c.investigators.length,
     danger: m && m.danger, deck: m && m.clueDeck.length, sets: m ? Object.keys(m.clueSets).length : 0,
     truths: m ? m.truthRevealed.length : 0, ended: m && m.ended, trigger: m && m.endTrigger, solved: m && m.solved,
     log: c.rollLog.slice(-3).map((r) => `${r.kind}:${(r.dice||[]).join("+")}=${r.total}:${r.outcome||""}`),
@@ -154,9 +156,10 @@ async function atPicker() {
     const c = s.careers[s.activeId];
     c.mystery.scene = null;
     c.mystery.threats = [];
-    c.investigator.fatigue = 4;           // so a rest has something to clear
-    c.investigator.struck = { insight: true };
-    c.investigator.keywords[0].struck = true;
+    const inv = c.investigators.find((i) => i.id === c.activeInvestigatorId) || c.investigators[0];
+    inv.fatigue = 4;                      // so a rest has something to clear
+    inv.struck = { insight: true };
+    inv.keywords[0].struck = true;
     localStorage.setItem("citr:v1", JSON.stringify(s));
   });
   await page.goto(`${base}#/play`);
@@ -174,7 +177,8 @@ const afterRest = await state();
 if (!(afterRest.fatigue < beforeRest.fatigue)) findings.push("a rest scene cleared no fatigue");
 const recharged = await page.evaluate(() => {
   const s = JSON.parse(localStorage.getItem("citr:v1"));
-  const inv = s.careers[s.activeId].investigator;
+  const c = s.careers[s.activeId];
+  const inv = c.investigators.find((i) => i.id === c.activeInvestigatorId) || c.investigators[0];
   return { struck: Object.values(inv.struck).filter(Boolean).length, sig: inv.keywords[0].struck };
 });
 if (recharged.struck) findings.push("a rest scene left an attribute struck");
@@ -189,7 +193,9 @@ await clearDialogs();
 const afterOb = await state();
 const struck = await page.evaluate(() => {
   const s = JSON.parse(localStorage.getItem("citr:v1"));
-  return s.careers[s.activeId].investigator.obligations.filter((o) => o.struck).length;
+  const c = s.careers[s.activeId];
+  const inv = c.investigators.find((i) => i.id === c.activeInvestigatorId) || c.investigators[0];
+  return inv.obligations.filter((o) => o.struck).length;
 });
 if (!struck) findings.push("an obligation scene struck no obligation");
 if (!(afterOb.deck < beforeOb.deck)) findings.push("an obligation scene discarded no clue card");

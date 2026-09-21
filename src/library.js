@@ -19,6 +19,25 @@ export const RULES_LIBRARY = [
     ] },
   ] },
 
+  { name: "Playing solo", entries: [
+    { id: "solo-cycle", name: "How a solo scene moves", cite: "Ch.1, Solo advice", text: [
+      "The story and the rules take turns. You describe what is happening; the rules answer with a roll, a consequence or a card; that answer changes the fiction, and the fiction decides what your investigator does next.",
+      "You are playing every part: your investigator, the people around them, and the world that pushes back.",
+    ] },
+    { id: "solo-framing", name: "Setting a scene", cite: "Ch.1, Playing scenes", text: [
+      "Open every scene by saying where it takes place and who is there, then add whatever the rules have put in it — a threat, the stage you are in, how high danger has climbed.",
+      "The app keeps those two questions in front of you at the top of a scene, with somewhere to write the answer. It goes into the journal as you play.",
+    ] },
+    { id: "solo-questions", name: "When you do not know", cite: "Ch.1, Asking questions", text: [
+      "Ask the game. A closed question — is anyone watching? — goes to the yes/no oracle. An open one — what are they doing? — takes two or three words from the subject oracles and you read them as an answer.",
+      "The genre tables do the same job for concrete things: a clue, a keyword, a threat, a place.",
+    ] },
+    { id: "solo-record", name: "Keeping a record", cite: "Ch.1, Recording", text: [
+      "Write it, draw it, say it out loud and record yourself, or keep it in your head. The game does not mind, and you can mix them.",
+      "The app's journal is the written version, and it exports as plain text you can keep.",
+    ] },
+  ] },
+
   { name: "The shape of a session", entries: [
     { id: "scenes", name: "Choosing a scene", cite: "Ch.2, Flow of play", text: [
       "Four kinds of scene: investigation, truth, rest, obligation. Play one, mark the clock, then either choose another or resolve the mystery.",

@@ -15,6 +15,13 @@ const STEPS = [
     "Pick a motivation. When you are unsure what your investigator would do next, that is the line to read again.",
     "The app shuffles 42 clue cards and twelve face cards, and sets three face cards aside. Those three are the answer.",
   ]],
+  ["Set every scene, then play it", [
+    "Each scene opens with two questions at the top of the screen: where is this taking place, and who is here and what are they doing. Answer them in a line or two before you roll anything.",
+    "Then add what the rules have put in the scene \u2014 the threat that came with the investigation roll, the stage you are in, how high danger has climbed.",
+    "Stuck? A closed question goes to the yes/no oracle; an open one takes two or three words from the subject oracles and you read them as an answer. Both are on the buttons right there.",
+    "What you write drops into the journal, which exports as plain text. Writing is only one way to keep the record: draw it, say it out loud, or keep it in your head \u2014 the book is happy with any of them.",
+  ]],
+
   ["Play an investigation scene", [
     "Play → Investigation scene. The app rolls 1d6 and adds your danger: a high total means something is already in your way.",
     "Each stage is one test. Choose the attribute that fits what you are actually doing in the fiction, not the biggest number.",

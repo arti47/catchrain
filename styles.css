@@ -304,6 +304,10 @@ label.opt .opt-text small { display: block; color: var(--ink-2); }
 details.acc { border: 1px solid var(--line); border-radius: 12px; margin-bottom: .5rem; background: var(--bg-2); }
 details.acc > summary { min-height: var(--tap); display: flex; align-items: center; padding: .5rem .7rem; cursor: pointer; font-weight: 600; }
 details.acc .acc-body { padding: 0 .7rem .7rem; }
+details.framing { border-style: dashed; }
+details.framing .ask { margin: 0 0 .5rem; padding-left: 1.1rem; }
+details.framing .ask li { font-size: .92rem; margin-bottom: .15rem; }
+.framing-note { font-size: .92rem; border-left: 3px solid var(--accent); padding-left: .6rem; margin: .5rem 0; }
 
 .log-entry { padding: .45rem 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
 .log-entry:last-child { border-bottom: 0; }

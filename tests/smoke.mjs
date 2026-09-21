@@ -235,6 +235,68 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 7a. a save from before the party existed still opens, and migrates
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "legacy");
+  await page.goto(`${base}#/home`);
+  await page.waitForTimeout(200);
+  const text = await page.locator("#screen").innerText();
+  if (!/Yorinna Wilder/.test(text)) fail("an old save does not reach the screen");
+  await page.goto(`${base}#/journal`);
+  await page.getByRole("button", { name: "Add a note" }).click();
+  const box = page.locator(".modal-overlay textarea").first();
+  await box.waitFor({ timeout: 2000 });
+  await box.fill("Migrated and still playing.");
+  await page.locator(".modal-actions .btn").first().click();
+  await page.waitForTimeout(250);
+  const shape = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId];
+    return { party: (c.investigators || []).length, legacy: !!c.investigator, xpOnCareer: c.xp, xp: c.investigators && c.investigators[0].xp };
+  });
+  if (shape.party !== 1 || shape.legacy) fail("the old single investigator was not migrated into the party");
+  if (shape.xpOnCareer !== undefined || shape.xp !== 6) fail(`experience did not move to the investigator (career ${shape.xpOnCareer}, theirs ${shape.xp})`);
+  if (errors.length) fail(`console error on an old save: ${errors[0].slice(0, 120)}`);
+  if (shape.party === 1 && !shape.legacy) ok("a pre-party save opens, migrates, and keeps its experience");
+  await ctx.close();
+}
+
+// 7b. setting the scene: the book's two questions, where the scene is played
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "mid-session");
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(150);
+  const framing = page.locator("#screen details.framing");
+  if (!(await framing.count())) fail("an investigation scene does not ask where it takes place");
+  else {
+    const text = await framing.innerText();
+    if (!/where is this scene taking place/i.test(text)) fail("the framing card does not carry the book's questions");
+    if (!(await framing.evaluate((n) => n.open))) fail("the framing card starts collapsed on an unset scene");
+    await page.getByRole("button", { name: "Ask the oracle" }).click();
+    await page.waitForTimeout(120);
+    const oracle = await framing.locator(".mono").innerText();
+    if (!oracle.trim()) fail("the oracle button produced no words");
+    await page.getByRole("button", { name: "Write it down" }).click();
+    const input = page.locator(".modal-overlay textarea").first();
+    await input.waitFor({ timeout: 2000 });
+    await input.fill("The shutters are half down and the crowd will not move.");
+    await page.locator(".modal-actions .btn").first().click();
+    await page.waitForTimeout(250);
+    const saved = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("citr:v1"));
+      const c = s.careers[s.activeId];
+      return { framing: c.mystery.scene.framing, journal: c.journal.some((e) => /shutters/.test(e.text)) };
+    });
+    if (!saved.framing) fail("the scene description was not kept");
+    if (!saved.journal) fail("the scene description never reached the journal");
+    if (errors.length) fail(`console error while setting the scene: ${errors[0].slice(0, 120)}`);
+    ok("setting the scene: the questions, an oracle, and the answer kept in the journal");
+  }
+  await ctx.close();
+}
+
 // 8. co-op: the party, the round, and who a test belongs to (Ch.3)
 {
   const { ctx, page, errors } = await newPage();

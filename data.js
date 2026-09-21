@@ -129,6 +129,26 @@ export const XP_BENEFITS = [
   { id: "attribute", cost: 6, name: "Increase an attribute by 1 (max 3) and gain an obligation." },
 ];
 
+// --- Playing solo (Ch.1, Solo advice) -----------------------------------------
+// The book's own guidance, paraphrased: what to ask when a scene opens, and
+// the ways it suggests keeping a record.
+export const SCENE_FRAMING = {
+  questions: [
+    "Where is this scene taking place?",
+    "Who is here, and what are they doing?",
+  ],
+  note: "Then add whatever the rules have put in it \u2014 a threat, the stage you are in, how high the danger has climbed.",
+  unsure: "Stuck on a detail? A closed question goes to the yes/no oracle; an open one takes two or three words from the subject oracles.",
+};
+
+export const RECORDING_METHODS = [
+  "Write the scene down as a journal entry.",
+  "Draw it.",
+  "Say it out loud and record yourself.",
+  "Keep it in your head.",
+  "Blend any of these \u2014 the game does not mind.",
+];
+
 export const RIVAL_SLOTS = 6;
 export const NEW_OBLIGATION_XP = 2; // voluntarily taking a new obligation between mysteries
 

@@ -13,6 +13,7 @@ const DEFAULTS = {
   safetyFilter: false,      // house aid: suppress chosen table rows
   wakeLock: false,
   autoOracle: true,         // offer an oracle prompt when a scene needs a detail
+  sceneFraming: true,       // the book opens every scene by describing it, so this is on
 };
 
 let cache = null;
@@ -34,6 +35,7 @@ export const TOGGLES = [
   { key: "rivals", name: "Rivals", text: "Threats that survive a scene can come back in later ones (Ch.3)." },
   { key: "multiplayer", name: "Co-op", text: "Several investigators share one mystery, one clock and one danger track. Adds the party, the harsher consequences table, and threats that stay attached to whoever drew them (Ch.3)." },
   { key: "manualDice", name: "Manual dice", text: "Type the faces you rolled for every resolution roll: tests, the investigation roll, consequences, threats and rest. Table rolls stay digital." },
+  { key: "sceneFraming", name: "Set the scene", text: "Open each scene with the book's two questions — where is this, who is here — and somewhere to write the answer. On, because the book opens every scene this way." },
   { key: "autoOracle", name: "Oracle prompts", text: "Offer subject-oracle words whenever a scene asks you to invent a detail." },
   { key: "safetyFilter", name: "Content filter", text: "House aid: hide chosen table rows and re-roll past them." },
   { key: "wakeLock", name: "Keep screen awake", text: "Hold the screen on during a session. Uses battery." },

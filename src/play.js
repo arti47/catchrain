@@ -11,6 +11,9 @@ import * as Roller from "./roller.js";
 import * as Life from "./lifecycle.js";
 import { eventList } from "./prompts.js";
 import { useKeywordFlow } from "./sheet.js";
+import { framingCard, framingLines } from "./framing.js";
+import { SCENE_FRAMING } from "../data.js";
+const SCENE_FRAMING_NOTE = SCENE_FRAMING.note;
 import { go } from "./router.js";
 import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState } from "./ui.js";
 
@@ -222,7 +225,11 @@ async function startRest() {
   Life.recordRoundScene("rest", who);
   Store.journal("scene", `${who.name} rests.`);
   Store.commit();
-  modal({ title: "Rest", body: el("div", {}, el("p", { class: "muted", text: `Describe how ${who.name} unwinds.` }), eventList(events)), actions: [{ label: "Done" }] });
+  modal({
+    title: "Rest",
+    body: el("div", {}, el("p", { class: "muted", text: `Describe how ${who.name} unwinds.` }), framingLines(who.name), eventList(events)),
+    actions: [{ label: "Done" }],
+  });
   await afterIndividualScene();
 }
 
@@ -243,7 +250,8 @@ async function startObligation() {
   modal({
     title: "Obligation",
     body: el("div", {},
-      el("p", { class: "muted", text: "How does your investigator attend to this? Use the prompt below if you want one." }),
+      el("p", { class: "muted", text: `How does ${inv.name} attend to this? Use the prompt below if you want one.` }),
+      framingLines(inv.name),
       el("p", { class: "mono", text: out.words.join("  ·  ") }),
       eventList(out.events)),
     actions: [{ label: "Done" }],
@@ -479,6 +487,8 @@ async function confirmEnd() {
 }
 
 function renderInvestigation(host, m, scene) {
+  const framing = framingCard(scene, { note: `${SCENE_FRAMING_NOTE} Danger is ${m.danger}${D.hasThreat(m) ? `, and ${D.activeThreats(m).map((t) => t.name).join(" and ")} is in it with you` : ""}.` });
+  if (framing) add(host, framing);
   const order = scene.order;
   const rail = el("div", { class: "stages" });
   for (const id of order) {

@@ -277,6 +277,13 @@ export function renderJournal(host) {
   };
   paint();
 
+  const ways = el("details", { class: "acc" },
+    el("summary", { text: "Ways to keep a record" }),
+    el("div", { class: "acc-body" },
+      el("p", { class: "small muted", text: "The book does not insist on writing. Any of these count, and you can mix them." }),
+      el("ul", { class: "ask" }, ...DATA.RECORDING_METHODS.map((w) => el("li", { class: "small", text: w })))));
+  add(host, ways);
+
   add(host, section("Write",
     btn("Add a note", async () => {
       const t = await promptModal({ title: "Journal", multiline: true, placeholder: "What happened in the fiction?" });

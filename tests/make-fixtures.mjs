@@ -7,15 +7,19 @@ for (const r of ["A","2","3","4","5","6","7","8","9","10"]) for (const s of ["S"
 const truth = [];
 for (const r of ["J","Q","K"]) for (const s of ["S","H","D","C"]) truth.push({ id: r + s, rank: r, suit: s });
 
+const amine = (over = {}) => ({
+  id: "inv1", name: "Amine Deckard", trait: "Insomniac", notes: "Ex-detective.", xp: 4,
+  attributes: { power: 2, insight: 1, method: 0 }, struck: {}, fatigue: 0, clock: 0, day: 1,
+  obligations: [{ id: "o1", text: "Run the lake", struck: false }],
+  keywords: [{ id: "k1", text: "Smooth talker", signature: true, struck: false }],
+  ...over,
+});
+
 const career = (over = {}) => ({
-  id: "c1", name: "Amine Deckard", createdAt: 1730000000000, xp: 4,
+  id: "c1", name: "Amine Deckard", createdAt: 1730000000000,
   rivals: [], history: [], questions: [], journal: [], rollLog: [],
-  investigator: {
-    name: "Amine Deckard", trait: "Insomniac", notes: "Ex-detective.",
-    attributes: { power: 2, insight: 1, method: 0 }, struck: {}, fatigue: 0, clock: 0, day: 1,
-    obligations: [{ id: "o1", text: "Run the lake", struck: false }],
-    keywords: [{ id: "k1", text: "Smooth talker", signature: true, struck: false }],
-  },
+  activeInvestigatorId: "inv1",
+  investigators: [amine()],
   mystery: null, ...over,
 });
 
@@ -44,7 +48,6 @@ const mid = { v: 1, activeId: "c1", careers: { c1: career({
 
 // What a table actually has by session three.
 const stress = { v: 1, activeId: "c1", careers: { c1: career({
-  xp: 11,
   rivals: [
     { id: "r1", name: "Rival detective", level: 2 }, { id: "r2", name: "Police presence", level: 3 },
     { id: "r3", name: "Unrelenting stalker", level: 2 }, { id: "r4", name: "Interested faction", level: 2 },
@@ -54,8 +57,8 @@ const stress = { v: 1, activeId: "c1", careers: { c1: career({
   questions: Array.from({ length: 5 }, (_, i) => ({ id: "q" + i, text: `Who paid for the van, and why did nobody report it missing? (${i})` })),
   journal: Array.from({ length: 220 }, (_, i) => ({ id: "j" + i, ts: 1730000000000 + i * 60000, kind: i % 3 ? "test" : "note", day: 1 + Math.floor(i / 16), text: `Day ${1 + Math.floor(i / 16)}: a long entry about the crowd outside the shopping centre, the taped door of the green van, and the way the rain kept the witnesses inside. Entry ${i}.` })),
   rollLog: Array.from({ length: 180 }, (_, i) => ({ id: "l" + i, ts: 1730000000000 + i * 30000, kind: ["test", "investigation", "rest", "keyword"][i % 4], dice: [1 + i % 6, 1 + (i * 5) % 6], attrValue: i % 3, total: 4 + (i % 9), outcome: ["failure", "cost", "success"][i % 3], label: "Act against the restless crowd" })),
-  investigator: {
-    name: "Amine Deckard", trait: "Insomniac", notes: "Ex-detective, struck off after the Bardon case. Keeps the badge anyway.",
+  investigators: [amine({
+    notes: "Ex-detective, struck off after the Bardon case. Keeps the badge anyway.", xp: 11,
     attributes: { power: 3, insight: 2, method: 1 }, struck: { insight: true, method: true }, fatigue: 4, clock: 3, day: 9,
     obligations: [
       { id: "o1", text: "Run the lake", struck: false }, { id: "o2", text: "Work at a day job", struck: true },
@@ -67,7 +70,7 @@ const stress = { v: 1, activeId: "c1", careers: { c1: career({
       { id: "k5", text: "Avenue of escape", signature: false, struck: true }, { id: "k6", text: "Conspiracy", signature: false, struck: false },
       { id: "k7", text: "Second badge", signature: true, struck: false },
     ],
-  },
+  })],
   mystery: mystery({
     danger: 11, difficulty: "hard", clueDeck: clue.slice(30), clueDiscard: clue.slice(0, 14),
     truthDeck: truth.slice(9), truthRevealed: truth.slice(0, 6), setAside: truth.slice(6, 9), jokersDrawn: 2,
@@ -128,8 +131,21 @@ const party = { v: 1, activeId: "c1", careers: { c1: {
   }),
 } } };
 
+// A save from before the party existed, kept so the migration keeps a fixture.
+const legacy = { v: 1, activeId: "c1", careers: { c1: {
+  id: "c1", name: "Yorinna Wilder", createdAt: 1730000000000, xp: 6,
+  rivals: [], history: [], questions: [], journal: [], rollLog: [],
+  investigator: {
+    name: "Yorinna Wilder", trait: "Stoic", notes: "",
+    attributes: { power: 1, insight: 2, method: 0 }, struck: {}, fatigue: 1, clock: 2, day: 3,
+    obligations: [{ id: "o1", text: "Pay off debts", struck: false }],
+    keywords: [{ id: "k1", text: "Polaroid", signature: true, struck: false }],
+  },
+  mystery: mystery({ danger: 2 }),
+} } };
+
 mkdirSync("tests/fixtures", { recursive: true });
-for (const [name, value] of Object.entries({ fresh, "mid-session": mid, stress, joker, party })) {
+for (const [name, value] of Object.entries({ fresh, "mid-session": mid, stress, joker, party, legacy })) {
   writeFileSync(`tests/fixtures/${name}.json`, JSON.stringify(value, null, 1));
   console.log(`tests/fixtures/${name}.json`);
 }

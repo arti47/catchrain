@@ -6,7 +6,6 @@
    "id": "c1",
    "name": "Amine Deckard",
    "createdAt": 1730000000000,
-   "xp": 4,
    "rivals": [],
    "history": [],
    "questions": [],
@@ -228,35 +227,40 @@
      "label": "Find a way in"
     }
    ],
-   "investigator": {
-    "name": "Amine Deckard",
-    "trait": "Insomniac",
-    "notes": "Ex-detective.",
-    "attributes": {
-     "power": 2,
-     "insight": 1,
-     "method": 0
-    },
-    "struck": {},
-    "fatigue": 0,
-    "clock": 0,
-    "day": 1,
-    "obligations": [
-     {
-      "id": "o1",
-      "text": "Run the lake",
-      "struck": false
-     }
-    ],
-    "keywords": [
-     {
-      "id": "k1",
-      "text": "Smooth talker",
-      "signature": true,
-      "struck": false
-     }
-    ]
-   },
+   "activeInvestigatorId": "inv1",
+   "investigators": [
+    {
+     "id": "inv1",
+     "name": "Amine Deckard",
+     "trait": "Insomniac",
+     "notes": "Ex-detective.",
+     "xp": 4,
+     "attributes": {
+      "power": 2,
+      "insight": 1,
+      "method": 0
+     },
+     "struck": {},
+     "fatigue": 0,
+     "clock": 0,
+     "day": 1,
+     "obligations": [
+      {
+       "id": "o1",
+       "text": "Run the lake",
+       "struck": false
+      }
+     ],
+     "keywords": [
+      {
+       "id": "k1",
+       "text": "Smooth talker",
+       "signature": true,
+       "struck": false
+      }
+     ]
+    }
+   ],
    "mystery": {
     "id": "m1",
     "genre": "noir",

@@ -6,7 +6,6 @@
    "id": "c1",
    "name": "Amine Deckard",
    "createdAt": 1730000000000,
-   "xp": 11,
    "rivals": [
     {
      "id": "r1",
@@ -4007,89 +4006,94 @@
      "label": "Act against the restless crowd"
     }
    ],
-   "investigator": {
-    "name": "Amine Deckard",
-    "trait": "Insomniac",
-    "notes": "Ex-detective, struck off after the Bardon case. Keeps the badge anyway.",
-    "attributes": {
-     "power": 3,
-     "insight": 2,
-     "method": 1
-    },
-    "struck": {
-     "insight": true,
-     "method": true
-    },
-    "fatigue": 4,
-    "clock": 3,
-    "day": 9,
-    "obligations": [
-     {
-      "id": "o1",
-      "text": "Run the lake",
-      "struck": false
+   "activeInvestigatorId": "inv1",
+   "investigators": [
+    {
+     "id": "inv1",
+     "name": "Amine Deckard",
+     "trait": "Insomniac",
+     "notes": "Ex-detective, struck off after the Bardon case. Keeps the badge anyway.",
+     "xp": 11,
+     "attributes": {
+      "power": 3,
+      "insight": 2,
+      "method": 1
      },
-     {
-      "id": "o2",
-      "text": "Work at a day job",
-      "struck": true
+     "struck": {
+      "insight": true,
+      "method": true
      },
-     {
-      "id": "o3",
-      "text": "Care for a pet",
-      "struck": false
-     },
-     {
-      "id": "o4",
-      "text": "Win a legal battle",
-      "struck": false
-     }
-    ],
-    "keywords": [
-     {
-      "id": "k1",
-      "text": "Smooth talker",
-      "signature": true,
-      "struck": true
-     },
-     {
-      "id": "k2",
-      "text": "Polaroid",
-      "signature": false,
-      "struck": true
-     },
-     {
-      "id": "k3",
-      "text": "Backdoor",
-      "signature": false,
-      "struck": false
-     },
-     {
-      "id": "k4",
-      "text": "Powerful ally",
-      "signature": false,
-      "struck": false
-     },
-     {
-      "id": "k5",
-      "text": "Avenue of escape",
-      "signature": false,
-      "struck": true
-     },
-     {
-      "id": "k6",
-      "text": "Conspiracy",
-      "signature": false,
-      "struck": false
-     },
-     {
-      "id": "k7",
-      "text": "Second badge",
-      "signature": true,
-      "struck": false
-     }
-    ]
-   },
+     "fatigue": 4,
+     "clock": 3,
+     "day": 9,
+     "obligations": [
+      {
+       "id": "o1",
+       "text": "Run the lake",
+       "struck": false
+      },
+      {
+       "id": "o2",
+       "text": "Work at a day job",
+       "struck": true
+      },
+      {
+       "id": "o3",
+       "text": "Care for a pet",
+       "struck": false
+      },
+      {
+       "id": "o4",
+       "text": "Win a legal battle",
+       "struck": false
+      }
+     ],
+     "keywords": [
+      {
+       "id": "k1",
+       "text": "Smooth talker",
+       "signature": true,
+       "struck": true
+      },
+      {
+       "id": "k2",
+       "text": "Polaroid",
+       "signature": false,
+       "struck": true
+      },
+      {
+       "id": "k3",
+       "text": "Backdoor",
+       "signature": false,
+       "struck": false
+      },
+      {
+       "id": "k4",
+       "text": "Powerful ally",
+       "signature": false,
+       "struck": false
+      },
+      {
+       "id": "k5",
+       "text": "Avenue of escape",
+       "signature": false,
+       "struck": true
+      },
+      {
+       "id": "k6",
+       "text": "Conspiracy",
+       "signature": false,
+       "struck": false
+      },
+      {
+       "id": "k7",
+       "text": "Second badge",
+       "signature": true,
+       "struck": false
+      }
+     ]
+    }
+   ],
    "mystery": {
     "id": "m1",
     "genre": "noir",

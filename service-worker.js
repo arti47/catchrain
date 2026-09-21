@@ -1,13 +1,13 @@
 // App shell + data are cached and versioned; navigation is network-first so a
 // stale shell never outlives a deploy.
-const CACHE_VERSION = "citr-v1";
+const CACHE_VERSION = "citr-v2";
 const SHELL = [
   "./", "./index.html", "./styles.css", "./manifest.json", "./icon.svg", "./data.js",
   "./src/main.js", "./src/core.js", "./src/ui.js", "./src/rules.js", "./src/derived.js",
   "./src/settings.js", "./src/store.js", "./src/deck.js", "./src/roller.js",
   "./src/lifecycle.js", "./src/wizard.js", "./src/sheet.js", "./src/play.js",
   "./src/clues.js", "./src/solve.js", "./src/screens.js", "./src/tutorial.js", "./src/router.js",
-  "./src/prompts.js", "./src/library.js",
+  "./src/prompts.js", "./src/library.js", "./src/framing.js",
 ];
 
 self.addEventListener("install", (e) => {
