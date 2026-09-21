@@ -253,6 +253,11 @@ export async function useKeyword(keyword, action, payload = {}) {
     if (!threat) return null;
     threat.removed = true;
     events.push({ t: "threat_removed", name: threat.name, via: "keyword" });
+    if (Settings.get("rivals") && threat.rivalId) {
+      c.rivals = c.rivals.filter((r) => r.id !== threat.rivalId);
+      events.push({ t: "rival_defeated", name: threat.name });
+      await gainKeyword(events);
+    }
   } else if (action === "strengthen") {
     const res = strengthenFromDeck(m, payload.rank);
     if (!res) return null;

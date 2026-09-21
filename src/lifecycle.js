@@ -40,16 +40,18 @@ export async function completeStage() {
   const events = [];
   const finished = scene.stage;
   const hasThreat = D.hasThreat(m);
-
-  if (finished !== "escape") {
+  // Danger is paid for MOVING to the next stage, not for finishing one: the
+  // flowchart puts +1 on the arrows between stages and none on the way out.
+  const sceneEnds = finished === "escape" || (finished === "acquisition" && !hasThreat);
+  if (!sceneEnds) {
     m.danger += 1;
-    events.push({ t: "danger", value: m.danger, note: "stage completed" });
+    events.push({ t: "danger", value: m.danger, note: "moving on" });
   }
   if (finished === "acquisition" && !m.ended) {
     const res = await Roller.gainClue("acquisition", events);
     void res;
   }
-  if (finished === "escape" || (finished === "acquisition" && !hasThreat)) {
+  if (sceneEnds) {
     scene.done = true;
     events.push({ t: "scene_end", type: "investigation" });
     return { events, done: true };

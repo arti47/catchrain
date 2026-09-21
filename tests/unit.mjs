@@ -290,6 +290,23 @@ await test("each completed stage raises danger, but escaping does not", async ()
   eq(c.mystery.danger, d1, "escaping costs no danger");
 });
 
+await test("danger rises only when a next stage follows", async () => {
+  // No threat: acquisition ends the scene, and the book's flowchart puts no
+  // +1 on that arrow \u2014 only on the moves between stages.
+  const c = seed();
+  Store.begin("t");
+  await Life.beginInvestigation(1);
+  c.mystery.scene.stage = "acquisition";
+  c.mystery.scene.order = ["discovery", "acquisition"];
+  c.mystery.scene.index = 1;
+  c.mystery.threats = [];
+  const before = c.mystery.danger;
+  const out = await Life.completeStage();
+  Store.commit();
+  assert(out.done, "the scene ended");
+  eq(c.mystery.danger, before, "no danger for a stage nobody moved to");
+});
+
 await test("rest clears 1d6 fatigue, attribute strikes and signature keyword strikes", async () => {
   const c = seed();
   Store.begin("t");
@@ -364,6 +381,20 @@ await test("keyword use strikes the keyword and does what it says", async () => 
   Store.commit();
   assert(c.mystery.threats[0].removed, "threat gone");
   assert(c.investigator.keywords[0].struck, "keyword struck");
+});
+
+await test("a rival eliminated by a keyword still leaves the rival list", async () => {
+  const c = seed();
+  Settings.set("rivals", true);
+  Store.begin("t");
+  c.rivals = [{ id: "r1", name: "Rival detective", level: 2 }];
+  c.mystery.threats = [{ id: "t1", name: "Rival detective", level: 2, marks: 0, removed: false, rivalId: "r1" }];
+  const before = c.investigator.keywords.length;
+  await Roller.useKeyword(c.investigator.keywords[0], "eliminate", { threatId: "t1" });
+  Store.commit();
+  eq(Store.career.rivals.length, 0, "off the list");
+  eq(Store.career.investigator.keywords.length, before + 1, "beating a rival hands you a keyword");
+  Settings.set("rivals", false);
 });
 
 await test("co-op consequences raise danger by 3 when no threat is present", async () => {
