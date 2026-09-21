@@ -110,8 +110,13 @@ export function normalizeMystery(m) {
     s.truth = !!s.truth;
     s.falseLead = !!s.falseLead;
   }
-  m.threats = (m.threats || []).map((t) => ({ ...t, marks: t.marks || 0, removed: !!t.removed }));
+  m.threats = (m.threats || []).map((t) => ({ ...t, marks: t.marks || 0, removed: !!t.removed, attachedTo: t.attachedTo || null }));
   m.scene = m.scene || null;
+  if (m.scene) {
+    m.scene.participants = Array.isArray(m.scene.participants) ? m.scene.participants : [];
+    m.scene.actorId = m.scene.actorId || null;
+  }
+  m.round = m.round && typeof m.round === "object" ? { mode: m.round.mode === "shared" ? "shared" : "individual", scenes: m.round.scenes || {} } : null;
   m.jokersDrawn = m.jokersDrawn || 0;
   m.ended = !!m.ended;
   return m;

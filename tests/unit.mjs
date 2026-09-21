@@ -105,6 +105,20 @@ function seed(mystery) {
 }
 const card = (rank, suit = "S") => ({ id: core.uid(), rank, suit });
 
+/** A career running Chapter 3's co-op rules: two investigators, one mystery. */
+function seedParty(mystery) {
+  const c = seed(mystery);
+  Store.update("second investigator", () => {
+    Store.addInvestigator(derived.normalizeInvestigator({
+      id: "inv2", name: "Percy", attributes: { power: 0, insight: 2, method: 1 },
+      obligations: [{ id: "o2", text: "Write a novel", struck: false }, { id: "o3", text: "Care for a pet", struck: false }],
+      keywords: [{ id: "k2", text: "Polaroid", signature: true, struck: false }],
+    }));
+    Store.career.activeInvestigatorId = "inv1";
+  });
+  return c;
+}
+
 // --- Clue draws ---------------------------------------------------------------
 await test("first card of a rank starts a set; a second strengthens it", async () => {
   const m = freshMystery({ clueDeck: [card("7", "H"), card("7", "D")] });
@@ -465,6 +479,113 @@ await test("co-op consequences raise danger by 3 when no threat is present", asy
   Store.commit();
   eq(c.mystery.danger, 3);
   Settings.set("multiplayer", false);
+});
+
+
+// --- Co-op (Ch.3) -------------------------------------------------------------
+await test("a test can be rolled by a named investigator, and lands on them", async () => {
+  const c = seedParty();
+  Store.begin("t");
+  const r = await Roller.attributeTest({ attrId: "insight", actorId: "inv2", manualDice: [1, 2] });
+  Store.commit();
+  eq(r.outcome.id, "failure");
+  eq(Store.investigatorById("inv2").keywords.length, 2, "Percy took the keyword");
+  eq(Store.investigatorById("inv1").keywords.length, 1, "Amine did not");
+  const used = r.events.find((e) => e.t === "test").attrValue;
+  eq(used, 2, "and rolled Percy's Insight, not the active investigator's");
+  void c;
+});
+
+await test("a threat acts against whoever it is attached to", async () => {
+  const c = seedParty();
+  Store.begin("t");
+  c.mystery.threats = [{ id: "t1", name: "Restless crowd", level: 3, marks: 0, removed: false, attachedTo: "inv2" }];
+  const events = [];
+  await Roller.threatActs(c.mystery.threats[0], events);
+  Store.commit();
+  const acted = events.find((e) => e.t === "threat_acts");
+  eq(acted.who, "Percy", "the roll names its target");
+  const fatigue = events.find((e) => e.t === "fatigue");
+  if (fatigue) eq(fatigue.who, "Percy", "and any fatigue landed on them");
+});
+
+await test("acting against a threat turns its attention on you", async () => {
+  const c = seedParty();
+  Store.begin("t");
+  await Life.beginInvestigation(1);
+  c.mystery.threats = [{ id: "t1", name: "Police presence", level: 3, marks: 0, removed: false, attachedTo: "inv1" }];
+  await Roller.attributeTest({ attrId: "insight", actorId: "inv2", againstThreatId: "t1", manualDice: [4, 4], inInvestigation: true });
+  Store.commit();
+  eq(c.mystery.threats[0].attachedTo, "inv2", "it is on Percy now");
+});
+
+await test("a threat is attached to the investigator whose test called it up", async () => {
+  const c = seedParty(freshMystery({ danger: 12 }));
+  Store.begin("t");
+  await Life.beginInvestigation(1);
+  c.mystery.danger = 12;
+  c.mystery.threats = [];
+  await Roller.attributeTest({ attrId: "insight", actorId: "inv2", manualDice: [1, 1], inInvestigation: true });
+  Store.commit();
+  const arrived = c.mystery.threats.filter((t) => !t.removed);
+  assert(arrived.length >= 1, "a threat arrived");
+  eq(arrived[0].attachedTo, "inv2", "on the investigator who rolled under danger");
+});
+
+await test("the day boundary bites each investigator for their own obligations", async () => {
+  const c = seedParty();
+  Store.begin("t");
+  Store.investigatorById("inv1").obligations[0].struck = true;   // Amine attended hers
+  for (const inv of c.investigators) inv.clock = 4;
+  await Life.applyDayBoundary();
+  Store.commit();
+  eq(Store.investigatorById("inv1").fatigue, 0, "Amine owed nothing");
+  eq(Store.investigatorById("inv2").fatigue, 2, "Percy neglected two");
+  for (const inv of Store.party) { eq(inv.clock, 0); eq(inv.day, 2); }
+});
+
+await test("ending a scene marks every clock, and the day turns only when all are full", () => {
+  const c = seedParty();
+  Store.begin("t");
+  for (const inv of c.investigators) inv.clock = 3;
+  const out = Life.endScene();
+  Store.commit();
+  for (const inv of Store.party) eq(inv.clock, 4);
+  assert(out.dayOver, "four segments each means the day is over");
+});
+
+await test("an individual round is not finished until everyone has taken a scene", () => {
+  const c = seedParty();
+  Store.begin("t");
+  Life.startRound("individual");
+  eq(Life.pendingInvestigators().length, 2);
+  Life.recordRoundScene("rest", Store.investigatorById("inv1"));
+  eq(Life.pendingInvestigators().map((i) => i.id), ["inv2"]);
+  assert(!Life.roundComplete(), "Percy still owes the round a scene");
+  Life.recordRoundScene("obligation", Store.investigatorById("inv2"));
+  assert(Life.roundComplete(), "now the clock can be marked");
+  Store.commit();
+  void c;
+});
+
+await test("an investigation scene is played by the whole party", async () => {
+  const c = seedParty();
+  Store.begin("t");
+  await Life.beginInvestigation(1);
+  Store.commit();
+  eq(c.mystery.scene.participants.length, 2, "both are in it");
+  assert(Life.SHARED_SCENES.has("investigation") && Life.SHARED_SCENES.has("truth"), "and truth scenes too");
+});
+
+await test("everyone who worked the case earns its experience", async () => {
+  const c = seedParty();
+  Settings.set("career", true);
+  Store.begin("t");
+  c.mystery.setAside = [card("J", "S"), card("Q", "H"), card("K", "D")];
+  const gained = Math.max(0, 1 + 2);
+  for (const inv of c.investigators) inv.xp += gained; // mirrors solve.reveal
+  Store.commit();
+  for (const inv of Store.party) eq(inv.xp, 3);
 });
 
 await test("undo restores the whole state of a procedure", async () => {

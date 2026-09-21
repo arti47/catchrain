@@ -42,35 +42,36 @@ export async function rollD6(label) {
 
 // --- Fatigue ------------------------------------------------------------------
 /** Mark fatigue one box at a time; a full track strikes an attribute and carries the excess. */
-export async function markFatigue(n, events = []) {
-  const c = Store.career, inv = Store.investigator, m = c.mystery;
+export async function markFatigue(n, events = [], who) {
+  const c = Store.career, inv = who || Store.investigator, m = c.mystery;
   for (let i = 0; i < n; i++) {
     inv.fatigue += 1;
     if (inv.fatigue >= FATIGUE_BOXES) {
       inv.fatigue = 0;
       const options = D.highestUnstruck(inv);
       if (options.length) {
-        const chosen = options.length === 1 ? options[0] : await prompts.pickStrike(options);
+        const chosen = options.length === 1 ? options[0] : await prompts.pickStrike(options, inv);
         const pickId = (chosen && chosen.id) || options[0].id;
         inv.struck[pickId] = true;
-        events.push({ t: "attribute_struck", attribute: pickId });
+        events.push({ t: "attribute_struck", attribute: pickId, who: inv.name });
       } else {
-        events.push({ t: "all_struck" });
+        events.push({ t: "all_struck", who: inv.name });
       }
       if (m && m.scene && m.scene.type === "investigation" && !m.scene.done) {
-        if (!D.hasThreat(m)) await introduceThreat(1, events, "the track filling");
+        if (!D.hasThreat(m)) await introduceThreat(1, events, "the track filling", inv);
         m.scene.forceEscape = true;
         events.push({ t: "force_escape" });
       }
     }
   }
-  events.push({ t: "fatigue", value: inv.fatigue });
+  events.push({ t: "fatigue", value: inv.fatigue, who: inv.name });
   return events;
 }
 
 // --- Threats ------------------------------------------------------------------
-export async function introduceThreat(level, events = [], cause = "") {
+export async function introduceThreat(level, events = [], cause = "", who) {
   const c = Store.career, m = c.mystery;
+  const owner = who || Store.investigator;
   let threat = null;
   if (Settings.get("rivals") && c.rivals.length) {
     const rollRival = await rollD6("Rival or new threat?");
@@ -88,19 +89,26 @@ export async function introduceThreat(level, events = [], cause = "") {
     threat = { id: uid(), name: t.value, code: t.code, level, marks: 0, removed: false, justIntroduced: true };
   }
   threat.level = clamp(threat.level, 1, 3);
+  threat.attachedTo = owner ? owner.id : null; // whoever brought it down on themselves
   m.threats.push(threat);
-  events.push({ t: "threat_in", name: threat.name, level: threat.level, cause });
+  events.push({ t: "threat_in", name: threat.name, level: threat.level, cause, who: owner && owner.name });
   return threat;
 }
 
 /** A threat acts: 1d6 + its level on the consequences table. */
 export async function threatActs(threat, events = []) {
+  const target = attachedTo(threat);
   const die = await rollD6(`${threat.name} acts`);
   const total = die + threat.level;
   const row = R.consequenceRow(total, multi());
-  events.push({ t: "threat_acts", name: threat.name, die, level: threat.level, total, row: row.id, text: row.text });
-  await applyConsequence(row, events);
+  events.push({ t: "threat_acts", name: threat.name, die, level: threat.level, total, row: row.id, text: row.text, who: target.name });
+  await applyConsequence(row, events, target);
   return row;
+}
+
+/** Who a threat is currently on. Solo play has one answer; co-op tracks it. */
+export function attachedTo(threat) {
+  return (threat.attachedTo && Store.investigatorById(threat.attachedTo)) || Store.investigator;
 }
 
 /** Everything that did not act against gets its roll, except a threat just introduced. */
@@ -130,17 +138,19 @@ export function checkDeckEmpty(events = []) {
 }
 
 // --- Consequences -------------------------------------------------------------
-export async function rollConsequence(events = [], bonus = 0) {
+export async function rollConsequence(events = [], bonus = 0, who) {
+  const inv = who || Store.investigator;
   const die = await rollD6("Consequences");
   const total = die + bonus;
   const row = R.consequenceRow(total, multi());
-  events.push({ t: "consequence", die, bonus, total, row: row.id, text: row.text });
-  await applyConsequence(row, events);
+  events.push({ t: "consequence", die, bonus, total, row: row.id, text: row.text, who: inv.name });
+  await applyConsequence(row, events, inv);
   return row;
 }
 
-export async function applyConsequence(row, events) {
+export async function applyConsequence(row, events, who) {
   const c = Store.career, m = c.mystery;
+  const inv = who || Store.investigator;
   if (row.id === "threat_up") {
     const live = D.activeThreats(m);
     if (live.length) {
@@ -158,9 +168,9 @@ export async function applyConsequence(row, events) {
       events.push(...res.events);
     }
   } else if (row.id === "fatigue1") {
-    await markFatigue(1, events);
+    await markFatigue(1, events, inv);
   } else if (row.id === "fatigue2") {
-    await markFatigue(2, events);
+    await markFatigue(2, events, inv);
   } else if (row.id === "end") {
     m.ended = true;
     m.endTrigger = "consequence";
@@ -187,14 +197,15 @@ export async function gainClue(reason, events = []) {
 }
 
 // --- Keywords -----------------------------------------------------------------
-export async function gainKeyword(events = []) {
-  const c = Store.career, m = c.mystery;
+export async function gainKeyword(events = [], who) {
+  const m = Store.career.mystery;
+  const inv = who || Store.investigator;
   const k = R.rollGenre(m.genre, "keywords");
   const words = R.rollSubject(false);
-  const text = await prompts.describeKeyword({ suggestion: k.value, oracle: R.subjectWords(words).join(" · ") });
+  const text = await prompts.describeKeyword({ suggestion: k.value, oracle: R.subjectWords(words).join(" · "), who: inv });
   const value = (text || k.value).trim();
-  Store.investigator.keywords.push({ id: uid(), text: value, signature: false, struck: false });
-  events.push({ t: "keyword_gained", text: value });
+  inv.keywords.push({ id: uid(), text: value, signature: false, struck: false });
+  events.push({ t: "keyword_gained", text: value, who: inv.name });
   return value;
 }
 
@@ -214,7 +225,8 @@ export function previewTest(attrId, manualDice) {
  * then a doubles random event, then the sub-danger threat.
  */
 export async function attributeTest(opts) {
-  const c = Store.career, inv = Store.investigator, m = c.mystery;
+  const c = Store.career, m = c.mystery;
+  const inv = (opts.actorId && Store.investigatorById(opts.actorId)) || Store.investigator;
   const events = [];
   const dice = opts.manualDice && opts.manualDice.length === 2 ? opts.manualDice.slice() : roll2d6();
   const attrValue = opts.attrId ? D.attrValue(inv, opts.attrId) : 0;
@@ -224,12 +236,13 @@ export async function attributeTest(opts) {
   const inScene = !!opts.inInvestigation && m && m.scene && m.scene.type === "investigation";
   const belowDanger = inScene && total < m.danger;
 
-  events.push({ t: "test", label: opts.label, attribute: opts.attrId, attrValue, dice, total, outcome: outcome.id, doubles, belowDanger });
+  events.push({ t: "test", label: opts.label, attribute: opts.attrId, attrValue, dice, total, outcome: outcome.id, doubles, belowDanger, who: inv.name });
 
   // 1. the outcome
   if (opts.againstThreatId && outcome.id !== "failure") {
     const threat = m.threats.find((t) => t.id === opts.againstThreatId);
     if (threat && !threat.removed) {
+      threat.attachedTo = inv.id; // acting against it turns its attention on you
       threat.marks = (threat.marks || 0) + (outcome.id === "success" ? 2 : 1);
       events.push({ t: "threat_marked", name: threat.name, marks: threat.marks, level: threat.level });
       if (D.threatDone(threat)) {
@@ -238,13 +251,13 @@ export async function attributeTest(opts) {
         if (Settings.get("rivals") && threat.rivalId) {
           c.rivals = c.rivals.filter((r) => r.id !== threat.rivalId);
           events.push({ t: "rival_defeated", name: threat.name });
-          await gainKeyword(events);
+          await gainKeyword(events, inv);
         }
       }
     }
   }
-  if (outcome.gainKeyword) await gainKeyword(events);
-  if (outcome.consequences) await rollConsequence(events);
+  if (outcome.gainKeyword) await gainKeyword(events, inv);
+  if (outcome.consequences) await rollConsequence(events, 0, inv);
   if (outcome.bonusClue && m && !m.ended) {
     const res = await gainClue("10+ bonus", events);
     void res;
@@ -262,13 +275,13 @@ export async function attributeTest(opts) {
 
   // 4. rolled under danger: a new threat, and danger is halved
   if (belowDanger && !m.ended) {
-    await introduceThreat(1, events, "rolling under danger");
+    await introduceThreat(1, events, "rolling under danger", inv);
     m.danger = halveUp(m.danger);
     events.push({ t: "danger", value: m.danger, note: "halved" });
   }
 
   clearJustIntroduced();
-  Store.log({ kind: "test", label: opts.label || "", attribute: opts.attrId, attrValue, dice, total, outcome: outcome.id, manual: !!opts.manualDice });
+  Store.log({ kind: "test", label: opts.label || "", attribute: opts.attrId, attrValue, dice, total, outcome: outcome.id, manual: !!opts.manualDice, by: inv.name });
   return { dice, total, outcome, events, doubles, belowDanger };
 }
 
@@ -284,7 +297,7 @@ export async function useKeyword(keyword, action, payload = {}) {
     if (Settings.get("rivals") && threat.rivalId) {
       c.rivals = c.rivals.filter((r) => r.id !== threat.rivalId);
       events.push({ t: "rival_defeated", name: threat.name });
-      await gainKeyword(events);
+      await gainKeyword(events, payload.who || Store.investigator);
     }
   } else if (action === "strengthen") {
     const res = strengthenFromDeck(m, payload.rank);
