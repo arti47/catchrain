@@ -376,6 +376,30 @@ width with real gaps between them — watched failing (324, 324, 248, 324; gaps 
 *Also:* a button sitting straight inside a card now spans it, so a lone action
 like "Resolve the mystery" is not two-thirds wide.
 
+## Cycle 17 — the installed app could not update
+
+### F28 — A home-screen install had no way to find a new version
+*Reported from play: the app added to the home screen stayed on the old build.*
+*Target:* `src/updates.js` (new), `service-worker.js`, Settings.
+Four separate reasons, all real:
+1. **Nothing asked.** The page only checked at load, and an installed app is
+   resumed from the app switcher for days without a load. Now it checks at boot,
+   on every return to the foreground, and from a **Check for updates** button.
+2. **The worker script itself could be stale.** Registered without
+   `updateViaCache: "none"`, the update check could be answered from the HTTP
+   cache for up to a day. Now set.
+3. **A deploy that did not touch the worker was invisible.** Assets were
+   cache-first forever, so changing `styles.css` or a module without bumping
+   `CACHE_VERSION` meant no new worker, and the old cache served for good. The
+   worker now re-fetches every shell file past the cache on request, keeps what
+   changed and tells the page.
+4. **A new worker took over mid-scene.** `skipWaiting()` on install swapped the
+   worker while the page ran old code. It now waits for the player to accept.
+*Guards:* `npm run sw` covers both deploy shapes — worker changed,
+and worker untouched with only a stylesheet changed — and the second
+was watched failing. It also asserts the prompt is a toast, blocks nothing, and
+that a dismissed update is never lost.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -409,6 +433,8 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - After the visual pass: no overflow at 320/360/390, 44px minimum tap target,
   every primary action still above the fold, and every harness clean.
 - Stacked choices share one width and keep real gaps.
+- An installed app finds a new version on resume, and finds one even when the
+  deploy left the service worker untouched.
 - Every scene carries the book's framing questions, and what is written reaches
   the journal.
 - A whole session runs end to end: creation → scenes → day boundaries → the

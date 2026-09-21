@@ -14,7 +14,8 @@ import { renderClues } from "./clues.js";
 import { renderSolve } from "./solve.js";
 import { renderWizard, renderMysteryWizard } from "./wizard.js";
 import { renderTutorial } from "./tutorial.js";
-import { showToast, actionToast } from "./ui.js";
+import { showToast } from "./ui.js";
+import { initUpdates } from "./updates.js";
 
 Store.init();
 applyTheme();
@@ -76,26 +77,5 @@ window.addEventListener("hashchange", paintChrome);
 await start();
 paintChrome();
 
-// PWA: register, and tell the player when a new version is waiting.
-if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  // A toast, not a modal: an update is worth a tap, not an interruption in the
-  // middle of a scene. "Not now" means not now, so a waiting version is offered
-  // again on the next load rather than never again.
-  const offerUpdate = (worker) => actionToast({
-    text: "Update available. Reloading keeps everything you have saved.",
-    actionLabel: "Reload",
-    dismissLabel: "Not now",
-    onAction: () => { worker.postMessage("skip-waiting"); location.reload(); },
-  });
-
-  navigator.serviceWorker.register("service-worker.js").then((reg) => {
-    if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
-    reg.addEventListener("updatefound", () => {
-      const sw = reg.installing;
-      if (!sw) return;
-      sw.addEventListener("statechange", () => {
-        if (sw.state === "installed" && navigator.serviceWorker.controller) offerUpdate(sw);
-      });
-    });
-  }).catch(() => { /* offline install is a bonus, never a blocker */ });
-}
+// PWA: registration, update checks and the update toast live in updates.js.
+initUpdates();

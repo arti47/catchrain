@@ -215,6 +215,23 @@ draws — dice, playing cards, the clock, the fatigue track, the tab icons — a
 drawn as themselves rather than typed as glyphs. `npm run shots` renders every
 main screen in both themes for eyes-on review.
 
+**An installed app has to be told.** A home-screen install is resumed from the
+app switcher, not loaded, so nothing looks for a new version unless the app
+asks: it asks at boot, whenever it returns to the foreground, and from a
+**Check for updates** button in Settings that also names the installed version.
+The worker registers with `updateViaCache: "none"` so its own script is never
+served from a stale HTTP cache, and it never calls `skipWaiting()` on install
+— a new version waits until the player accepts the toast, so a
+deploy cannot swap the app out mid-scene.
+
+**A deploy that forgets to bump `CACHE_VERSION` is still found.** The worker's
+`checkShell()` re-fetches every shell file past the HTTP cache, compares it with
+what is cached, replaces what changed and tells the page. Without it, changing
+`styles.css` or a `src/` module without touching the worker leaves the browser
+seeing no new worker and the old cache serving forever — the exact way an
+installed app gets stuck. Bumping the version is still rule 3 below; this is the
+net under it.
+
 **The one piece of hidden state:** the three set-aside truth cards live in the
 same JSON as everything else. The app never renders them before the solve, but a
 player who reads their own export will spoil their own mystery. That is stated
@@ -254,6 +271,7 @@ in the README rather than hidden behind an encoding.
 | `src/library.js` | The rules-library content. |
 | `src/tutorial.js` | The first-session walkthrough. |
 | `src/router.js` | Routing, the tab bar, the section nav, live-state badges. |
+| `src/updates.js` | Keeping an installed app current: registration, the checks, the update toast. |
 | `src/main.js` | Boot: storage, theme, prompts, routes, service worker. |
 
 Adding or moving a `src/` file updates this table **and** the service worker's
@@ -447,6 +465,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | An installed app could get stuck on an old version: nothing checked for updates on resume, the worker script could come from a stale HTTP cache, and a deploy that did not change the worker was invisible. Now checks on boot, on foreground and from a Settings button; `updateViaCache: "none"`; the worker re-checks every shell file and keeps what changed; and a new version waits for the player instead of taking over mid-scene. New `src/updates.js`. | `npm run sw` covers both deploy shapes, the worker-untouched one watched failing | citr-v6 |
 | 2026-09-21 | The scene picker's buttons were inline-sized in a bare div: touching, and one narrower than the others. It is a `choice-list` now, a `.choice` is always full width, and a lone button inside a card spans it. | smoke asserts one width and real gaps between stacked choices; watched failing | citr-v3 |
 | 2026-09-21 | Visual pass over the whole app: a serif/sans split with tabular figures, a warm-paper light theme and a deeper night theme, hairline panels instead of stacked boxes, drawn dice pips, real card faces, an SVG clock dial, danger and fatigue meters in the header, and one set of inline-SVG tab icons in place of five borrowed glyphs. Added `npm run shots`. | smoke, interaction, walk, probes and the deploy path clean; overflow at 320px fixed | citr-v3 |
 | 2026-09-21 | The update prompt is a toast with a Reload button rather than a modal, so a new version never interrupts a scene; dismissing it is offered again on the next load, and the waiting worker is checked at boot. | `npm run sw` asserts the toast, that it blocks nothing and clears the tab bar, and that a dismissed update is never lost; watched failing | citr-v2 |

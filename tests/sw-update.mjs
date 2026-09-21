@@ -79,6 +79,33 @@ if (!failures.length) {
   }
 }
 
+// The failure a home-screen install actually hits: a deploy changes the app's
+// files but not the worker, so the browser sees no new worker and the old cache
+// would serve forever. Asking from Settings has to find it.
+if (!failures.length) {
+  const css = join(dir, "styles.css");
+  writeFileSync(css, readFileSync(css, "utf8") + "\n.premise { letter-spacing: .042em; }\n");
+  const swBefore = readFileSync(join(dir, "service-worker.js"), "utf8");
+
+  await page.goto(`${base}#/settings`);
+  await page.waitForTimeout(800);
+  await page.getByRole("button", { name: "Check for updates" }).click();
+  const found = await page.locator(".toast-action", { hasText: "Update available" })
+    .waitFor({ timeout: 15000 }).then(() => true, () => false);
+  if (!found) fail("a deploy that did not touch the worker was never noticed");
+  else {
+    await page.locator(".toast-action .btn").first().click();
+    await page.waitForTimeout(1200);
+    const applied = await page.evaluate(async () => {
+      const res = await fetch("styles.css");
+      return (await res.text()).includes(".042em");
+    });
+    if (!applied) fail("the changed file was found but never served");
+    else console.log("  ok   a deploy that leaves the worker untouched is still found and applied");
+  }
+  if (readFileSync(join(dir, "service-worker.js"), "utf8") !== swBefore) fail("the test changed the worker after all");
+}
+
 await browser.close();
 server.close();
 rmSync(dir, { recursive: true, force: true });

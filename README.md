@@ -46,6 +46,16 @@ screen": it installs as an app and works offline afterwards.
   sharing one mystery, one clock and one danger track, with the round structure
   and threat attachment the book asks for. Each behind its own toggle.
 
+## Updating an installed copy
+
+Added to the home screen, the app is resumed rather than loaded, so it checks
+for a new version when it opens, whenever it comes back to the foreground, and
+whenever you tap **Check for updates** in Settings (which also shows the version
+you are running). When there is one you get a toast with a Reload button; until
+you tap it, the version you are playing stays put. If a check says you are on
+the latest but you know a deploy went out, you are offline or the server is
+still serving the old files.
+
 ## Your data
 
 Everything is stored on the device as plain JSON under `citr:v1`, and Settings

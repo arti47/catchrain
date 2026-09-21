@@ -8,6 +8,7 @@ import { Store } from "./store.js";
 import { Settings, TOGGLES } from "./settings.js";
 import { RULES_LIBRARY } from "./library.js";
 import { resetDrafts } from "./wizard.js";
+import { Updates } from "./updates.js";
 import { section, row, defRow, btn, optionBtn, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState } from "./ui.js";
 import { go } from "./router.js";
 
@@ -554,6 +555,24 @@ export function renderSettings(host) {
         showToast("Everything erased.");
         go("home");
       }, "danger"))));
+
+  // An installed app cannot be "reloaded" the way a tab can, so it gets a button.
+  const versionLine = el("p", { class: "small muted", text: "Checking which version is installed\u2026" });
+  Updates.version().then((v) => {
+    versionLine.textContent = v ? `Installed version: ${v}.` : "Running from the network, not an installed copy.";
+  });
+  add(host, section("Updates",
+    versionLine,
+    el("p", { class: "small muted", text: "An app added to the home screen only looks for a new version when it opens or comes back to the foreground. This asks now." }),
+    el("div", { class: "btn-row" },
+      btn("Check for updates", async () => {
+        showToast("Checking\u2026");
+        const result = await Updates.check({ force: true });
+        if (result === "update") return;                       // the update toast is already up
+        if (result === "current") showToast("You are on the latest version.");
+        else if (result === "offline") showToast("No connection \u2014 try again when you are online.");
+        else showToast("Updates apply to the installed app, not to a plain browser tab.");
+      }))));
 
   add(host, section("About",
     el("p", { class: "small", text: "A personal play aid for Caught in the Rain by Nicholas Robinia (The Ravensridge Emporium, 2025). It holds the rules and tables you need at the table; it is not the book and does not reproduce it." }),
