@@ -488,6 +488,58 @@ cannot pay for that test's re-roll; a spent investigator can leave and reach the
 rest. Plus `.playtest/audit.mjs`, which plays five seeded sessions from creation
 to a closed case and exits non-zero on a stall or a console error.
 
+## Cycle 20 — a session played for the record, not for the spine
+
+Cycle 19 proved the machinery holds: five seeded sessions reached a closed case.
+It decided nothing for a reason and wrote not a word, so its record was a log.
+This cycle played one session properly — reading each situation, choosing from
+the fiction, writing after every beat, taking the oracle's answer when it was
+inconvenient — and then read the record back. Three days of play, thirty-three
+beats, a case closed on one correct guess out of three. Two findings, both in
+the half of the app that AUDIT structurally cannot see: the prose surfaces.
+
+### F38 — Every test line in the journal was arithmetic that does not work
+`roller.attributeTest` returned `{ dice, total, outcome, … }` and not the
+attribute value it had just added. The result dialog looked right only because
+`play.applyTest` patched the number back in on its way to the modal. Two places
+did not get the patch:
+
+- The journal, which is the one artefact that outlives the session: every line
+  read `Willow Elsher — Take the clue: 4+5 = 11 (Success)`. Four plus five is
+  nine. Sixty-five entries of a record that contradicts itself.
+- The re-roll comparison — the dialog whose entire job is to let a player choose
+  between two outcomes — offered `First: 5 + 5 = 12`.
+
+`attributeTest` now returns `attrValue`, and the play screen no longer patches
+what it is given.
+
+### F39 — A rest or an obligation asked the book's two questions and offered nowhere to answer
+An investigation scene opens with the framing card: the two questions, "Write it
+down", "Ask the oracle", "Yes or no". A rest or obligation scene happens inside
+a dialog, and that dialog printed the same two questions — "Where is this scene
+taking place? Who is here, and what are they doing?" — above a single "Done".
+No field, no oracle, nothing reaching the journal. The app asked and did not
+listen, on two of the four scene types. Playing it, the only way to set a rest
+scene was to leave for the Journal tab and use "Add a note", which is not the
+scene's framing and is not attached to it.
+
+`framing.framingLines` now carries the oracle buttons in the dialog body, where
+pressing one does not close the dialog it belongs to, and `framing.framingAction`
+supplies the "Write it down" action — a prompt replaces whatever modal is open,
+so writing has to be an action rather than a button in the body. What is written
+is kept on the scene and in the journal exactly as the framing card keeps it.
+
+*Guards:* two smoke blocks, both watched failing — every sum in the journal and
+in the re-roll comparison adds up; a rest and an obligation scene can each be
+set, asked about, and written down, and what is written reaches the journal.
+
+*Also this cycle:* the playtest runner gained the two configurations the first
+pass never played — a party of two sharing one case (`--coop`) and a session
+where every resolution roll is typed in (`--manual`). Twelve sessions across the
+four combinations, no findings. And the driver gained a held-open mode, because
+a beat cannot be read, thought about and answered when the page reloads between
+two invocations — the first attempt at playing silently lost a test that way.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -535,6 +587,12 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - A keyword the failed test just handed over cannot pay for that test's re-roll.
 - An investigator with every attribute struck can leave the scene and reach the
   rest the app tells them to take.
+- Twelve seeded sessions across four configurations — solo and co-op, app dice
+  and typed dice — each played from creation to a closed case.
+- Every sum the app writes down adds up: in the journal, and in the comparison a
+  player decides a re-roll on.
+- All four scene types can be set with the book's two questions, with an oracle
+  to hand, and what is written reaches the journal.
 - No export unread, no import unused (dead-data scan clean).
 
 ## Known gaps, stated rather than hidden

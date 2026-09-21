@@ -691,6 +691,137 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8g. the record, and the comparison, add up
+// attributeTest never returned the attribute it had just added, so the journal
+// line and the re-roll comparison both printed the bare dice against the real
+// total: "1+2 = 4". The result dialog looked right only because the play screen
+// patched the number back in on its way to the modal. The journal outlives the
+// session; every test line in it was arithmetic that does not work.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "mid-session");
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(200);
+
+  await page.locator(".action-bar .btn").click();
+  for (let i = 0; i < 10; i++) {
+    await page.waitForSelector(".modal-overlay", { timeout: 1000 }).catch(() => {});
+    if (await page.locator(".modal-actions .btn", { hasText: "Re-roll with a keyword" }).count()) break;
+    const input = page.locator(".modal-overlay .input").first();
+    const ch = page.locator(".modal-overlay .choice").first();
+    const act = page.locator(".modal-actions .btn").first();
+    if (await input.count()) { await input.fill("A line written at the table."); await act.click(); }
+    else if (await ch.count()) await ch.click();
+    else if (await act.count()) await act.click();
+    else break;
+    await page.waitForTimeout(70);
+  }
+
+  // The record that outlives the session, read before the re-roll undoes it.
+  const tests = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId];
+    // Only the lines this run wrote: the fixture ships prose under the same kind.
+    return (c.journal || []).filter((e) => e.kind === "test" && /:\s*\d/.test(e.text)).map((e) => e.text);
+  });
+  if (!tests.length) fail("no test reached the journal, so the record could not be checked");
+  for (const line of tests) {
+    const m = line.match(/((?:\d+\+)+\d+)\s*=\s*(\d+)/);
+    if (!m) { fail(`a journal test line has no sum in it: "${line}"`); continue; }
+    const sum = m[1].split("+").reduce((a, b) => a + Number(b), 0);
+    if (sum !== Number(m[2])) fail(`the journal records "${line.trim()}" — ${m[1]} is ${sum}, not ${m[2]}`);
+  }
+
+  // The comparison a player decides on: both sums must be the sums they claim.
+  const compare = async () => {
+    if (!(await page.locator(".modal-actions .btn", { hasText: "Re-roll with a keyword" }).count())) return [];
+    await page.locator(".modal-actions .btn", { hasText: "Re-roll with a keyword" }).click();
+    await page.waitForTimeout(200);
+    if (await page.locator(".modal-overlay .choice").count()) await page.locator(".modal-overlay .choice").first().click();
+    await page.waitForTimeout(250);
+    const lines = await page.locator(".modal-overlay .choice-label").allInnerTexts();
+    return lines;
+  };
+  const lines = await compare();
+  for (const line of lines) {
+    const m = line.match(/((?:\d+\s*\+\s*)+\d+)\s*=\s*(\d+)/);
+    if (!m) continue;
+    const sum = m[1].split("+").reduce((a, b) => a + Number(b.trim()), 0);
+    if (sum !== Number(m[2])) fail(`the outcome you are asked to choose between reads "${line.split("\n")[0]}" — ${m[1]} is ${sum}, not ${m[2]}`);
+  }
+
+  if (errors.length) fail(`console error while checking the record: ${errors[0].slice(0, 120)}`);
+  if (!failures.length) ok("the journal and the re-roll comparison print sums that add up");
+  await ctx.close();
+}
+
+// 8h. a scene played inside a dialog still gets the book's two questions
+// Rest and obligation scenes printed "Where is this scene taking place? Who is
+// here, and what are they doing?" and then offered nothing but Done: no field,
+// no oracle, and nothing reaching the journal. The app asked and did not listen.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "mid-session", { sceneFraming: true });
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(200);
+  // Leave the investigation the fixture is in, so the picker is reachable.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    s.careers[s.activeId].mystery.scene = null;
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.waitForTimeout(250);
+
+  for (const which of ["Rest", "Obligation"]) {
+    await page.goto(`${base}#/play`);
+    await page.waitForTimeout(200);
+    // A finished scene has to be ended before the picker comes back.
+    const bar = page.locator(".action-bar .btn");
+    if ((await bar.count()) && /^End the scene/.test((await bar.innerText()).split("\n")[0])) {
+      await bar.click();
+      for (let i = 0; i < 6; i++) {
+        const a = page.locator(".modal-actions .btn").first();
+        const c2 = page.locator(".modal-overlay .choice").first();
+        if (await c2.count()) await c2.click(); else if (await a.count()) await a.click(); else break;
+        await page.waitForTimeout(80);
+      }
+      await page.waitForTimeout(150);
+    }
+    const choice = page.locator("#screen .choice", { has: page.locator(".choice-label", { hasText: new RegExp(`^${which}$`) }) }).first();
+    if (!(await choice.count())) { fail(`${which} is not on the picker, so the framing check could not run`); continue; }
+    await choice.click();
+    await page.waitForTimeout(250);
+    if (await page.locator(".modal-overlay .choice").count()) { await page.locator(".modal-overlay .choice").first().click(); await page.waitForTimeout(250); }
+
+    const body = await page.locator(".modal-body").innerText().catch(() => "");
+    if (!/where is this scene taking place/i.test(body)) { fail(`the ${which.toLowerCase()} scene never asks where it takes place`); continue; }
+    const actions = await page.locator(".modal-actions .btn").allInnerTexts();
+    const canWrite = actions.some((a) => /write it down/i.test(a));
+    const canAsk = await page.locator(".modal-body .btn", { hasText: "Ask the oracle" }).count();
+    if (!canWrite) fail(`the ${which.toLowerCase()} scene asks the two questions and offers only ${actions.map((a) => `"${a.trim()}"`).join(", ")}`);
+    if (!canAsk) fail(`the ${which.toLowerCase()} scene asks the two questions with no oracle to hand`);
+    if (!canWrite) { await page.locator(".modal-actions .btn").last().click(); await page.waitForTimeout(150); continue; }
+
+    await page.locator(".modal-actions .btn", { hasText: "Write it down" }).click();
+    await page.waitForTimeout(250);
+    const field = page.locator(".modal-overlay .input").first();
+    if (!(await field.count())) { fail(`"Write it down" in the ${which.toLowerCase()} scene opens no field`); continue; }
+    const line = `The ${which.toLowerCase()} scene, set at the table.`;
+    await field.fill(line);
+    await page.locator(".modal-actions .btn").first().click();
+    await page.waitForTimeout(250);
+    const kept = await page.evaluate((t) => {
+      const s = JSON.parse(localStorage.getItem("citr:v1"));
+      return (s.careers[s.activeId].journal || []).some((e) => e.text === t);
+    }, line);
+    if (!kept) fail(`what was written for the ${which.toLowerCase()} scene never reached the journal`);
+  }
+  if (errors.length) fail(`console error while setting a dialog scene: ${errors[0].slice(0, 120)}`);
+  if (!failures.length) ok("a rest or obligation scene can be set, asked about, and written down");
+  await ctx.close();
+}
+
 // 9. a roll keeps your place on the screen
 {
   const { ctx, page, errors } = await newPage();

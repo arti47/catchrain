@@ -12,7 +12,7 @@ import * as Life from "./lifecycle.js";
 import { eventList } from "./prompts.js";
 import { useKeywordFlow } from "./sheet.js";
 import { rankName } from "./deck.js";
-import { framingCard, framingLines } from "./framing.js";
+import { framingCard, framingLines, framingAction } from "./framing.js";
 import { SCENE_FRAMING } from "../data.js";
 const SCENE_FRAMING_NOTE = SCENE_FRAMING.note;
 import { go } from "./router.js";
@@ -159,7 +159,7 @@ async function applyTest({ attrId, label, manual, againstThreatId, stageTest, un
   const onReroll = spare.length && !Store.mystery.ended
     ? () => rerollFlow({ attrId, label, againstThreatId, stageTest, actorId: actor.id, first: { dice: res.dice, total: res.total, outcome: res.outcome, attrValue: res.attrValue } })
     : null;
-  showResult(Store.party.length > 1 ? `${actor.name} \u2014 ${label}` : label, { ...res, attrValue: D.attrValue(actor, attrId) }, extra, onReroll);
+  showResult(Store.party.length > 1 ? `${actor.name} \u2014 ${label}` : label, res, extra, onReroll);
   await rerender();
 }
 
@@ -271,7 +271,7 @@ async function startRest() {
   modal({
     title: "Rest",
     body: el("div", {}, el("p", { class: "muted", text: `Describe how ${who.name} unwinds.` }), framingLines(who.name), eventList(events)),
-    actions: [{ label: "Done" }],
+    actions: [framingAction(who.name), { label: "Done" }].filter(Boolean),
   });
   await afterIndividualScene();
 }
@@ -297,7 +297,7 @@ async function startObligation() {
       framingLines(inv.name),
       el("p", { class: "mono", text: out.words.join("  ·  ") }),
       eventList(out.events)),
-    actions: [{ label: "Done" }],
+    actions: [framingAction(inv.name), { label: "Done" }].filter(Boolean),
   });
   await afterIndividualScene();
 }

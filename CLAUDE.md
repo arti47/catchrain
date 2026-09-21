@@ -247,7 +247,7 @@ in the README rather than hidden behind an encoding.
 | `data.js` | The whole rules library: 34 d66 tables, 6 resolution tables, every constant |
 | `manifest.json`, `service-worker.js`, `icon.svg` | PWA |
 | `tests/` | Harnesses, probes (layout, flow, screenshots) and the seed fixtures (dev only) |
-| `.playtest/` | The playtest driver and the seeded session runner: controls pressed by their printed labels, five sessions from creation to a closed case (dev only) |
+| `.playtest/` | The playtest driver and the seeded session runner: controls pressed by their printed labels, whole sessions from creation to a closed case, solo and co-op, app dice and typed (dev only) |
 | `docs/rules/` | The distilled rules, one file per subsystem — what the audit reads against the engine |
 | `docs/AUDIT.md` | Numbered findings, pass by pass, plus the verified-clean list |
 
@@ -365,6 +365,7 @@ this whole document exists to prevent.
 | Rule | Shape | Data | Engine | Surface | Test |
 |---|---|---|---|---|---|
 | 2d6 + attribute, tiered outcome | Modifier | `TEST_OUTCOMES` | `roller.attributeTest` | Result dialog | `test outcome boundaries are 6/7 and 9/10` |
+| …and what it wrote down says the same | Lookup | — | `roller.attributeTest` returns `attrValue` | Journal line, re-roll comparison | `the journal and the re-roll comparison print sums that add up` |
 | Investigation roll = 1d6 + danger | Modifier | `INVESTIGATION_ROLL` | `roller.investigationRoll` | Investigation dialog | `investigation roll boundaries are 3/4 and 5/6` |
 | Each stage completed raises danger by 1; escaping does not | Cost | — | `lifecycle.completeStage` | Danger in the header | `each completed stage raises danger, but escaping does not` |
 | Acquisition grants a clue | Cost | — | `lifecycle.completeStage` → `roller.gainClue` | Clue dialog | `completing acquisition without a threat ends the scene…` |
@@ -431,7 +432,7 @@ this whole document exists to prevent.
 | Co-op: acting against a threat turns it on you | Conversion | — | `roller.attributeTest` | Threat card | `acting against a threat turns its attention on you` |
 | Co-op: give everyone something to do | Permission | — | `play.chooseActor` | "Who acts?" chooser, with who has acted | guidance: the chooser names who has not acted |
 | Co-op: everyone earns the mystery's experience | Cost | `DIFFICULTIES` | `solve.reveal` | Solve results | `everyone who worked the case earns its experience` |
-| Solo: open a scene by saying where it is and who is there | Permission | `SCENE_FRAMING` | `framing.framingCard`, `framingLines` | Top of every scene; rest and obligation dialogs | smoke: setting the scene |
+| Solo: open a scene by saying where it is and who is there | Permission | `SCENE_FRAMING` | `framing.framingCard`, `framingLines`, `framingAction` | Top of every scene; rest and obligation dialogs | smoke: setting the scene, `a rest or obligation scene can be set, asked about, and written down` |
 | Solo: ask the game when you do not know | Permission | oracles | `framing.framingCard` buttons | Oracle and yes/no on the framing card | smoke: the oracle button produces words |
 | Solo: keep the record however you like | Permission | `RECORDING_METHODS` | `screens.renderJournal` | Journal screen, rules library | guidance only |
 | Content filter (house aid) | Gate | `Settings.blocked` | `rules.rollTable` | Settings, and a note on any redirected roll | `the content filter skips the rows a player blocked` |
@@ -459,8 +460,9 @@ this whole document exists to prevent.
 4. `npm test` (parse gate + invariants) before every change; `npm run smoke`
    before every commit; `npm run interact` and `npm run scan` at the end of
    every feature; `npm run walk` and the probes at the end of every phase;
-   `npm run playtest` — five seeded sessions played to a closed case — after any
-   change to the scene loop, the lifecycle or an oracle surface.
+   `npm run playtest` — seeded sessions played to a closed case, and
+   `--coop` / `--manual` for the other three configurations — after any change
+   to the scene loop, the lifecycle or an oracle surface.
 5. Every bug fix adds the check that would catch its return, and the check is
    watched failing first.
 6. Copy that states a mechanic is either enforced in the same change or marked
@@ -472,6 +474,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | Played one session properly — reading the fiction, choosing from it, writing after every beat — and read the record back. Every test line in the journal was arithmetic that does not work (`4+5 = 11`), because `attributeTest` never returned the attribute it had just added; the re-roll comparison, whose whole job is to let you choose between two outcomes, printed the same broken sums. And a rest or obligation scene asked the book's two questions above a single "Done": no field, no oracle, nothing reaching the journal. Also played the two configurations the first pass skipped — co-op and typed dice — across twelve sessions, with no findings. | two smoke blocks, both watched failing; twelve seeded sessions in four configurations | citr-v9 |
 | 2026-09-21 | Played a session rather than pressed one, on five seeds: three stalls. A scene you had ended could only be ended again, so from the first scene onwards the picker never came back and the clock ran on for fifty days. The re-roll keyword could be paid for with the keyword the failed test had just handed over, which the re-roll's own undo took back — it threw and swallowed the test. And an investigator with every attribute struck was told to rest and given no way to reach a rest scene (ruling A22). New `.playtest/` driver and seeded session runner; `npm run playtest`. | three smoke blocks, each watched failing; five seeded sessions from creation to a closed case | citr-v8 |
 | 2026-09-21 | Control sweep against the sequence of play: the premise folds mid-scene, the Clues tab plays the truth scene instead of pointing at Play, scenes the rules forbid are dimmed with the reason, Careers offers the next mystery, Settings ends on the destructive section, and the tables run in play order. | one smoke block covers all six; two watched failing | citr-v6 |
 | 2026-09-21 | An installed app could get stuck on an old version: nothing checked for updates on resume, the worker script could come from a stale HTTP cache, and a deploy that did not change the worker was invisible. Now checks on boot, on foreground and from a Settings button; `updateViaCache: "none"`; the worker re-checks every shell file and keeps what changed; and a new version waits for the player instead of taking over mid-scene. New `src/updates.js`. | `npm run sw` covers both deploy shapes, the worker-untouched one watched failing | citr-v6 |

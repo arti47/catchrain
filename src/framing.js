@@ -53,11 +53,53 @@ export function framingCard(scene, opts = {}) {
   return wrap;
 }
 
-/** Used by the scene dialogs, which have their own body to add it to. */
+/**
+ * Used by the scene dialogs, which have their own body to add it to. A rest or
+ * an obligation is as much a scene as an investigation is, so it gets the same
+ * two questions and the same oracle to hand. The oracle lives in the body,
+ * where pressing it does not close the dialog it belongs to; writing the answer
+ * down has to replace the dialog, so it is an action — see framingAction.
+ */
 export function framingLines(who) {
+  const oracle = el("p", { class: "mono small", text: "" });
   return el("div", {},
     el("ul", { class: "ask" }, ...SCENE_FRAMING.questions.map((q) => el("li", { text: q }))),
-    el("p", { class: "small muted", text: who ? `${who} is at the centre of it. ${SCENE_FRAMING.note}` : SCENE_FRAMING.note }));
+    el("p", { class: "small muted", text: who ? `${who} is at the centre of it. ${SCENE_FRAMING.note}` : SCENE_FRAMING.note }),
+    oracle,
+    el("div", { class: "btn-row" },
+      btn("Ask the oracle", () => { oracle.textContent = R.subjectWords(R.rollSubject(true)).join("  \u00b7  "); }),
+      btn("Yes or no", () => { const r = R.rollYesNo(); oracle.textContent = `d6 ${r.die} \u2014 ${r.row.name}`; })));
+}
+
+/**
+ * The dialog action that writes a dialog-borne scene down. A prompt replaces
+ * whatever modal is open, so this cannot be a button inside the body: it closes
+ * the scene dialog, asks, and keeps the answer on the scene and in the journal
+ * exactly as the framing card keeps it.
+ */
+export function framingAction(who) {
+  if (!Settings.get("sceneFraming")) return null;
+  return {
+    label: "Write it down",
+    onClick: () => {
+      const scene = Store.mystery && Store.mystery.scene;
+      setTimeout(async () => {
+        const text = await promptModal({
+          title: "Set the scene",
+          message: `${SCENE_FRAMING.questions.join("  ")}  ${who ? `${who} is at the centre of it.` : ""}`,
+          value: (scene && scene.framing) || "",
+          multiline: true,
+        });
+        if (!text) return;
+        // The scene may already have been handed on; the journal keeps it either way.
+        if (scene && Store.mystery && Store.mystery.scene === scene) {
+          Store.update("set the scene", () => { scene.framing = text; });
+        }
+        Store.journal("scene", text, { framing: true });
+        rerender();
+      }, 40);
+    },
+  };
 }
 
 export { showToast };

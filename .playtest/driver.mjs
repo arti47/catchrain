@@ -13,6 +13,10 @@
 //   pick "<row> > <option>"  choose an option in a dropdown
 //   write "<prose>"        add a note in the app's own journal
 //   journal                the whole record, oldest first
+//   repl                   hold the browser open and read commands from stdin,
+//                          one line per beat — the only way to look at a dialog,
+//                          think, and then answer it, because a dialog cannot
+//                          survive the page reload between two invocations
 //
 // Steps run as a sequence in one invocation, because a dialog cannot survive
 // the reload between two of them.
@@ -228,6 +232,9 @@ export async function readState(s) {
       out.dialog = {
         title: norm((overlay.querySelector(".modal-title") || {}).textContent),
         says: norm((overlay.querySelector(".modal-body p") || {}).textContent),
+        // The whole card, because the prompt a player reads before deciding is
+        // often the oracle line or the event list, not the first paragraph.
+        body: norm((overlay.querySelector(".modal-body") || {}).innerText),
         options: [...overlay.querySelectorAll(".choice")].map((n) => norm(n.innerText)),
         actions: [...overlay.querySelectorAll(".modal-actions .btn")].map((n) => norm(n.innerText)),
         field: !!overlay.querySelector(".input"),
@@ -301,6 +308,41 @@ export async function startNew(s, opts = {}) {
   return [...a, ...b];
 }
 
+// --- one line of commands -----------------------------------------------------
+/** Split a command line the way a shell would: quoted strings stay whole. */
+export function tokenize(line) {
+  const out = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let m;
+  while ((m = re.exec(line))) out.push(m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3]);
+  return out;
+}
+
+/** Run one sequence of verbs. Returns false when the session should end. */
+export async function runVerbs(s, argv, show) {
+  while (argv.length) {
+    const verb = argv.shift();
+    if (verb === "quit" || verb === "exit") return false;
+    if (verb === "new") { const steps = await startNew(s); show({ new: `${steps.length} steps, all pressed` }); }
+    else if (verb === "join") { const steps = await makeInvestigator(s, {}); show({ join: `${steps.length} steps, all pressed` }); }
+    else if (verb === "state") show(await readState(s));
+    else if (verb === "journal") show({ journal: await readJournal(s) });
+    else if (verb === "screen") show(await goScreen(s, argv.shift()));
+    else if (verb === "do") show(await doIt(s, argv.shift()));
+    else if (verb === "choose") show(await choose(s, argv.shift()));
+    else if (verb === "type") show(await typeText(s, argv.shift()));
+    else if (verb === "pick") show(await pick(s, argv.shift()));
+    else if (verb === "write") {
+      await goScreen(s, "journal");
+      const a = await doIt(s, "Add a note"); if (!a.ok) { show(a); continue; }
+      const t = await typeText(s, argv.shift()); if (!t.ok) { show(t); continue; }
+      show(await choose(s, "Save"));
+    }
+    else show({ ok: false, error: `unknown verb: ${verb}` });
+  }
+  return true;
+}
+
 // --- CLI ----------------------------------------------------------------------
 const isMain = process.argv[1] && process.argv[1].endsWith("driver.mjs");
 if (isMain) {
@@ -317,6 +359,27 @@ if (isMain) {
   const s = await open({ seed, stateFile });
   let bad = false;
   const show = (o) => console.log(JSON.stringify(o, null, 2));
+
+  // A held-open session: one line of commands per beat, the browser never
+  // reloaded, so a dialog can be read, thought about, and then answered.
+  if (argv[0] === "repl") {
+    const { createInterface } = await import("node:readline");
+    const rl = createInterface({ input: process.stdin });
+    console.log("ready");
+    for await (const line of rl) {
+      const text = line.trim();
+      if (!text || text.startsWith("#")) { console.log("--- END ---"); continue; }
+      let keep = true;
+      try { keep = await runVerbs(s, tokenize(text), show); }
+      catch (e) { show({ ok: false, error: String(e && e.message || e) }); }
+      if (s.errors.length) { console.log("console errors: " + s.errors.join(" ;; ")); s.errors.length = 0; bad = true; }
+      await s.save();
+      console.log("--- END ---");
+      if (!keep) break;
+    }
+    await s.close();
+    process.exit(bad ? 1 : 0);
+  }
 
   while (argv.length) {
     const verb = argv.shift();

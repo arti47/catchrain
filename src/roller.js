@@ -282,7 +282,10 @@ export async function attributeTest(opts) {
 
   clearJustIntroduced();
   Store.log({ kind: "test", label: opts.label || "", attribute: opts.attrId, attrValue, dice, total, outcome: outcome.id, manual: !!opts.manualDice, by: inv.name });
-  return { dice, total, outcome, events, doubles, belowDanger };
+  // attrValue rides along: the journal line and the re-roll comparison both
+  // print the sum, and without it they print the bare dice against the real
+  // total — arithmetic that does not work, in the one record that outlives play.
+  return { dice, attrValue, total, outcome, events, doubles, belowDanger };
 }
 
 // --- Keyword actions ----------------------------------------------------------
