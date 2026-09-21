@@ -1,0 +1,17 @@
+{
+  "name": "caught-in-the-rain",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/unit.mjs",
+    "smoke": "node tests/smoke.mjs",
+    "interact": "node tests/interact.mjs",
+    "probe": "node tests/probe-layout.mjs",
+    "walk": "node tests/walk-session.mjs",
+    "scan": "node tests/scan-dead.mjs",
+    "sw": "node tests/sw-update.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.47.0"
+  }
+}

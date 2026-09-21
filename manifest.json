@@ -1,0 +1,14 @@
+{
+  "name": "Caught in the Rain",
+  "short_name": "Caught",
+  "description": "A play aid for the solo mystery roleplaying game Caught in the Rain.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#101418",
+  "theme_color": "#101418",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
