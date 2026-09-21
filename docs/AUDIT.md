@@ -240,6 +240,18 @@ the scene-framing questions, the oracle at the point of use, and the recording
 methods. Rulings A17–A20 cover where the book is written for one investigator
 and co-op needs an answer.
 
+## Cycle 10 — one finding, in the harness
+
+### F21 — The deploy test bumped a cache version that no longer existed
+*Target:* `tests/sw-update.mjs`. *Fix:* it reads `CACHE_VERSION` out of the
+worker and bumps whatever is there, instead of rewriting the literal it was
+written against.
+*Why it mattered:* shipping `src/framing.js` moved the app to `citr-v2`, so the
+test's find-and-replace matched nothing, shipped no change, and reported the app
+as failing to offer an update — a harness that manufactures a finding (D-15) and
+would have hidden a real regression in the one PWA behaviour you cannot see by
+looking.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.

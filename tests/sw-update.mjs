@@ -25,11 +25,17 @@ await page.goto(base);
 await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 15000 })
   .catch(() => fail("the service worker never took control of the page"));
 
+let next = "";
 if (!failures.length) {
-  // Ship a change, exactly as a deploy would.
+  // Ship a change, exactly as a deploy would. Bump whatever version the worker
+  // actually ships rather than one this file remembers: the two drift apart,
+  // and then the test ships nothing and blames the app for it.
   const swPath = join(dir, "service-worker.js");
   const sw = readFileSync(swPath, "utf8");
-  writeFileSync(swPath, sw.replace('"citr-v1"', '"citr-v2"'));
+  const current = (sw.match(/CACHE_VERSION = "([^"]+)"/) || [])[1];
+  if (!current) fail("the service worker has no CACHE_VERSION to bump");
+  next = `${current}-deploytest`;
+  writeFileSync(swPath, sw.replace(`"${current}"`, `"${next}"`));
   const css = join(dir, "styles.css");
   writeFileSync(css, readFileSync(css, "utf8") + "\n/* shipped change */\n");
 
@@ -44,7 +50,7 @@ if (!failures.length) {
       const keys = await caches.keys();
       return keys.join(",");
     });
-    if (!version.includes("citr-v2")) fail(`the new cache never became active (caches: ${version})`);
+    if (!version.includes(next)) fail(`the new cache never became active (caches: ${version})`);
     else console.log("  ok   a deploy reaches an installed app, and accepting it activates the new version");
   }
 }
