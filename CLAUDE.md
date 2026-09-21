@@ -172,6 +172,7 @@ rival) and Exception (four asymmetric draw rules that look alike and are not).
 | A10 | Does a rest clear ordinary keyword strikes? | No. Attributes and signature keywords only. |
 | A11 | The yes/no oracle is 1d6, but the worked example rolls 2d6 against it | The table wins; the example is treated as an erratum and the app rolls 1d6. |
 | A12 | *Which* threat rises when a consequence raises a level and several are present | The least advanced one, so the scene escalates broadly rather than spiking one threat to 3. The book does not say. |
+| A21 | "Bring in your current investigators" | The app copies them into the party rather than moving them, so no other career is left without its investigator or its history. The copy is independent from then on, and an investigator whose own career has an unsolved mystery cannot be brought in at all. |
 | A17 | A filled fatigue track inside a co-op investigation | The forced escape applies to the scene, so the whole party leaves. The rule is written for one investigator's scene, and in co-op the scene is shared. |
 | A18 | How many scenes an investigator takes in one round | One. A shared investigation or truth scene counts as that round's scene for everyone in it. |
 | A19 | Whose clock advances, and when | Everyone's, together, once every investigator has taken a scene. The day turns when all the clocks are full, and each investigator marks fatigue for their own unstruck obligations. |
@@ -376,6 +377,7 @@ this whole document exists to prevent.
 | Lingering questions seed the next mystery | Permission | — | `solve.renderOutcome`, `wizard.renderMysteryWizard` | Solve, mystery wizard | guidance only |
 | Mix genre tables freely | Permission | `GENRES` | `rules.rollGenre` | Tables tab, both wizards | guidance only |
 | Write your own clue descriptions | Permission | — | `prompts.describeClue` | Clue dialog, clues screen | guidance only |
+| Co-op: bring in an investigator you already play | Permission | — | `store.availableToBorrow`, `borrowInvestigator` | "Bring one in" on the party panel | `an investigator can be brought in from another career, unless they are mid-mystery` |
 | Co-op: the party shares one mystery, one clock, one danger track | Exception | — | `store.party`, `derived.normalizeCareer` | Party panel, header switcher | `a party can be joined, switched and thinned out`, `a pre-party save migrates into a party of one, with its experience` |
 | Co-op: investigation and truth scenes are played by everyone | Compulsion | — | `lifecycle.SHARED_SCENES`, `startRound` | Scene picker labels, round panel | `an investigation scene is played by the whole party` |
 | Co-op: any other scene is taken separately, one each | Compulsion | — | `lifecycle.recordRoundScene`, `play.canTakeScene` | Round panel, hand-over action | `an individual round is not finished until everyone has taken a scene`, smoke: the party round |

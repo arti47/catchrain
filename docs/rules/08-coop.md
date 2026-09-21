@@ -5,6 +5,12 @@ shared — the decks, the clue sets, the danger track, the clock — and everyth
 about a person is their own: attributes, fatigue, strikes, keywords,
 obligations, experience.
 
+## Who is in the party
+Make a new investigator, or bring in one you already play — as long as they are
+not in the middle of a mystery of their own. They come across as they stand:
+fatigue, strikes, keywords, obligations and experience. The app copies them, so
+the original stays in its own career (ruling A21).
+
 ## Whose scene is it
 - An **investigation** or **truth** scene is played by the whole party.
 - Any **other** scene is taken separately: each investigator plays their own

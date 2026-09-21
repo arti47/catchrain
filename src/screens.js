@@ -48,6 +48,29 @@ export function renderHome(host) {
       Settings.get("multiplayer")
         ? btn("Add an investigator", () => go("wizard"))
         : null,
+      Settings.get("multiplayer") && Store.availableToBorrow().length
+        ? btn("Bring one in", async () => {
+            const offered = Store.availableToBorrow();
+            const pick = await chooseModal({
+              title: "Who joins the case?",
+              message: "An investigator you already play can join, as long as they are not in the middle of a mystery of their own.",
+              options: offered.map((o) => ({
+                value: `${o.career.id}|${o.investigator.id}`,
+                label: o.investigator.name,
+                note: o.busy
+                  ? `Mid-mystery in ${o.career.name} — not available`
+                  : `From ${o.career.name} — ${o.investigator.xp} XP, fatigue ${o.investigator.fatigue}/${DATA.FATIGUE_BOXES}`,
+              })),
+            });
+            if (!pick) return;
+            const [careerId, invId] = pick.split("|");
+            const brought = Store.borrowInvestigator(careerId, invId);
+            if (!brought) { showToast("They are in the middle of their own mystery."); return; }
+            Store.update("journal", () => Store.journal("create", `${brought.name} joins the investigation.`));
+            showToast(`${brought.name} joins. Their sheet comes across as it stands; the original stays in its own career.`);
+            rerender();
+          })
+        : null,
       Settings.get("multiplayer") && c.investigators.length > 1
         ? btn("Remove one", async () => {
             const id = await chooseModal({

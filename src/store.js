@@ -49,6 +49,39 @@ export const Store = {
     c.activeInvestigatorId = inv.id;
     return inv;
   },
+  /**
+   * Ch.3: bring in an investigator you already play, as long as they are not in
+   * the middle of another mystery. The copy is theirs in this career from then
+   * on; the original stays where it is (ruling A21).
+   */
+  availableToBorrow() {
+    const here = Store.career;
+    const out = [];
+    for (const car of Object.values(Store.state.careers)) {
+      if (!here || car.id === here.id) continue;
+      const busy = car.mystery && !car.mystery.solved;
+      for (const inv of car.investigators) {
+        if (!inv.name) continue;
+        out.push({ investigator: inv, career: car, busy: !!busy });
+      }
+    }
+    return out;
+  },
+  borrowInvestigator(careerId, invId) {
+    const here = Store.career;
+    const from = Store.state.careers[careerId];
+    if (!here || !from) return null;
+    if (from.mystery && !from.mystery.solved) return null; // mid-mystery elsewhere
+    const source = from.investigators.find((i) => i.id === invId);
+    if (!source) return null;
+    const copy = JSON.parse(JSON.stringify(source));
+    copy.id = uid();
+    Store.update("bring in an investigator", () => {
+      here.investigators.push(copy);
+      here.activeInvestigatorId = copy.id;
+    });
+    return copy;
+  },
   removeInvestigator(id) {
     const c = Store.career;
     if (!c || c.investigators.length < 2) return false;

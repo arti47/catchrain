@@ -132,7 +132,7 @@ export const RULES_LIBRARY = [
     ] },
     { id: "coop", name: "Co-op: the party", cite: "Ch.3, Multiplayer", text: [
       "Several investigators share one mystery, one clock and one danger track. Fatigue, strikes, keywords, obligations and experience stay each investigator's own.",
-      "Bring in a new investigator, or an existing one who is not already in the middle of a mystery.",
+      "Make a new investigator, or bring in one you already play, as long as they are not in the middle of a mystery of their own. They arrive as they stand — fatigue, strikes, keywords, obligations and experience.",
     ] },
     { id: "coop-turns", name: "Co-op: whose scene is it", cite: "Ch.3, Game turns", text: [
       "An investigation or a truth scene is played by everybody. Any other scene is taken separately: each investigator plays their own rest or obligation for that segment.",

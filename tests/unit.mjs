@@ -532,6 +532,35 @@ await test("a threat is attached to the investigator whose test called it up", a
   eq(arrived[0].attachedTo, "inv2", "on the investigator who rolled under danger");
 });
 
+await test("an investigator can be brought in from another career, unless they are mid-mystery", () => {
+  const first = seed();                       // Amine, with a mystery running
+  const firstId = Store.career.id;
+  Store.newCareer("Second");
+  Store.update("give them someone", () => {
+    Store.career.investigators = [derived.normalizeInvestigator({ id: "solo", name: "Wren", xp: 3, attributes: { power: 1, insight: 2, method: 0 } })];
+    Store.career.activeInvestigatorId = "solo";
+  });
+  const secondId = Store.career.id;
+
+  Store.selectCareer(firstId);
+  const offered = Store.availableToBorrow();
+  eq(offered.length, 1, "one investigator elsewhere");
+  eq(offered[0].busy, false, "their career has no mystery running");
+  const brought = Store.borrowInvestigator(secondId, "solo");
+  assert(brought, "they came across");
+  eq(Store.party.length, 2);
+  eq(Store.investigator.name, "Wren", "and take the spotlight");
+  eq(Store.investigator.xp, 3, "with their experience");
+  assert(Store.investigator.id !== "solo", "as their own record in this career");
+
+  // The other direction is refused while that career has a mystery running.
+  Store.selectCareer(secondId);
+  const busy = Store.availableToBorrow().filter((o) => o.busy);
+  assert(busy.length >= 1, "Amine reads as mid-mystery");
+  eq(Store.borrowInvestigator(firstId, "inv1"), null, "and cannot be borrowed");
+  void first;
+});
+
 await test("the day boundary bites each investigator for their own obligations", async () => {
   const c = seedParty();
   Store.begin("t");
