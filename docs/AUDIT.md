@@ -358,6 +358,24 @@ The measured pass reports 44px minimum across every route after the pass; the
 section-nav pills sit at 40 with a 6px gap, above the WCAG floor and the only
 control below 44.
 
+## Cycle 16 — reported from a phone
+
+### F27 — The scene picker was a pile, not a list
+*Reported from play, with a screenshot.* *Target:* `play.renderPlay`, `styles.css`.
+*Fix:* the picker's wrapper is a `choice-list`, and a `.choice` is `display:
+block; width: 100%` so a stray one can never shrink to its text again.
+*Why it mattered:* the four scene buttons were `<button>` elements in a bare
+`div`, so they were inline-sized: borders touching with no gaps, and "Rest"
+visibly narrower than the rest because its label is shorter. The most-used
+control on the most-used screen read as broken.
+*Why no pass caught it:* the layout probe measures heights, overflow and tap
+targets, and the interaction audit asks only whether a control does something.
+Neither asks whether a list looks like a list.
+*Guard:* the smoke run opens the picker and asserts every choice shares one
+width with real gaps between them — watched failing (324, 324, 248, 324; gaps 0).
+*Also:* a button sitting straight inside a card now spans it, so a lone action
+like "Resolve the mystery" is not two-thirds wide.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -390,6 +408,7 @@ Settled ground; later passes need not re-litigate these without new evidence.
   erasing everything keeps nothing.
 - After the visual pass: no overflow at 320/360/390, 44px minimum tap target,
   every primary action still above the fold, and every harness clean.
+- Stacked choices share one width and keep real gaps.
 - Every scene carries the book's framing questions, and what is written reaches
   the journal.
 - A whole session runs end to end: creation → scenes → day boundaries → the

@@ -332,6 +332,8 @@ b, strong { font-weight: 650; }
 .action-context {
   font-weight: 400; font-size: .66rem; text-transform: uppercase; letter-spacing: .12em; opacity: .8;
 }
+/* A button sitting straight in a card is that card's action: give it the width. */
+.card > .btn, .empty > .btn { width: 100%; }
 .btn-row { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .6rem; }
 .btn-row:first-child { margin-top: 0; }
 .btn-row .btn { flex: 1 1 auto; }
@@ -534,6 +536,8 @@ label.opt .opt-text small { display: block; color: var(--ink-2); font-weight: 40
 .modal-actions .btn { width: 100%; }
 .choice-list { display: flex; flex-direction: column; gap: .4rem; }
 .choice {
+  /* a choice is a row in a list, never an inline button that shrinks to its text */
+  display: block; width: 100%;
   text-align: left; min-height: var(--tap); padding: .65rem .8rem; border-radius: var(--r-sm);
   border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
   font: inherit; cursor: pointer; transition: border-color .12s ease, background .12s ease;

@@ -369,6 +369,35 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8b. stacked choices are a list, not a pile
+{
+  const { ctx, page } = await newPage();
+  await seed(page, base, "mid-session");
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId];
+    c.mystery.scene = null; c.mystery.threats = [];   // the scene picker, not a scene
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(200);
+  const geo = await page.evaluate(() => {
+    const boxes = [...document.querySelectorAll("#screen .choice")].map((n) => n.getBoundingClientRect());
+    if (boxes.length < 2) return null;
+    const widths = boxes.map((b) => Math.round(b.width));
+    const gaps = boxes.slice(1).map((b, i) => Math.round(b.top - boxes[i].bottom));
+    return { count: boxes.length, widths, gaps };
+  });
+  if (!geo) fail("the scene picker offered fewer than two choices");
+  else {
+    if (new Set(geo.widths).size !== 1) fail(`the choices are different widths (${geo.widths.join(", ")})`);
+    if (geo.gaps.some((g) => g < 4)) fail(`the choices are clumped together (gaps ${geo.gaps.join(", ")}px)`);
+    if (!failures.length) ok("the scene picker reads as a list: one width, real gaps");
+  }
+  await ctx.close();
+}
+
 // 9. a roll keeps your place on the screen
 {
   const { ctx, page, errors } = await newPage();

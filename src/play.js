@@ -434,7 +434,7 @@ export function renderPlay(host) {
 
   // Scene picker, in the book's own order. Once a round of individual scenes
   // has begun, the investigators still owing one take a scene of their own.
-  const list = el("div", {});
+  const list = el("div", { class: "choice-list" });
   for (const t of SCENE_TYPES) {
     const handler = { investigation: startInvestigation, truth: startTruth, rest: startRest, obligation: startObligation }[t.id];
     const shared = Life.SHARED_SCENES.has(t.id);
