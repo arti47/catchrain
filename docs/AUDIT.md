@@ -194,6 +194,18 @@ on which door you left by.
 `searching the deck with a keyword can also empty it` — the first watched
 failing.
 
+## Cycle 8 — a clean cycle
+
+Every pass run against the current head with no finding: parse gate and 47 unit
+invariants, the dead-data scan, the browser smoke at 320/360/390 under the
+stress fixture, the interaction audit, the whole-session flow walk, the layout
+probes at both mid-session and stress, and the service-worker update path.
+
+By the stopping rule — a complete cycle of every pass producing nothing — the
+build is done. The one item recorded during this cycle is a ruling, not a
+defect: A16, the career danger carry-over is `ceil(danger / 2)`, matching the
+in-play halving rather than the stricter reading of "reduce by half".
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.

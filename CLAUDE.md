@@ -159,6 +159,7 @@ rival) and Exception (four asymmetric draw rules that look alike and are not).
 | A10 | Does a rest clear ordinary keyword strikes? | No. Attributes and signature keywords only. |
 | A11 | The yes/no oracle is 1d6, but the worked example rolls 2d6 against it | The table wins; the example is treated as an erratum and the app rolls 1d6. |
 | A12 | *Which* threat rises when a consequence raises a level and several are present | The least advanced one, so the scene escalates broadly rather than spiking one threat to 3. The book does not say. |
+| A16 | "Reduce the danger by half (rounded up)" between mysteries | The next mystery starts at `ceil(danger / 2)`, matching the in-play halving rule ("halve the danger, rounded up") rather than the stricter reading where the *reduction* is rounded up. |
 | A15 | How much of a manual-dice session the app rolls | Every resolution roll is typed in (tests, investigation roll, consequences, threats, rest); d66 table lookups stay digital, since the app is rolling those on the player's behalf rather than resolving an action. |
 | A13 | A rival roll landing on a blank slot | Introduce an ordinary new threat. The book offers "choose a rival or create a new one"; the app takes the second. |
 | A14 | Danger for the stage that ends the scene | Danger is paid for moving to a stage, not for finishing one, so taking the clue with no threat present costs nothing. The flowchart puts +1 only on the arrows between stages, and the worked example charges it on each move. |
@@ -387,6 +388,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | Audit cycle 8: every pass clean — unit, dead-data, smoke, interaction, walk, probes and the update path. Ruling A16 recorded for the career danger carry-over. | full cycle, no findings | citr-v1 |
 | 2026-09-21 | Engine read-through: only some of the paths that remove a clue card noticed the deck running out. One `checkDeckEmpty` now guards them all. | 47 unit invariants; guard watched failing | citr-v1 |
 | 2026-09-21 | The content filter leaked about one roll in forty; a blocked row now redirects the roll and says so. Added a service-worker update-path test (`npm run sw`). | 45 unit invariants; interaction, scan, walk, probes and the update path clean | citr-v1 |
 | 2026-09-21 | Optional-rules read-through: drawing a joker threw and ignored the player's choice (the picker is async and was not awaited); manual dice now cover consequences, threats and rest; two career benefits ask what the book asks. | 44 unit invariants + a joker fixture driven through the UI; both guards watched failing | citr-v1 |
