@@ -89,6 +89,24 @@ before the fix.
 *Target:* `roller.useKeyword`. *Fix:* the rival branch now runs for both routes.
 *Guard:* `a rival eliminated by a keyword still leaves the rival list`.
 
+## Cycle 3 — flow walk
+
+### F12 — Journal and roll-log entries written outside a transaction were lost
+*Target:* `src/store.js`. *Fix:* both records save themselves, since callers
+legitimately write them either side of an undo transaction.
+*Why it mattered:* the journal is the deliverable of a journaling game, and
+entries written at a scene boundary vanished on reload with no sign anything
+had gone wrong.
+*Guard:* `a journal note written outside a transaction still persists` —
+watched failing (0 ≠ 1).
+
+### Flow-walk notes (no finding)
+- A whole session — creation, twelve scenes across four days, the solve and
+  closing the case — runs in about 35 taps, with no terminal state left without
+  an onward route.
+- Rest, obligation and truth scenes are each exercised from the shared
+  mid-session fixture, since a random session may never reach one.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -107,6 +125,8 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - Every route: a heading, an `explain()` note collapsed by default, no stray
   `null`/`undefined`/`NaN`, no console errors, nothing under the tab bar.
 - Every visible control does something (interaction audit clean).
+- A whole session runs end to end: creation → scenes → day boundaries → the
+  solve → closing the case → the career history picking it up.
 - No export unread, no import unused (dead-data scan clean).
 
 ## Known gaps, stated rather than hidden

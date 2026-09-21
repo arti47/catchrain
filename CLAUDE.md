@@ -158,6 +158,9 @@ rival) and Exception (four asymmetric draw rules that look alike and are not).
 | A9 | "Easy / Trivial: reveal N truth cards" | Reveal = remove from the truth deck and show it permanently, exactly as a truth scene does. |
 | A10 | Does a rest clear ordinary keyword strikes? | No. Attributes and signature keywords only. |
 | A11 | The yes/no oracle is 1d6, but the worked example rolls 2d6 against it | The table wins; the example is treated as an erratum and the app rolls 1d6. |
+| A12 | *Which* threat rises when a consequence raises a level and several are present | The least advanced one, so the scene escalates broadly rather than spiking one threat to 3. The book does not say. |
+| A13 | A rival roll landing on a blank slot | Introduce an ordinary new threat. The book offers "choose a rival or create a new one"; the app takes the second. |
+| A14 | Danger for the stage that ends the scene | Danger is paid for moving to a stage, not for finishing one, so taking the clue with no threat present costs nothing. The flowchart puts +1 only on the arrows between stages, and the worked example charges it on each move. |
 
 Three asymmetries the engine branches on everywhere, stated once: a clue card
 matching an **established truth** is discarded **and replaced**; a card matching
@@ -368,8 +371,8 @@ this whole document exists to prevent.
 2. Every rules number lives in `data.js`. No rules value is hardcoded in `src/`.
 3. Any shipped-file change bumps `CACHE_VERSION` in `service-worker.js`.
 4. `npm test` (parse gate + invariants) before every change; `npm run smoke`
-   before every commit; the interaction audit and dead-data scan at the end of
-   every feature; the probes after any layout change.
+   before every commit; `npm run interact` and `npm run scan` at the end of
+   every feature; `npm run walk` and the probes at the end of every phase.
 5. Every bug fix adds the check that would catch its return, and the check is
    watched failing first.
 6. Copy that states a mechanic is either enforced in the same change or marked
@@ -381,4 +384,6 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | Flow walk: journal and roll-log entries written outside a transaction never reached storage. Both records now save themselves. `npm run walk` added. | 41 unit invariants, guard watched failing; flow walk clean | citr-v1 |
+| 2026-09-21 | Rules read-through: danger was charged for ending a scene as well as for moving between stages (ruling A14), and a rival removed by a keyword stayed on the rival list. Rulings A12–A14 recorded. | 40 unit invariants, both guards watched failing | citr-v1 |
 | 2026-09-21 | Audit tooling and what it found: keyword actions, end triggers, rival slots, rival replacement and the new-obligation experience were all data with no engine. Wizard drafts no longer leak between careers. Tap targets raised to 44px, the roll log folds, the sheet leads back to the scene, keywords are reachable mid-scene. | unit + smoke + interaction + dead-data clean; probes re-read | citr-v1 |

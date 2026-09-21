@@ -6,7 +6,11 @@
     "test": "node tests/unit.mjs",
     "smoke": "node tests/smoke.mjs",
     "interact": "node tests/interact.mjs",
-    "probe": "node tests/probe-layout.mjs"
+    "probe": "node tests/probe-layout.mjs",
+    "walk": "node tests/walk-session.mjs",
+    "scan": "node tests/scan-dead.mjs"
   },
-  "devDependencies": { "playwright-core": "^1.47.0" }
+  "devDependencies": {
+    "playwright-core": "^1.47.0"
+  }
 }

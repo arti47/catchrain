@@ -70,18 +70,25 @@ export const Store = {
   selectCareer(id) { Store.update("switch career", (s) => { if (s.careers[id]) s.activeId = id; }); },
   deleteCareer(id) { Store.update("delete career", (s) => { delete s.careers[id]; if (s.activeId === id) s.activeId = Object.keys(s.careers)[0] || null; }); },
 
-  /** Journal: the narrative record. Mechanical events and player prose share one list. */
+  /**
+   * Journal: the narrative record. Mechanical events and player prose share one
+   * list. Both records save themselves, because callers write them on either
+   * side of a transaction and a lost entry is indistinguishable from one that
+   * was never written.
+   */
   journal(kind, text, meta) {
     const c = Store.career;
     if (!c) return;
     c.journal.push({ id: uid(), ts: Date.now(), kind, text, meta: meta || null, day: c.investigator.day, scene: c.mystery && c.mystery.scene ? c.mystery.scene.type : null });
     if (c.journal.length > JOURNAL_CAP) c.journal.splice(0, c.journal.length - JOURNAL_CAP);
+    write();
   },
   log(entry) {
     const c = Store.career;
     if (!c) return;
     c.rollLog.push({ id: uid(), ts: Date.now(), ...entry });
     if (c.rollLog.length > LOG_CAP) c.rollLog.splice(0, c.rollLog.length - LOG_CAP);
+    write();
   },
 
   exportJSON() { return JSON.stringify(Store.state, null, 2); },

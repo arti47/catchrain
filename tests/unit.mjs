@@ -419,6 +419,14 @@ await test("undo restores the whole state of a procedure", async () => {
   eq(Store.investigator.keywords.length, 1, "the gained keyword is gone");
 });
 
+await test("a journal note written outside a transaction still persists", () => {
+  seed();
+  Store.journal("note", "The crowd was already there when she arrived.");
+  const saved = JSON.parse(localStorage.getItem("citr:v1"));
+  const c = saved.careers[saved.activeId];
+  eq(c.journal.length, 1, "the note reached storage");
+});
+
 await test("export round-trips through import", () => {
   seed();
   const json = Store.exportJSON();
