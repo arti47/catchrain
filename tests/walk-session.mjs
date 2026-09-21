@@ -88,7 +88,9 @@ for (let scene = 0; scene < 12; scene++) {
   if (/Resolve/.test(label)) break;
   // Mix the scene types the way a session does. The picker's buttons carry
   // their explanation, so match the heading, not the whole accessible name.
-  const pick = (name) => page.locator("#screen .choice", { has: page.locator(".choice-label", { hasText: new RegExp(`^${name}$`) }) }).first();
+  // A dimmed choice is one the rules forbid right now; a player would not tap
+  // it, and the queue keeps it for a scene when it is legal.
+  const pick = (name) => page.locator('#screen .choice:not([aria-disabled="true"])', { has: page.locator(".choice-label", { hasText: new RegExp(`^${name}$`) }) }).first();
   const want = queue.length && (await pick(queue[0]).count()) ? queue.shift() : null;
   if (want) {
     await tap(pick(want), `${want.toLowerCase()} scene`);

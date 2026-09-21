@@ -115,6 +115,9 @@ export const Store = {
 
   canUndo: () => undoStack.length > 0,
   lastLabel: () => (undoStack.length ? undoStack[undoStack.length - 1].label : null),
+  /** What undo would restore, read-only: a flow that undoes a step first has to
+   *  know what survives it, and must not pop the stack to find out. */
+  peekUndo: () => (undoStack.length ? JSON.parse(undoStack[undoStack.length - 1].snapshot) : null),
   undo() {
     const step = undoStack.pop();
     if (!step) return null;

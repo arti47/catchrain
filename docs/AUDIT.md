@@ -441,6 +441,53 @@ the problem — the investigator.
 dimmed truth scene with its reason, a truth scene played from Clues, the Careers
 action, and Settings ending on Start over. Two were watched failing.
 
+## Cycle 19 — a played session, not a pressed one
+
+A solo session driven end to end through the real controls, found by their
+printed labels, on five seeded runs (`.playtest/`). The question was not whether
+a rule is implemented but whether a person can sit down, start, and finish.
+Three findings, all of them stalls — none visible to any check that asks a
+structural question, because every control involved existed, rendered, and did
+exactly what its code said.
+
+### F35 — A scene you had ended could only be ended again
+`lifecycle.endScene()` marked the scene `done` and left it in place. The play
+screen keys its "This scene is finished" state on that flag, so from the first
+scene ended onwards the screen never offered another: the only control was
+"End the scene", which marked the clock again every time it was pressed. A
+seeded run reached day 55 with an empty clock and a scene picker it could not
+get back to. `endScene` now clears the scene it ended.
+*Why nothing caught it:* the flow walk only took a scene type "when the picker
+is actually up", so it read the picker's permanent absence as nothing to do,
+and the end-to-end smoke stopped at the moment the label became "End the scene"
+without pressing it.
+
+### F36 — A re-roll paid for out of the test it was re-rolling
+A failure hands over a keyword. The re-roll keyword undoes the test — which
+takes that keyword straight back — and then struck it, on an object that was no
+longer there: `TypeError: Cannot set properties of undefined (setting 'struck')`
+in `roller.useKeyword`, with the test already undone and nothing put back in its
+place. The player lost the roll and saw no reason why. The offer is now built
+from the hand the actor held *before* the test (`Store.peekUndo`), so a keyword
+that arrived with the failure is never offered for it, and a keyword that has
+gone missing bails out instead of throwing.
+
+### F37 — A spent investigator could not leave the scene (ruling A22)
+Three full fatigue tracks in one scene strike all three attributes. The app then
+says, correctly, "Every one of X's attributes is struck. They need to rest
+before testing anything else" — and offers only "Back". Rest is a scene; a scene
+does not end without a successful test; there is no test left to make. Three of
+five seeded runs ended there with nothing to press. The book has no rule for it,
+so ruling A22: they leave empty-handed. "Nothing left to try" now offers "Leave
+the scene", which ends it where it stands — no clue, no stage cleared — and the
+picker, with the rest the app asked for, comes back.
+
+*Guards:* three smoke blocks, each watched failing first — a scene ended hands
+back the picker and marks the clock once; a keyword the failure just handed you
+cannot pay for that test's re-roll; a spent investigator can leave and reach the
+rest. Plus `.playtest/audit.mjs`, which plays five seeded sessions from creation
+to a closed case and exits non-zero on a stall or a console error.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -482,6 +529,12 @@ Settled ground; later passes need not re-litigate these without new evidence.
   the journal.
 - A whole session runs end to end: creation → scenes → day boundaries → the
   solve → closing the case → the career history picking it up.
+- Five seeded sessions, played through the real controls from creation to a
+  closed case, with no beat that offered nothing and no console error.
+- A scene that has been ended hands the picker back and marks the clock once.
+- A keyword the failed test just handed over cannot pay for that test's re-roll.
+- An investigator with every attribute struck can leave the scene and reach the
+  rest the app tells them to take.
 - No export unread, no import unused (dead-data scan clean).
 
 ## Known gaps, stated rather than hidden

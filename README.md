@@ -80,11 +80,17 @@ npm run smoke        # every route, three phone widths, the end-to-end walk
 npm run interact     # clicks every control in isolation, flags no-ops
 npm run walk         # a whole session: creation, scenes, the solve, the next case
 npm run sw           # ships a change and asserts the update reaches an installed app
+npm run playtest     # plays five seeded sessions to a closed case; fails on a stall
 node tests/scan-dead.mjs           # exports nothing reads, imports nothing uses
 node tests/probe-layout.mjs stress # the measurement table, per route
 npm run shots        # screenshots of every screen, both themes, for eyes-on review
 node tests/probe-flow.mjs          # tap counts for the common sequences
 ```
+
+`.playtest/` holds the playtest harness: a driver that presses controls by the
+words printed on them and a runner that plays whole seeded sessions. It asks the
+one question the other passes cannot — whether a person can sit down and play a
+session through — and `.playtest/README.md` says how to drive it by hand.
 
 `CLAUDE.md` is the canonical spec: the system profile, the rulings taken where
 the book was ambiguous, the extraction and traceability ledgers, and the

@@ -485,6 +485,212 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8d. a scene you have ended hands the next one back
+// The stall this catches: endScene() left the finished scene in place, so the
+// play screen stayed on "This scene is finished" for good — the only control
+// was "End the scene", which marked the clock again every time it was pressed
+// and never offered another scene. The state here is played into existence
+// through the UI rather than written by hand, because the bug was in the route
+// to the state, not in the state.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "mid-session");
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(200);
+
+  const clearDialogs = async () => {
+    for (let j = 0; j < 8; j++) {
+      await page.waitForSelector(".modal-overlay", { timeout: 900 }).catch(() => {});
+      const ch = page.locator(".modal-overlay .choice").first();
+      const input = page.locator(".modal-overlay .input").first();
+      const act = page.locator(".modal-actions .btn").first();
+      if (await ch.count()) await ch.click();
+      else if (await input.count()) { await input.fill("A line written at the table."); await act.click(); }
+      else if (await act.count()) await act.click();
+      else return;
+      await page.waitForTimeout(70);
+    }
+  };
+  const barLabel = async () => {
+    const bar = page.locator(".action-bar .btn");
+    return (await bar.count()) ? (await bar.innerText()).split("\n")[0].trim() : "";
+  };
+  const clockNow = () => page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId];
+    return (c.investigators.find((i) => i.id === c.activeInvestigatorId) || c.investigators[0]).clock;
+  });
+
+  // Play the investigation out, however the dice go.
+  let label = "";
+  for (let i = 0; i < 40; i++) {
+    label = await barLabel();
+    if (!label || /^End the scene|^Resolve the mystery/.test(label)) break;
+    await page.locator(".action-bar .btn").click();
+    await clearDialogs();
+  }
+
+  if (/^Resolve the mystery/.test(label)) {
+    ok("the mystery ended inside the scene; the next-scene check does not apply this run");
+  } else if (!/^End the scene/.test(label)) {
+    fail(`a finished scene offered "${label}" instead of a way to end it`);
+  } else {
+    const before = await clockNow();
+    const hadFailed = failures.length;
+    await page.locator(".action-bar .btn").click();
+    await clearDialogs();
+    await page.waitForTimeout(150);
+
+    const after = await barLabel();
+    const screen = await page.locator("#screen").innerText();
+    const choices = await page.locator("#screen .choice-list .choice").count();
+    const clock = await clockNow();
+
+    if (/^End the scene/.test(after)) fail(`after ending a scene the play screen still offers "${after}" — the same scene can be ended again`);
+    if (/this scene is finished/i.test(screen)) fail('after ending a scene the play screen still says "This scene is finished"');
+    if (!/choose a scene/i.test(screen)) fail("after ending a scene the play screen never offers the next one");
+    if (choices !== 4) fail(`the scene picker came back with ${choices} scene(s) instead of four`);
+    if (clock !== before + 1 && clock !== 0) fail(`ending one scene moved the clock from ${before} to ${clock}`);
+    if (errors.length) fail(`console error while ending a scene: ${errors[0].slice(0, 120)}`);
+    if (failures.length === hadFailed) ok("ending a scene hands back the picker, and marks the clock exactly once");
+  }
+  await ctx.close();
+}
+
+// 8e. the re-roll keyword cannot be paid for out of the test it is re-rolling
+// A failure hands you a keyword. The re-roll undoes the test — which takes that
+// keyword back — so offering it as payment threw and swallowed the test whole.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "mid-session", { manualDice: true, sceneFraming: false });
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(200);
+
+  const held = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId];
+    const inv = c.investigators.find((i) => i.id === c.activeInvestigatorId);
+    return inv.keywords.filter((k) => !k.struck).map((k) => k.text);
+  });
+
+  // Fail the stage test on purpose: two ones is a failure at any attribute.
+  await page.locator(".action-bar .btn").click();
+  let offered = false;
+  for (let i = 0; i < 14; i++) {
+    await page.waitForSelector(".modal-overlay", { timeout: 1200 }).catch(() => {});
+    if (await page.locator(".modal-actions .btn", { hasText: "Re-roll with a keyword" }).count()) { offered = true; break; }
+    const title = await page.locator(".modal-title").first().innerText().catch(() => "");
+    const input = page.locator(".modal-overlay .input").first();
+    const ch = page.locator(".modal-overlay .choice").first();
+    const act = page.locator(".modal-actions .btn").first();
+    if (await input.count()) {
+      await input.fill(/Enter your dice/i.test(title) ? "1 1" : /Enter your die/i.test(title) ? "1" : "A line written at the table.");
+      await act.click();
+    } else if (await ch.count()) await ch.click();
+    else if (await act.count()) await act.click();
+    else break;
+    await page.waitForTimeout(80);
+  }
+
+  if (!offered) fail("a failed test never offered the re-roll keyword, so the check could not run");
+  else {
+    const gained = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("citr:v1"));
+      const c = s.careers[s.activeId];
+      const inv = c.investigators.find((i) => i.id === c.activeInvestigatorId);
+      return inv.keywords.filter((k) => !k.struck).map((k) => k.text);
+    });
+    if (gained.length <= held.length) fail("the failed test did not hand over a keyword, so the check could not run");
+
+    await page.locator(".modal-actions .btn", { hasText: "Re-roll with a keyword" }).click();
+    await page.waitForTimeout(220);
+    const options = await page.locator(".modal-overlay .choice .choice-label").allInnerTexts();
+    const fromThisTest = options.filter((o) => !held.includes(o.trim()));
+    if (fromThisTest.length) fail(`the re-roll offers ${fromThisTest.map((o) => `"${o}"`).join(", ")} — a keyword this very test handed over`);
+    if (!options.length) fail("the re-roll was offered with no keyword to spend");
+
+    if (options.length) {
+      await page.locator(".modal-overlay .choice").first().click();
+      for (let i = 0; i < 12; i++) {
+        await page.waitForSelector(".modal-overlay", { timeout: 900 }).catch(() => {});
+        const title = await page.locator(".modal-title").first().innerText().catch(() => "");
+        const input = page.locator(".modal-overlay .input").first();
+        const ch = page.locator(".modal-overlay .choice").first();
+        const act = page.locator(".modal-actions .btn").first();
+        if (await input.count()) {
+          await input.fill(/Enter your dice/i.test(title) ? "6 6" : /Enter your die/i.test(title) ? "1" : "A line written at the table.");
+          await act.click();
+        } else if (await ch.count()) await ch.click();
+        else if (await act.count()) await act.click();
+        else break;
+        await page.waitForTimeout(80);
+      }
+      const spent = await page.evaluate(() => {
+        const s = JSON.parse(localStorage.getItem("citr:v1"));
+        const c = s.careers[s.activeId];
+        const inv = c.investigators.find((i) => i.id === c.activeInvestigatorId);
+        return inv.keywords.filter((k) => k.struck).length;
+      });
+      if (!spent) fail("the re-roll ran but struck no keyword");
+    }
+    if (errors.length) fail(`console error during the re-roll: ${errors[0].slice(0, 160)}`);
+    ok("a keyword the failure just handed you cannot pay for that test's re-roll");
+  }
+  await ctx.close();
+}
+
+// 8f. a spent investigator can still get out of the scene
+// Three full fatigue tracks in one scene strike all three attributes. The app
+// said "They need to rest before testing anything else" and then offered no
+// rest: rest is a scene, the scene will not end without a test, and there is no
+// test left to make. The session had nowhere to go (ruling A22).
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "mid-session");
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId];
+    const inv = c.investigators.find((i) => i.id === c.activeInvestigatorId);
+    inv.struck = { power: true, insight: true, method: true };
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.goto(`${base}#/play`);
+  await page.reload();
+  await page.waitForTimeout(250);
+
+  await page.locator(".action-bar .btn").click();   // the stage test
+  await page.waitForSelector(".modal-overlay", { timeout: 1500 }).catch(() => {});
+  const title = await page.locator(".modal-title").first().innerText().catch(() => "");
+  if (!/nothing left to try/i.test(title)) fail(`a spent investigator got "${title}" instead of being told there is nothing to try`);
+  const outs = await page.locator(".modal-actions .btn").allInnerTexts();
+  if (!outs.some((t) => /leave the scene/i.test(t))) {
+    fail(`"Nothing left to try" offers only ${outs.map((t) => `"${t.trim()}"`).join(", ")} — no way out of the scene`);
+    await page.locator(".modal-actions .btn").last().click();
+  } else {
+    await page.locator(".modal-actions .btn", { hasText: "Leave the scene" }).click();
+    await page.waitForTimeout(250);
+    const label = await page.locator(".action-bar .btn").innerText().catch(() => "");
+    if (!/End the scene/.test(label.split("\n")[0])) fail(`leaving a scene spent offered "${label.split("\n")[0]}" instead of ending it`);
+    await page.locator(".action-bar .btn").click();
+    for (let i = 0; i < 8; i++) {
+      const act = page.locator(".modal-actions .btn").first();
+      const ch = page.locator(".modal-overlay .choice").first();
+      if (await ch.count()) await ch.click();
+      else if (await act.count()) await act.click();
+      else break;
+      await page.waitForTimeout(80);
+    }
+    const screen = await page.locator("#screen").innerText();
+    if (!/choose a scene/i.test(screen)) fail("after leaving a scene spent, the picker never came back");
+    const rest = page.locator("#screen .choice", { hasText: "Rest" }).first();
+    if (!(await rest.count())) fail("the rest the app asked for is not on the picker");
+    else if (await rest.getAttribute("aria-disabled")) fail("the rest the app asked for is offered but dimmed");
+    if (errors.length) fail(`console error while leaving a scene spent: ${errors[0].slice(0, 140)}`);
+    if (!failures.length) ok("a spent investigator can leave the scene and take the rest the app asked for");
+  }
+  await ctx.close();
+}
+
 // 9. a roll keeps your place on the screen
 {
   const { ctx, page, errors } = await newPage();

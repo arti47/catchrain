@@ -180,6 +180,7 @@ rival) and Exception (four asymmetric draw rules that look alike and are not).
 | A16 | "Reduce the danger by half (rounded up)" between mysteries | The next mystery starts at `ceil(danger / 2)`, matching the in-play halving rule ("halve the danger, rounded up") rather than the stricter reading where the *reduction* is rounded up. |
 | A15 | How much of a manual-dice session the app rolls | Every resolution roll is typed in (tests, investigation roll, consequences, threats, rest); d66 table lookups stay digital, since the app is rolling those on the player's behalf rather than resolving an action. |
 | A13 | A rival roll landing on a blank slot | Introduce an ordinary new threat. The book offers "choose a rival or create a new one"; the app takes the second. |
+| A22 | Every attribute struck inside a scene | They leave empty-handed. The book ends a scene only on a successful test, and the rest it prescribes is itself a scene, so without a door there the session has nowhere to go. "Nothing left to try" offers **Leave the scene**: it ends where it stands, no clue and no stage cleared, and the picker comes back. |
 | A14 | Danger for the stage that ends the scene | Danger is paid for moving to a stage, not for finishing one, so taking the clue with no threat present costs nothing. The flowchart puts +1 only on the arrows between stages, and the worked example charges it on each move. |
 
 Three asymmetries the engine branches on everywhere, stated once: a clue card
@@ -246,6 +247,7 @@ in the README rather than hidden behind an encoding.
 | `data.js` | The whole rules library: 34 d66 tables, 6 resolution tables, every constant |
 | `manifest.json`, `service-worker.js`, `icon.svg` | PWA |
 | `tests/` | Harnesses, probes (layout, flow, screenshots) and the seed fixtures (dev only) |
+| `.playtest/` | The playtest driver and the seeded session runner: controls pressed by their printed labels, five sessions from creation to a closed case (dev only) |
 | `docs/rules/` | The distilled rules, one file per subsystem — what the audit reads against the engine |
 | `docs/AUDIT.md` | Numbered findings, pass by pass, plus the verified-clean list |
 
@@ -389,6 +391,8 @@ this whole document exists to prevent.
 | …taking what remains when the deck is short | Exception | — | `deck.establishTruth` | Clues screen | `a truth scene takes what remains when the deck is short (A7)` |
 | Keyword: strengthen / eliminate | Permission | `KEYWORD_ACTIONS` | `roller.useKeyword` | Sheet and play chips | `keyword use strikes the keyword and does what it says` |
 | Keyword: re-roll a test after seeing its outcome, keep either | Permission | `KEYWORD_ACTIONS` | `play.rerollFlow` + `roller.previewTest` | Result dialog action | `previewTest reports an outcome without applying anything`, `a re-rolled test can be undone back to before the first roll` |
+| …paid for out of the hand you held before it | Exception | — | `play.spendableOnReroll` + `store.peekUndo` | Keyword chooser | `a keyword the failure just handed you cannot pay for that test's re-roll` |
+| Every attribute struck: leave the scene (A22) | Permission | — | `play.leaveSceneSpent` | "Nothing left to try" | `a spent investigator can leave the scene and take the rest the app asked for` |
 | A rival removed by a keyword is still a rival beaten | Exception | — | `roller.useKeyword` | Result dialog | `a rival eliminated by a keyword still leaves the rival list` |
 | A keyword is struck when used | Cost | — | `roller.useKeyword` | Struck chip | (same row) |
 | Signature keywords recharge on a rest | Once-per-X | — | `lifecycle.restScene` | Sheet | `rest clears 1d6 fatigue, attribute strikes and signature keyword strikes` |
@@ -396,6 +400,7 @@ this whole document exists to prevent.
 | Rest and obligation scenes each discard a clue card | Cost | — | `lifecycle.restScene`, `obligationScene` | Event list | `an obligation scene strikes the obligation and discards a clue card` |
 | An obligation scene strikes one obligation | Cost | — | `lifecycle.obligationScene` | Sheet chips | (same row) |
 | Every scene marks the clock | Escalation | `CLOCK_SEGMENTS` | `lifecycle.endScene` | Header, clock | `ending a scene marks the clock and clears threats` |
+| …and hands the picker back, once | Conversion | — | `lifecycle.endScene` | Scene picker | `ending a scene hands back the picker, and marks the clock exactly once` |
 | Threats do not survive the scene | Conversion | — | `lifecycle.endScene` | Event list | (same row) |
 | The day boundary bites for each unstruck obligation | Compulsion | — | `lifecycle.applyDayBoundary` | Day dialog | `the day boundary marks fatigue per neglected obligation…` |
 | The day boundary clears the clock and obligation strikes | Cost | — | `lifecycle.applyDayBoundary` | Day dialog | (same row) |
@@ -453,7 +458,9 @@ this whole document exists to prevent.
 3. Any shipped-file change bumps `CACHE_VERSION` in `service-worker.js`.
 4. `npm test` (parse gate + invariants) before every change; `npm run smoke`
    before every commit; `npm run interact` and `npm run scan` at the end of
-   every feature; `npm run walk` and the probes at the end of every phase.
+   every feature; `npm run walk` and the probes at the end of every phase;
+   `npm run playtest` — five seeded sessions played to a closed case — after any
+   change to the scene loop, the lifecycle or an oracle surface.
 5. Every bug fix adds the check that would catch its return, and the check is
    watched failing first.
 6. Copy that states a mechanic is either enforced in the same change or marked
@@ -465,6 +472,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | Played a session rather than pressed one, on five seeds: three stalls. A scene you had ended could only be ended again, so from the first scene onwards the picker never came back and the clock ran on for fifty days. The re-roll keyword could be paid for with the keyword the failed test had just handed over, which the re-roll's own undo took back — it threw and swallowed the test. And an investigator with every attribute struck was told to rest and given no way to reach a rest scene (ruling A22). New `.playtest/` driver and seeded session runner; `npm run playtest`. | three smoke blocks, each watched failing; five seeded sessions from creation to a closed case | citr-v8 |
 | 2026-09-21 | Control sweep against the sequence of play: the premise folds mid-scene, the Clues tab plays the truth scene instead of pointing at Play, scenes the rules forbid are dimmed with the reason, Careers offers the next mystery, Settings ends on the destructive section, and the tables run in play order. | one smoke block covers all six; two watched failing | citr-v6 |
 | 2026-09-21 | An installed app could get stuck on an old version: nothing checked for updates on resume, the worker script could come from a stale HTTP cache, and a deploy that did not change the worker was invisible. Now checks on boot, on foreground and from a Settings button; `updateViaCache: "none"`; the worker re-checks every shell file and keeps what changed; and a new version waits for the player instead of taking over mid-scene. New `src/updates.js`. | `npm run sw` covers both deploy shapes, the worker-untouched one watched failing | citr-v6 |
 | 2026-09-21 | The scene picker's buttons were inline-sized in a bare div: touching, and one narrower than the others. It is a `choice-list` now, a `.choice` is always full width, and a lone button inside a card spans it. | smoke asserts one width and real gaps between stacked choices; watched failing | citr-v3 |

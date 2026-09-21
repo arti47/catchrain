@@ -10,7 +10,8 @@
     "walk": "node tests/walk-session.mjs",
     "scan": "node tests/scan-dead.mjs",
     "sw": "node tests/sw-update.mjs",
-    "shots": "node tests/probe-shots.mjs"
+    "shots": "node tests/probe-shots.mjs",
+    "playtest": "node .playtest/audit.mjs"
   },
   "devDependencies": {
     "playwright-core": "^1.47.0"

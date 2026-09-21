@@ -155,7 +155,10 @@ export function truthScene(rank) {
 export function endScene() {
   const c = Store.career, m = c.mystery;
   const events = [];
-  if (m.scene) { m.scene.done = true; events.push({ t: "scene_end", type: m.scene.type }); }
+  // The scene is over, so it is cleared rather than left lying about marked
+  // done: a finished-but-not-cleared scene kept the play screen on "This scene
+  // is finished" for good, and the only control on it marked the clock again.
+  if (m.scene) { m.scene.done = true; events.push({ t: "scene_end", type: m.scene.type }); m.scene = null; }
   m.round = null;
   for (const inv of c.investigators) inv.clock += 1;
   const lead = Store.investigator;

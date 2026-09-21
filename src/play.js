@@ -60,7 +60,21 @@ async function chooseAttribute(purpose, who) {
   const inv = who || Store.investigator;
   const usable = D.usableAttributes(inv);
   if (!usable.length) {
-    modal({ title: "Nothing left to try", body: el("p", { text: `Every one of ${inv.name}'s attributes is struck. They need to rest before testing anything else.` }), actions: [{ label: "Back" }] });
+    // Ruling A22: with every attribute struck there is no test left to make,
+    // and the book gives no way out of a scene except a successful test. The
+    // rest it asks for is itself a scene, so without a door here the session
+    // has nowhere to go. They leave empty-handed instead.
+    const m = Store.mystery;
+    const stuck = m && m.scene && !m.scene.done;
+    modal({
+      title: "Nothing left to try",
+      body: el("div", {},
+        el("p", { text: `Every one of ${inv.name}'s attributes is struck. They need to rest before testing anything else.` }),
+        stuck ? el("p", { class: "small muted", text: "There is no test left to make here, so the only thing left is to get out. The scene ends where it stands: no clue, no stage cleared — then rest." }) : null),
+      actions: stuck
+        ? [{ label: "Leave the scene", onClick: () => { setTimeout(leaveSceneSpent, 40); } }, { label: "Back", kind: "ghost" }]
+        : [{ label: "Back" }],
+    });
     return null;
   }
   const struck = D.unstruck(inv).length < 3
@@ -71,6 +85,17 @@ async function chooseAttribute(purpose, who) {
     message: struck || "Which approach fits what your investigator is doing?",
     options: usable.map((a) => ({ value: a.id, label: `${a.name} ${a.value}`, note: a.text })),
   });
+}
+
+/** The way out of a scene nobody can test their way out of (ruling A22). */
+async function leaveSceneSpent() {
+  const m = Store.mystery;
+  if (!m || !m.scene || m.scene.done) return;
+  const type = R.sceneType(m.scene.type).name.toLowerCase();
+  Store.update("leave the scene spent", () => { m.scene.done = true; });
+  Store.journal("scene", `${Store.investigator.name} is spent \u2014 every attribute struck \u2014 and leaves the ${type} scene empty-handed.`);
+  showToast("You are out. Rest before the next one.");
+  await rerender();
 }
 
 // --- Running a test -----------------------------------------------------------
@@ -130,7 +155,7 @@ async function applyTest({ attrId, label, manual, againstThreatId, stageTest, un
   }
   Store.journal("test", `${actor.name} \u2014 ${label}: ${res.dice.join("+")}${res.attrValue ? `+${res.attrValue}` : ""} = ${res.total} (${res.outcome.name}).`, { outcome: res.outcome.id });
   Store.commit();
-  const spare = D.usableKeywords(actor);
+  const spare = spendableOnReroll(actor);
   const onReroll = spare.length && !Store.mystery.ended
     ? () => rerollFlow({ attrId, label, againstThreatId, stageTest, actorId: actor.id, first: { dice: res.dice, total: res.total, outcome: res.outcome, attrValue: res.attrValue } })
     : null;
@@ -139,12 +164,28 @@ async function applyTest({ attrId, label, manual, againstThreatId, stageTest, un
 }
 
 /**
+ * What can pay for a re-roll: only the keywords the actor already held when the
+ * test was made. A failure hands one over, and the re-roll undoes the test,
+ * which takes it straight back — so it was never in hand to spend, and offering
+ * it threw and swallowed the whole test.
+ */
+function spendableOnReroll(actor) {
+  const inHand = D.usableKeywords(actor);
+  const before = Store.peekUndo();
+  const career = before && before.activeId ? before.careers[before.activeId] : null;
+  const was = career && (career.investigators || []).find((i) => i.id === actor.id);
+  if (!was) return inHand;
+  const had = new Set((was.keywords || []).filter((k) => !k.struck).map((k) => k.id));
+  return inHand.filter((k) => had.has(k.id));
+}
+
+/**
  * The re-roll keyword: the test un-happens, the keyword is struck, the dice are
  * thrown again, and whichever of the two outcomes the player keeps is applied.
  */
 async function rerollFlow({ attrId, label, againstThreatId, stageTest, first, actorId }) {
   const actor = (actorId && Store.investigatorById(actorId)) || Store.investigator;
-  const spare = D.usableKeywords(actor);
+  const spare = spendableOnReroll(actor);
   if (!spare.length) { showToast("No keyword left to spend."); return; }
   const id = await chooseModal({
     title: `Spend which of ${actor.name}'s keywords?`,
@@ -155,6 +196,7 @@ async function rerollFlow({ attrId, label, againstThreatId, stageTest, first, ac
 
   Store.undo();
   const keyword = (Store.investigatorById(actor.id) || Store.investigator).keywords.find((k) => k.id === id);
+  if (!keyword) { showToast("That keyword is no longer in hand."); await rerender(); return; }
   let manual = null;
   if (Settings.get("manualDice")) {
     manual = await manualDicePair(`${label} (re-roll)`);
