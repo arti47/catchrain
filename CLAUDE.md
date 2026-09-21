@@ -310,7 +310,7 @@ this whole document exists to prevent.
 | Consequences table, solo | Lookup | `CONSEQUENCES_SOLO` | `roller.applyConsequence` | Result dialog | `consequence boundaries, solo and co-op` |
 | Consequences table, co-op | Exception | `CONSEQUENCES_MULTI` | `roller.applyConsequence` | Settings toggle | `co-op consequences raise danger by 3…` |
 | A consequence of 9+ ends the mystery | Threshold | `CONSEQUENCES_SOLO` | `roller.applyConsequence` | Play screen end card | `a 9+ consequence ends the game` |
-| An empty clue deck ends the mystery | Threshold | — | `roller.gainClue`, `applyConsequence` | Clues screen, header | `an empty clue deck ends the game` |
+| An empty clue deck ends the mystery, whichever path emptied it | Threshold | — | `roller.checkDeckEmpty` | Clues screen, header | `an empty clue deck ends the game`, `emptying the clue deck on a rest ends the mystery too`, `searching the deck with a keyword can also empty it` |
 | Fatigue full: strike the highest attribute, carry the excess | Conversion | `FATIGUE_BOXES` | `roller.markFatigue` | Sheet, header | `fatigue overflow strikes the highest attribute…` |
 | …and inside a scene, add a threat and skip to escape | Compulsion | — | `roller.markFatigue` → `lifecycle.completeStage` | Stage rail | `the fatigue strike forces the escape stage…` |
 | A struck attribute cannot be used | Gate | — | `play.chooseAttribute` | Attribute dialog refusal | smoke: attribute dialog omits struck attributes |
@@ -387,6 +387,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | Engine read-through: only some of the paths that remove a clue card noticed the deck running out. One `checkDeckEmpty` now guards them all. | 47 unit invariants; guard watched failing | citr-v1 |
 | 2026-09-21 | The content filter leaked about one roll in forty; a blocked row now redirects the roll and says so. Added a service-worker update-path test (`npm run sw`). | 45 unit invariants; interaction, scan, walk, probes and the update path clean | citr-v1 |
 | 2026-09-21 | Optional-rules read-through: drawing a joker threw and ignored the player's choice (the picker is async and was not awaited); manual dice now cover consequences, threats and rest; two career benefits ask what the book asks. | 44 unit invariants + a joker fixture driven through the UI; both guards watched failing | citr-v1 |
 | 2026-09-21 | Ability sweep: the re-roll keyword was prose, not an engine path. It now undoes the test, re-rolls, and applies whichever outcome the player keeps. Journal and roll log save themselves. | 43 unit invariants; smoke asserts the offer; interaction, scan and walk clean | citr-v1 |

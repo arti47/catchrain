@@ -119,6 +119,16 @@ export function clearJustIntroduced() {
   for (const t of m.threats) t.justIntroduced = false;
 }
 
+/** The clue deck running dry ends the mystery, whichever path emptied it. */
+export function checkDeckEmpty(events = []) {
+  const m = Store.career.mystery;
+  if (!m || m.ended || (m.clueDeck || []).length > 0) return false;
+  m.ended = true;
+  m.endTrigger = "deck_empty";
+  events.push({ t: "game_over", trigger: "deck_empty" });
+  return true;
+}
+
 // --- Consequences -------------------------------------------------------------
 export async function rollConsequence(events = [], bonus = 0) {
   const die = await rollD6("Consequences");
@@ -156,10 +166,7 @@ export async function applyConsequence(row, events) {
     m.endTrigger = "consequence";
     events.push({ t: "game_over", trigger: "consequence" });
   }
-  if ((m.clueDeck || []).length === 0 && !m.ended) {
-    m.ended = true; m.endTrigger = "deck_empty";
-    events.push({ t: "game_over", trigger: "deck_empty" });
-  }
+  checkDeckEmpty(events);
   return events;
 }
 
@@ -175,10 +182,7 @@ export async function gainClue(reason, events = []) {
     const text = await prompts.describeClue({ set: res.set, card: res.card, oracle: suggestion, clue: clueWord.value, isNew: res.set.cards.length === 1 });
     if (text) { res.set.entries.push(text); res.set.description = res.set.entries.join(" — "); }
   }
-  if ((m.clueDeck || []).length === 0 && !m.ended) {
-    m.ended = true; m.endTrigger = "deck_empty";
-    events.push({ t: "game_over", trigger: "deck_empty" });
-  }
+  checkDeckEmpty(events);
   return { events, ...res };
 }
 
@@ -288,6 +292,7 @@ export async function useKeyword(keyword, action, payload = {}) {
     events.push({ t: "strengthen_clue", card: res.card, set: res.set, via: "keyword" });
     const text = await prompts.describeClue({ set: res.set, card: res.card, oracle: R.subjectWords(R.rollSubject(true)).join(" · "), clue: R.rollGenre(m.genre, "clues").value, isNew: false });
     if (text) { res.set.entries.push(text); res.set.description = res.set.entries.join(" — "); }
+    checkDeckEmpty(events); // searching the deck for a card can empty it
   } else if (action === "reroll") {
     events.push({ t: "reroll", via: "keyword" });
   }

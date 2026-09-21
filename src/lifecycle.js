@@ -89,6 +89,7 @@ export async function restScene(prompts) {
   if (sig) events.push({ t: "signature_cleared", count: sig });
   const res = await discardClue(m, (prompts && prompts.pickFalseLead) || Roller.getPrompts().pickFalseLead);
   events.push(...res.events);
+  Roller.checkDeckEmpty(events);
   Store.log({ kind: "rest", dice: [die], total: die });
   return events;
 }
@@ -104,6 +105,7 @@ export async function obligationScene(obligationId) {
   events.push({ t: "random_event", words: R.subjectWords(subject) });
   const res = await discardClue(m, Roller.getPrompts().pickFalseLead);
   events.push(...res.events);
+  Roller.checkDeckEmpty(events);
   return { events, words: R.subjectWords(subject), obligation: ob };
 }
 

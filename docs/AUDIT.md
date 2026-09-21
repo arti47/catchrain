@@ -179,6 +179,21 @@ the app installed. `npm run sw` copies the project, installs the worker, ships
 a change, reloads, and asserts both the update prompt and that accepting it
 activates the new cache.
 
+## Cycle 7 — engine read-through
+
+### F18 — Only some paths noticed the clue deck running out
+*Rule:* "The end of the game is triggered when… the clue deck is empty" (Ch.2).
+*Target:* `roller.checkDeckEmpty`, called from every path that removes a card.
+*Fix:* one function, called after consequence discards, clue draws, the rest and
+obligation discards, and the keyword search that pulls a card out of the deck.
+*Why it mattered:* a rest that emptied the deck left the mystery running until
+the next draw, and the keyword search could empty it with nothing watching at
+all. One of the game's four end conditions fired late or not at all, depending
+on which door you left by.
+*Guards:* `emptying the clue deck on a rest ends the mystery too` and
+`searching the deck with a keyword can also empty it` — the first watched
+failing.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -203,6 +218,7 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - The content filter never shows a blocked row and never collapses the table.
 - A deploy reaches an already-installed app, and accepting the prompt activates
   the new version.
+- Every path that removes a clue card checks the deck-empty end condition.
 - A whole session runs end to end: creation → scenes → day boundaries → the
   solve → closing the case → the career history picking it up.
 - No export unread, no import unused (dead-data scan clean).

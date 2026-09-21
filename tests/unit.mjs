@@ -376,6 +376,24 @@ await test("an empty clue deck ends the game", async () => {
   assert(c.mystery.ended && c.mystery.endTrigger === "deck_empty");
 });
 
+await test("emptying the clue deck on a rest ends the mystery too", async () => {
+  const c = seed(freshMystery({ clueDeck: [card("7", "H")] }));
+  Store.begin("t");
+  await Life.restScene();
+  Store.commit();
+  assert(c.mystery.ended && c.mystery.endTrigger === "deck_empty", "the end trigger fired on the discard");
+});
+
+await test("searching the deck with a keyword can also empty it", async () => {
+  const c = seed(freshMystery({ clueDeck: [card("7", "D")] }));
+  Store.begin("t");
+  c.mystery.clueSets["7"] = { rank: "7", cards: [card("7", "H")], entries: [], description: "", truth: false, falseLead: false, truthCards: [] };
+  await Roller.useKeyword(c.investigator.keywords[0], "strengthen", { rank: "7" });
+  Store.commit();
+  eq(c.mystery.clueSets["7"].cards.length, 2, "the searched card joined the set");
+  assert(c.mystery.ended && c.mystery.endTrigger === "deck_empty", "an emptied deck still ends the mystery");
+});
+
 await test("a 9+ consequence ends the game", async () => {
   const c = seed();
   Store.begin("t");
