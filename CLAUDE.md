@@ -354,7 +354,7 @@ this whole document exists to prevent.
 | Lingering questions seed the next mystery | Permission | — | `solve.renderOutcome`, `wizard.renderMysteryWizard` | Solve, mystery wizard | guidance only |
 | Mix genre tables freely | Permission | `GENRES` | `rules.rollGenre` | Tables tab, both wizards | guidance only |
 | Write your own clue descriptions | Permission | — | `prompts.describeClue` | Clue dialog, clues screen | guidance only |
-| Content filter (house aid) | Gate | `Settings.blocked` | `rules.rollTable` | Settings | guidance only |
+| Content filter (house aid) | Gate | `Settings.blocked` | `rules.rollTable` | Settings, and a note on any redirected roll | `the content filter skips the rows a player blocked` |
 
 ## 7. Roadmap
 
@@ -387,6 +387,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | The content filter leaked about one roll in forty; a blocked row now redirects the roll and says so. Added a service-worker update-path test (`npm run sw`). | 45 unit invariants; interaction, scan, walk, probes and the update path clean | citr-v1 |
 | 2026-09-21 | Optional-rules read-through: drawing a joker threw and ignored the player's choice (the picker is async and was not awaited); manual dice now cover consequences, threats and rest; two career benefits ask what the book asks. | 44 unit invariants + a joker fixture driven through the UI; both guards watched failing | citr-v1 |
 | 2026-09-21 | Ability sweep: the re-roll keyword was prose, not an engine path. It now undoes the test, re-rolls, and applies whichever outcome the player keeps. Journal and roll log save themselves. | 43 unit invariants; smoke asserts the offer; interaction, scan and walk clean | citr-v1 |
 | 2026-09-21 | Flow walk: journal and roll-log entries written outside a transaction never reached storage. Both records now save themselves. `npm run walk` added. | 41 unit invariants, guard watched failing; flow walk clean | citr-v1 |
