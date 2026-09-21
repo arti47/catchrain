@@ -75,7 +75,8 @@ async function reveal() {
   if (Settings.get("career")) {
     const gained = Math.max(0, m.correct + diff.xpBonus);
     m.xpGained = gained;
-    c.xp += gained;
+    // Everyone who worked the case earns it; in solo play that is one person.
+    for (const inv of c.investigators) inv.xp += gained;
   }
   Store.journal("solve", `Resolved the mystery: ${m.correct} of 3 guesses correct.`);
   Store.commit();

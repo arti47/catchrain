@@ -75,7 +75,7 @@ export async function completeStage() {
 
 // --- Other scene types --------------------------------------------------------
 export async function restScene(prompts) {
-  const c = Store.career, inv = c.investigator, m = c.mystery;
+  const c = Store.career, inv = Store.investigator, m = c.mystery;
   const events = [];
   const die = await Roller.rollD6("Rest");
   const before = inv.fatigue;
@@ -95,7 +95,7 @@ export async function restScene(prompts) {
 }
 
 export async function obligationScene(obligationId) {
-  const c = Store.career, inv = c.investigator, m = c.mystery;
+  const c = Store.career, inv = Store.investigator, m = c.mystery;
   const events = [];
   const ob = inv.obligations.find((o) => o.id === obligationId);
   if (!ob || ob.struck) return null;
@@ -120,7 +120,7 @@ export function truthScene(rank) {
 // --- Clock and day ------------------------------------------------------------
 /** End of any scene: mark the clock, and run the day boundary when it fills. */
 export function endScene() {
-  const c = Store.career, inv = c.investigator, m = c.mystery;
+  const c = Store.career, inv = Store.investigator, m = c.mystery;
   const events = [];
   if (m.scene) { m.scene.done = true; events.push({ t: "scene_end", type: m.scene.type }); }
   inv.clock += 1;
@@ -135,7 +135,7 @@ export function endScene() {
 
 /** The day boundary bundle: obligations bite, the clock clears, a random event happens. */
 export function dayBoundary() {
-  const c = Store.career, inv = c.investigator;
+  const c = Store.career, inv = Store.investigator;
   const events = [];
   const open = D.openObligations(inv);
   events.push({ t: "day_end", day: inv.day, neglected: open.map((o) => o.text) });
@@ -143,7 +143,7 @@ export function dayBoundary() {
 }
 
 export async function applyDayBoundary() {
-  const c = Store.career, inv = c.investigator;
+  const c = Store.career, inv = Store.investigator;
   const events = [];
   const open = D.openObligations(inv);
   if (open.length) await Roller.markFatigue(open.length, events);

@@ -43,7 +43,7 @@ export async function rollD6(label) {
 // --- Fatigue ------------------------------------------------------------------
 /** Mark fatigue one box at a time; a full track strikes an attribute and carries the excess. */
 export async function markFatigue(n, events = []) {
-  const c = Store.career, inv = c.investigator, m = c.mystery;
+  const c = Store.career, inv = Store.investigator, m = c.mystery;
   for (let i = 0; i < n; i++) {
     inv.fatigue += 1;
     if (inv.fatigue >= FATIGUE_BOXES) {
@@ -193,14 +193,14 @@ export async function gainKeyword(events = []) {
   const words = R.rollSubject(false);
   const text = await prompts.describeKeyword({ suggestion: k.value, oracle: R.subjectWords(words).join(" · ") });
   const value = (text || k.value).trim();
-  c.investigator.keywords.push({ id: uid(), text: value, signature: false, struck: false });
+  Store.investigator.keywords.push({ id: uid(), text: value, signature: false, struck: false });
   events.push({ t: "keyword_gained", text: value });
   return value;
 }
 
 /** Dice and outcome only — no effects. The re-roll keyword compares two of these. */
 export function previewTest(attrId, manualDice) {
-  const inv = Store.career.investigator;
+  const inv = Store.investigator;
   const dice = manualDice && manualDice.length === 2 ? manualDice.slice() : roll2d6();
   const attrValue = attrId ? D.attrValue(inv, attrId) : 0;
   const total = dice[0] + dice[1] + attrValue;
@@ -214,7 +214,7 @@ export function previewTest(attrId, manualDice) {
  * then a doubles random event, then the sub-danger threat.
  */
 export async function attributeTest(opts) {
-  const c = Store.career, inv = c.investigator, m = c.mystery;
+  const c = Store.career, inv = Store.investigator, m = c.mystery;
   const events = [];
   const dice = opts.manualDice && opts.manualDice.length === 2 ? opts.manualDice.slice() : roll2d6();
   const attrValue = opts.attrId ? D.attrValue(inv, opts.attrId) : 0;

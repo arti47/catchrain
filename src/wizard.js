@@ -104,20 +104,28 @@ function finishInvestigator() {
   if (!draft.name) { showToast("Give them a name."); return; }
   let career = Store.career;
   if (!career) career = Store.newCareer(draft.name);
+  const made = D.normalizeInvestigator({
+    name: draft.name, trait: draft.trait, notes: draft.notes,
+    attributes: { ...draft.attributes },
+    obligations: [{ id: uid(), text: draft.obligation, struck: false }],
+    keywords: [{ id: uid(), text: draft.signature, signature: true, struck: false }],
+  });
+  const joining = !!(Store.investigator && Store.investigator.name);
   Store.update("create investigator", () => {
     const c = Store.career;
-    c.name = draft.name;
     c.defaultGenre = draft.genre;
-    c.investigator = D.normalizeInvestigator({
-      name: draft.name, trait: draft.trait, notes: draft.notes,
-      attributes: { ...draft.attributes },
-      obligations: [{ id: uid(), text: draft.obligation, struck: false }],
-      keywords: [{ id: uid(), text: draft.signature, signature: true, struck: false }],
-    });
+    if (joining) {
+      // A second investigator joins the party (Ch.3); the first names the career.
+      Store.addInvestigator(made);
+    } else {
+      c.name = draft.name;
+      made.id = Store.investigator.id; // keep the slot the career already points at
+      c.investigators[c.investigators.findIndex((i) => i.id === made.id)] = made;
+    }
   });
-  Store.journal("create", `${draft.name} takes the case.`);
+  Store.journal("create", joining ? `${draft.name} joins the investigation.` : `${draft.name} takes the case.`);
   draft = null;
-  go("mystery");
+  go(Store.mystery ? "home" : "mystery");
 }
 
 // --- The mystery wizard -------------------------------------------------------
@@ -130,7 +138,7 @@ const newMysteryDraft = () => {
 export function renderMysteryWizard(host) {
   if (!mDraft) mDraft = newMysteryDraft();
   const c = Store.career;
-  if (!c || !c.investigator.name) { go("wizard"); return {}; }
+  if (!c || !Store.investigator.name) { go("wizard"); return {}; }
 
   add(host, el("h1", { text: "Set up a mystery" }),
     explain("A problem is a place, a thing, and something bad that happened to it. Roll all three, give your investigator a reason to care, and the decks are built for you."));

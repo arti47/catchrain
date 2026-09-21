@@ -90,13 +90,17 @@ function seed(mystery) {
   Store.init();
   const c = Store.newCareer("Test");
   Store.update("seed", () => {
-    c.investigator = derived.normalizeInvestigator({
-      name: "Amine", attributes: { power: 2, insight: 1, method: 0 },
+    c.investigators = [derived.normalizeInvestigator({
+      id: "inv1", name: "Amine", attributes: { power: 2, insight: 1, method: 0 },
       obligations: [{ id: "o1", text: "Run the lake", struck: false }],
       keywords: [{ id: "k1", text: "Smooth talker", signature: true, struck: false }],
-    });
+    })];
+    c.activeInvestigatorId = "inv1";
     c.mystery = derived.normalizeMystery(mystery || freshMystery());
   });
+  // A live, non-enumerable alias so assertions can say c.investigator without
+  // the property ever reaching a snapshot and migrating back into the party.
+  Object.defineProperty(c, "investigator", { get: () => Store.investigator, configurable: true });
   return c;
 }
 const card = (rank, suit = "S") => ({ id: core.uid(), rank, suit });
@@ -499,6 +503,37 @@ await test("the content filter skips the rows a player blocked", () => {
   rules.setBlocked([]);
   for (const v of seen) assert(!D2.slice(0, 30).includes(v), `rolled a filtered row: ${v}`);
   eq(seen.size, 6, "every unfiltered row is still reachable");
+});
+
+await test("a pre-party save migrates into a party of one, with its experience", () => {
+  globalThis.__resetStorage();
+  localStorage.setItem("citr:v1", JSON.stringify({
+    activeId: "a",
+    careers: { a: { id: "a", name: "Old", xp: 5, investigator: { name: "Yoko", attributes: { power: 2, insight: 1, method: 0 } }, mystery: { danger: 2 } } },
+  }));
+  Store.init();
+  const c = Store.career;
+  eq(c.investigators.length, 1, "one investigator in the party");
+  eq(c.investigators[0].name, "Yoko");
+  eq(c.investigators[0].xp, 5, "career experience became theirs");
+  assert(c.xp === undefined, "and is not counted twice");
+  assert(c.investigator === undefined, "the old single slot is gone");
+  eq(Store.investigator.name, "Yoko", "and it is the active one");
+});
+
+await test("a party can be joined, switched and thinned out", () => {
+  const c = seed();
+  const second = derived.normalizeInvestigator({ id: "inv2", name: "Percy", attributes: { power: 0, insight: 2, method: 1 } });
+  Store.update("join", () => Store.addInvestigator(second));
+  eq(Store.party.length, 2);
+  eq(Store.investigator.name, "Percy", "whoever joins takes the spotlight");
+  Store.setActive("inv1");
+  eq(Store.investigator.name, "Amine");
+  eq(Store.investigatorById("inv2").name, "Percy");
+  Store.removeInvestigator("inv2");
+  eq(Store.party.length, 1);
+  assert(!Store.removeInvestigator("inv1"), "the last investigator cannot leave");
+  void c;
 });
 
 await test("old saves normalize without crashing", () => {

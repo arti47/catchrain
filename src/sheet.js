@@ -99,13 +99,13 @@ export async function useKeywordFlow(keyword) {
 
 export function renderSheet(host) {
   const c = Store.career;
-  if (!c || !c.investigator.name) {
+  if (!c || !Store.investigator.name) {
     add(host, el("h1", { text: "No investigator yet" }),
       explain("This is your investigator: three attributes, a fatigue track, the keywords you pick up in play, and the obligations that pull at you between scenes. Make one and the rest of the app comes alive."));
     add(host, el("div", { class: "empty" }, el("p", { text: "Every mystery starts with someone who has a reason to look." }), btn("Create an investigator", () => go("wizard"), "primary")));
     return {};
   }
-  const inv = c.investigator, m = c.mystery;
+  const inv = Store.investigator, m = c.mystery;
 
   add(host, el("h1", { text: inv.name }),
     explain("Your investigator's sheet. Attributes feed every test; fatigue rises until the track fills and strikes your best attribute; keywords are one-use favours you can spend at any moment. Obligations are struck when you attend them and bite at the end of the day when you do not."));
@@ -146,7 +146,7 @@ export function renderSheet(host) {
     defRow("Trait", el("span", { text: inv.trait || "—" })),
     defRow("Notes", el("span", { text: inv.notes || "—" })),
     m ? defRow("Motivation", el("span", { text: m.motivation || "—" })) : null,
-    Settings.get("career") ? row("Experience", `${c.xp} XP`) : null,
+    Settings.get("career") ? row("Experience", `${inv.xp} XP`) : null,
     el("div", { class: "btn-row" },
       btn("Edit trait", async () => {
         const t = await promptModal({ title: "Trait", value: inv.trait });

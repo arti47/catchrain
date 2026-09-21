@@ -19,12 +19,12 @@ export function renderHome(host) {
   add(host, el("h1", { text: "The case" }),
     explain("Everything in one place: who is investigating, what the problem is, and what the rules say to do next. The bar at the bottom always offers that next step."));
 
-  if (!c || !c.investigator.name) {
+  if (!c || !Store.investigator.name) {
     add(host, emptyState("Nobody is looking into anything yet.", "Create an investigator", () => go("wizard")));
     add(host, section("First time?", el("p", { class: "small muted", text: "The tutorial walks a whole first session, step by step." }), btn("Open the tutorial", () => go("tutorial"))));
     return { action: null };
   }
-  const inv = c.investigator, m = c.mystery;
+  const inv = Store.investigator, m = c.mystery;
 
   add(host, section("Investigator",
     row("Name", inv.name),
@@ -300,24 +300,25 @@ export function renderCareers(host) {
   const list = el("div", {});
   for (const car of Store.careers()) {
     add(list, el("div", { class: "card" },
-      row("Investigator", car.investigator.name || "unnamed"),
+      row(car.investigators.length > 1 ? "Party" : "Investigator", car.investigators.map((i) => i.name || "unnamed").join(", ")),
       row("Cases closed", String(car.history.length)),
-      row("Experience", `${car.xp} XP`),
+      row("Experience", car.investigators.map((i) => `${i.name || "unnamed"} ${i.xp} XP`).join(" · ")),
       el("div", { class: "btn-row" },
         car.id === (c && c.id) ? pill("Current", "ok") : btn("Switch to this", () => { resetDrafts(); Store.selectCareer(car.id); go("home"); }),
         btn("Delete", async () => {
-          const ok = await confirmModal({ title: "Delete this career?", message: `This erases ${car.investigator.name || "this investigator"}, their journal, their decks and their history. It cannot be undone.`, confirmLabel: "Delete", danger: true });
+          const ok = await confirmModal({ title: "Delete this career?", message: `This erases ${car.investigators.map((i) => i.name || "this investigator").join(", ")}, the journal, the decks and the history. It cannot be undone.`, confirmLabel: "Delete", danger: true });
           if (ok) { resetDrafts(); Store.deleteCareer(car.id); rerender(); }
         }, "danger"))));
   }
   add(host, section("Your investigators", Store.careers().length ? list : el("p", { class: "muted small", text: "No careers yet." })));
 
   if (c && Settings.get("career")) {
-    const spendable = DATA.XP_BENEFITS.filter((b) => b.cost <= c.xp);
-    add(host, section(`Experience — ${c.xp} XP`,
+    const who = Store.investigator;
+    const spendable = DATA.XP_BENEFITS.filter((b) => b.cost <= who.xp);
+    add(host, section(`Experience — ${who.name || "your investigator"}, ${who.xp} XP`,
       el("p", { class: "small muted", text: "Spend between mysteries. Two of these hand you a new obligation as well." }),
       ...DATA.XP_BENEFITS.map((b) => row(`${b.cost} XP · ${b.name}`,
-        btn("Spend", () => spendXP(b), b.cost <= c.xp ? "primary" : "ghost", { disabled: b.cost > c.xp || !!(Store.mystery && !Store.mystery.solved) }))),
+        btn("Spend", () => spendXP(b), b.cost <= who.xp ? "primary" : "ghost", { disabled: b.cost > who.xp || !!(Store.mystery && !Store.mystery.solved) }))),
       Store.mystery && !Store.mystery.solved ? el("p", { class: "small", text: "Experience is spent between mysteries, not during one." }) : null,
       spendable.length === 0 ? el("p", { class: "small muted", text: "Nothing affordable yet." }) : null));
     add(host, section("Take on more",
@@ -328,19 +329,19 @@ export function renderCareers(host) {
           const text = await promptModal({ title: "A new obligation", value: R.rollGenre(c.defaultGenre || "noir", "obligations").value });
           if (!text) return;
           Store.update("take an obligation", () => {
-            c.investigator.obligations.push({ id: uid(), text, struck: false });
-            c.xp += DATA.NEW_OBLIGATION_XP;
+            Store.investigator.obligations.push({ id: uid(), text, struck: false });
+            Store.investigator.xp += DATA.NEW_OBLIGATION_XP;
           });
           showToast(`Obligation taken. +${DATA.NEW_OBLIGATION_XP} XP.`);
           rerender();
         }),
         btn("Replace one", async () => {
-          const id = await chooseModal({ title: "Replace which obligation?", options: c.investigator.obligations.map((o) => ({ value: o.id, label: o.text })) });
+          const id = await chooseModal({ title: "Replace which obligation?", options: Store.investigator.obligations.map((o) => ({ value: o.id, label: o.text })) });
           if (!id) return;
           const text = await promptModal({ title: "Its replacement", message: "No experience for this one: it is a swap, not a new burden.", value: R.rollGenre(c.defaultGenre || "noir", "obligations").value });
           if (!text) return;
           Store.update("replace an obligation", () => {
-            const ob = c.investigator.obligations.find((o) => o.id === id);
+            const ob = Store.investigator.obligations.find((o) => o.id === id);
             if (ob) { ob.text = text; ob.struck = false; }
           });
           rerender();
@@ -354,9 +355,10 @@ export function renderCareers(host) {
 
 async function spendXP(benefit) {
   const c = Store.career;
-  if (c.xp < benefit.cost) return;
+  const who = Store.investigator;
+  if (who.xp < benefit.cost) return;
   if (Store.mystery && !Store.mystery.solved) { showToast("Between mysteries only."); return; }
-  const inv = c.investigator;
+  const inv = Store.investigator;
   let extra = null;
   if (benefit.id === "attribute") {
     extra = await chooseModal({ title: "Raise which attribute?", options: DATA.ATTRIBUTES.filter((a) => D.attrValue(inv, a.id) < DATA.ATTRIBUTE_MAX).map((a) => ({ value: a.id, label: `${a.name} ${D.attrValue(inv, a.id)} → ${D.attrValue(inv, a.id) + 1}` })) });
@@ -387,7 +389,7 @@ async function spendXP(benefit) {
     if (!newObligation) return;
   }
   Store.update("spend experience", () => {
-    c.xp -= benefit.cost;
+    who.xp -= benefit.cost;
     if (benefit.id === "danger") { if (c.carryDanger) c.carryDanger = Math.max(0, c.carryDanger - 1); }
     if (benefit.id === "rival") { const r = c.rivals.find((x) => x.id === extra); if (r) r.level = Math.max(1, r.level - 1); }
     if (benefit.id === "drop_obligation") inv.obligations = inv.obligations.filter((o) => o.id !== extra);

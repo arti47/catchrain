@@ -24,7 +24,40 @@ export const Store = {
   init() { state = read(); return state; },
   get state() { return state || (state = read()); },
   get career() { const s = Store.state; return s.activeId ? s.careers[s.activeId] : null; },
-  get investigator() { return Store.career ? Store.career.investigator : null; },
+  /** The investigator whose turn it is; in solo play there is only ever one. */
+  get investigator() {
+    const c = Store.career;
+    if (!c) return null;
+    return c.investigators.find((i) => i.id === c.activeInvestigatorId) || c.investigators[0] || null;
+  },
+  get party() { return Store.career ? Store.career.investigators : []; },
+  investigatorById(id) {
+    const c = Store.career;
+    if (!c) return null;
+    return c.investigators.find((i) => i.id === id) || null;
+  },
+  setActive(id) {
+    const c = Store.career;
+    if (!c || !c.investigators.some((i) => i.id === id)) return null;
+    Store.update("switch investigator", () => { c.activeInvestigatorId = id; });
+    return id;
+  },
+  addInvestigator(inv) {
+    const c = Store.career;
+    if (!c) return null;
+    c.investigators.push(inv);
+    c.activeInvestigatorId = inv.id;
+    return inv;
+  },
+  removeInvestigator(id) {
+    const c = Store.career;
+    if (!c || c.investigators.length < 2) return false;
+    Store.update("remove investigator", () => {
+      c.investigators = c.investigators.filter((i) => i.id !== id);
+      if (c.activeInvestigatorId === id) c.activeInvestigatorId = c.investigators[0].id;
+    });
+    return true;
+  },
   get mystery() { return Store.career ? Store.career.mystery : null; },
   careers() { return Object.values(Store.state.careers).sort((a, b) => b.createdAt - a.createdAt); },
 
@@ -79,7 +112,7 @@ export const Store = {
   journal(kind, text, meta) {
     const c = Store.career;
     if (!c) return;
-    c.journal.push({ id: uid(), ts: Date.now(), kind, text, meta: meta || null, day: c.investigator.day, scene: c.mystery && c.mystery.scene ? c.mystery.scene.type : null });
+    c.journal.push({ id: uid(), ts: Date.now(), kind, text, meta: meta || null, day: (Store.investigator || {}).day || 1, scene: c.mystery && c.mystery.scene ? c.mystery.scene.type : null });
     if (c.journal.length > JOURNAL_CAP) c.journal.splice(0, c.journal.length - JOURNAL_CAP);
     write();
   },

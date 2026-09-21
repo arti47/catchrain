@@ -283,7 +283,7 @@ async function endSceneFlow() {
 // --- Screen -------------------------------------------------------------------
 export function renderPlay(host) {
   const c = Store.career;
-  if (!c || !c.investigator.name) {
+  if (!c || !Store.investigator.name) {
     add(host, el("h1", { text: "Play" }), explain("This is where a mystery is played out, one scene at a time. You need an investigator first."));
     add(host, emptyState("No investigator yet.", "Create an investigator", () => go("wizard")));
     return {};

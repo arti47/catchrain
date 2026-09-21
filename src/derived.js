@@ -1,7 +1,7 @@
 // Pure derivations over investigator + mystery state, plus normalization/migration.
 
 import { FATIGUE_BOXES, CLOCK_SEGMENTS, ATTRIBUTES, ATTRIBUTE_MAX } from "../data.js";
-import { APP } from "./core.js";
+import { APP, uid } from "./core.js";
 
 export const attrValue = (inv, id) => (inv.attributes || {})[id] ?? 0;
 export const isStruck = (inv, id) => !!(inv.struck || {})[id];
@@ -50,18 +50,33 @@ export function normalizeCareer(c) {
   c.id = c.id || "career";
   c.name = c.name || "Untitled career";
   c.createdAt = c.createdAt || Date.now();
-  c.xp = c.xp || 0;
   c.rivals = Array.isArray(c.rivals) ? c.rivals : [];
   c.history = Array.isArray(c.history) ? c.history : [];
   c.questions = Array.isArray(c.questions) ? c.questions : [];
   c.journal = Array.isArray(c.journal) ? c.journal : [];
   c.rollLog = Array.isArray(c.rollLog) ? c.rollLog : [];
-  c.investigator = normalizeInvestigator(c.investigator || {});
+
+  // A career holds a party: one investigator solo, several in co-op (Ch.3).
+  // Saves from before the party existed carry a single `investigator`, and
+  // experience that belonged to the career rather than to the person.
+  if (!Array.isArray(c.investigators)) c.investigators = c.investigator ? [c.investigator] : [];
+  c.investigators = c.investigators.map(normalizeInvestigator);
+  if (!c.investigators.length) c.investigators = [normalizeInvestigator({})];
+  if (typeof c.xp === "number") {
+    c.investigators[0].xp = (c.investigators[0].xp || 0) + c.xp;
+    delete c.xp; // one counter, in one place
+  }
+  delete c.investigator;
+  if (!c.investigators.some((i) => i.id === c.activeInvestigatorId)) {
+    c.activeInvestigatorId = c.investigators[0].id;
+  }
   if (c.mystery) normalizeMystery(c.mystery);
   return c;
 }
 
 export function normalizeInvestigator(inv) {
+  inv.id = inv.id || uid();
+  inv.xp = inv.xp || 0;
   inv.name = inv.name || "";
   inv.trait = inv.trait || "";
   inv.notes = inv.notes || "";
