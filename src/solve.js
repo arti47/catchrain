@@ -6,8 +6,8 @@ import { DECK, SOLVE_QUESTIONS } from "../data.js";
 import * as R from "./rules.js";
 import { Store } from "./store.js";
 import { Settings } from "./settings.js";
-import { scoreGuesses, cardName, isRed } from "./deck.js";
-import { section, row, btn, pill, explain, promptModal, confirmModal, actionBar, emptyState, showToast } from "./ui.js";
+import { scoreGuesses } from "./deck.js";
+import { section, row, btn, pill, explain, promptModal, confirmModal, actionBar, emptyState, showToast, cardFace } from "./ui.js";
 import { go } from "./router.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());
@@ -29,10 +29,10 @@ export function renderSolve(host) {
     explain("Three face cards were set aside before play and never seen. Guess them one by one: every correct guess earns one answer about what really happened. Cards you revealed in truth scenes are already ruled out. With a party, the guesses and the answers belong to all of you."));
 
   add(host, section("What you know",
-    el("p", { text: R.problemText(m) }),
+    el("p", { class: "premise", text: R.problemText(m) }),
     row("Face cards ruled out", `${m.truthRevealed.length}`),
     row("Still unseen", `${m.truthDeck.length + DECK.setAside}`),
-    m.truthRevealed.length ? el("div", { class: "hand" }, ...m.truthRevealed.map((x) => el("span", { class: `pcard ${isRed(x) ? "red" : ""}`, text: cardName(x) }))) : null));
+    m.truthRevealed.length ? el("div", { class: "hand" }, ...m.truthRevealed.map(cardFace)) : null));
 
   const ruledOut = new Set(m.truthRevealed.map((x) => x.rank + x.suit));
   const guessGrid = el("div", {});
@@ -89,7 +89,7 @@ function renderOutcome(host, c, m) {
     explain("Each correct guess buys one answer, taken in order. Write the answers as true, then either start the next mystery or leave the case where it is."));
 
   add(host, section("The cards",
-    el("div", { class: "hand" }, ...m.setAside.map((x) => el("span", { class: `pcard ${isRed(x) ? "red" : ""}`, text: cardName(x) }))),
+    el("div", { class: "hand" }, ...m.setAside.map(cardFace)),
     ...(m.results || []).map((r, i) => row(`Guess ${i + 1}: ${r.guess.rank}${r.guess.suit}`,
       el("span", {}, r.correct ? pill("Correct", "ok") : pill(r.reason === "red herring" ? "Red herring" : "Wrong", "loss")))),
     row("Correct", `${correct} of 3`),

@@ -18,7 +18,7 @@ so no table was de-interleaved and nothing is blocked.
 | Platforms | One installable PWA: phone first, browser and desktop the same build |
 | Core job | Investigator + mystery creation, the scene loop, the card engine, the solve |
 | Backend | None. Everything is local JSON in `localStorage`, exportable in one tap |
-| Theme | Wet asphalt and ink, one amber lamp for danger, cold blue for truths; light + dark, system default |
+| Theme | Warm paper by day, wet asphalt by night. Serif for anything the player reads as fiction, sans for the machinery; amber = danger, blue = truth, rust = loss, green = settled. Light + dark, system default |
 
 ### 1.1 Product decisions
 
@@ -206,6 +206,15 @@ re-renders the screen you are on; the router restores the scroll position when
 the route has not changed, so a roll never throws you back to the top. A screen
 that got shorter clamps to its new bottom.
 
+**The look is part of the rules.** Headings, the premise sentence, clue
+descriptions and card faces are set in a serif; labels, numbers and controls in
+sans, with tabular figures. Colour is spent only on meaning. The screens carry
+one texture (a fixed vignette, plus faint rain streaks at night), cards are
+hairline-bordered panels rather than stacked boxes, and the five things the game
+draws — dice, playing cards, the clock, the fatigue track, the tab icons — are
+drawn as themselves rather than typed as glyphs. `npm run shots` renders every
+main screen in both themes for eyes-on review.
+
 **The one piece of hidden state:** the three set-aside truth cards live in the
 same JSON as everything else. The app never renders them before the solve, but a
 player who reads their own export will spoil their own mystery. That is stated
@@ -219,7 +228,7 @@ in the README rather than hidden behind an encoding.
 | `styles.css` | Theme tokens (light + dark) and every component style |
 | `data.js` | The whole rules library: 34 d66 tables, 6 resolution tables, every constant |
 | `manifest.json`, `service-worker.js`, `icon.svg` | PWA |
-| `tests/` | Harnesses, probes and the three seed fixtures (dev only) |
+| `tests/` | Harnesses, probes (layout, flow, screenshots) and the seed fixtures (dev only) |
 | `docs/rules/` | The distilled rules, one file per subsystem — what the audit reads against the engine |
 | `docs/AUDIT.md` | Numbered findings, pass by pass, plus the verified-clean list |
 
@@ -438,6 +447,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | Visual pass over the whole app: a serif/sans split with tabular figures, a warm-paper light theme and a deeper night theme, hairline panels instead of stacked boxes, drawn dice pips, real card faces, an SVG clock dial, danger and fatigue meters in the header, and one set of inline-SVG tab icons in place of five borrowed glyphs. Added `npm run shots`. | smoke, interaction, walk, probes and the deploy path clean; overflow at 320px fixed | citr-v3 |
 | 2026-09-21 | The update prompt is a toast with a Reload button rather than a modal, so a new version never interrupts a scene; dismissing it is offered again on the next load, and the waiting worker is checked at boot. | `npm run sw` asserts the toast, that it blocks nothing and clears the tab bar, and that a dismissed update is never lost; watched failing | citr-v2 |
 | 2026-09-21 | A roll no longer throws the screen back to the top: the router keeps the scroll position when re-rendering the route you are already on. Settings gains two clean slates: put down this case (keeps the investigators, journal and history) and erase everything (two confirmations). | 61 unit invariants; smoke asserts the kept scroll and both resets, the scroll guard watched failing | citr-v2 |
 | 2026-09-21 | Audit cycle 12: every pass clean at 59 invariants and thirteen browser checks, with co-op and the framing guidance in. | full cycle, no findings | citr-v2 |

@@ -1,6 +1,6 @@
 // App shell + data are cached and versioned; navigation is network-first so a
 // stale shell never outlives a deploy.
-const CACHE_VERSION = "citr-v2";
+const CACHE_VERSION = "citr-v3";
 const SHELL = [
   "./", "./index.html", "./styles.css", "./manifest.json", "./icon.svg", "./data.js",
   "./src/main.js", "./src/core.js", "./src/ui.js", "./src/rules.js", "./src/derived.js",

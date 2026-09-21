@@ -6,7 +6,7 @@ import { RIVAL_SLOTS } from "../data.js";
 import * as R from "./rules.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
-import { discardClue, establishTruth } from "./deck.js";
+import { discardClue, establishTruth, rankName } from "./deck.js";
 import { Settings } from "./settings.js";
 import * as Roller from "./roller.js";
 
@@ -145,7 +145,7 @@ export function truthScene(rank) {
   const m = Store.career.mystery;
   const out = establishTruth(m, rank);
   if (!out) return null;
-  Store.log({ kind: "truth", label: `set of ${rank}s`, total: out.drawn.length });
+  Store.log({ kind: "truth", label: `set of ${rankName(rank)}`, total: out.drawn.length });
   return out;
 }
 

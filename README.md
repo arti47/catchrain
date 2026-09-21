@@ -72,6 +72,7 @@ npm run walk         # a whole session: creation, scenes, the solve, the next ca
 npm run sw           # ships a change and asserts the update reaches an installed app
 node tests/scan-dead.mjs           # exports nothing reads, imports nothing uses
 node tests/probe-layout.mjs stress # the measurement table, per route
+npm run shots        # screenshots of every screen, both themes, for eyes-on review
 node tests/probe-flow.mjs          # tap counts for the common sequences
 ```
 

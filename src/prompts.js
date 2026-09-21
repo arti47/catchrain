@@ -3,7 +3,7 @@
 import { el, add } from "./core.js";
 import { chooseModal, promptModal, modal, showToast } from "./ui.js";
 import { setPrompts } from "./roller.js";
-import { cardName } from "./deck.js";
+import { cardName, rankName } from "./deck.js";
 import { Settings } from "./settings.js";
 
 export function installPrompts() {
@@ -25,7 +25,7 @@ export function installPrompts() {
         allowCancel: false,
         options: sets.map((s) => ({
           value: s,
-          label: `${s.rank}s · ${s.cards.length} card${s.cards.length === 1 ? "" : "s"}`,
+          label: `The ${rankName(s.rank)} · ${s.cards.length} card${s.cards.length === 1 ? "" : "s"}`,
           note: s.description || "no description yet",
         })),
       });
@@ -45,14 +45,14 @@ export function installPrompts() {
     async describeClue({ set, card, oracle, clue, isNew }) {
       if (!Settings.get("autoOracle")) {
         return await promptModal({
-          title: isNew ? `New clue — ${set.rank}s` : `The ${set.rank}s get clearer`,
+          title: isNew ? `New clue — the ${rankName(set.rank)}` : `The ${rankName(set.rank)} get clearer`,
           message: `${cardName(card)} drawn.`,
           placeholder: "What does your investigator find?",
           multiline: true,
         });
       }
       return await promptModal({
-        title: isNew ? `New clue — the ${set.rank}s` : `The ${set.rank}s get clearer`,
+        title: isNew ? `New clue — the ${rankName(set.rank)}` : `The ${rankName(set.rank)} get clearer`,
         message: `${cardName(card)} drawn. Prompts: ${clue} — ${oracle}. Write what this is, or leave it blank for now.`,
         placeholder: isNew ? "e.g. invoice found at the butcher shop" : "e.g. one of the doors is taped shut",
         multiline: true,
@@ -105,9 +105,9 @@ export function eventText(e) {
     case "force_escape": return "The track filled — skip to the escape stage.";
     case "keyword_gained": return `Keyword gained: ${e.text}.`;
     case "keyword_used": return `Keyword struck: ${e.text} (${e.action}).`;
-    case "new_clue": return `New clue: the ${e.set.rank}s (${cardName(e.card)}).`;
-    case "strengthen_clue": return `The ${e.set.rank}s get clearer (${cardName(e.card)}).`;
-    case "false_lead": return `False lead: the ${e.rank}s were never part of this. ${e.cards} card(s) discarded.`;
+    case "new_clue": return `New clue: the ${rankName(e.set.rank)} (${cardName(e.card)}).`;
+    case "strengthen_clue": return `The ${rankName(e.set.rank)} get clearer (${cardName(e.card)}).`;
+    case "false_lead": return `False lead: the ${rankName(e.rank)} were never part of this. ${e.cards} card(s) discarded.`;
     case "joker_no_sets": return `No lead to lose — danger doubles to ${e.danger}.`;
     case "joker_removed": return "The joker leaves the game.";
     case "discard_false_lead": return `${cardName(e.card)} means nothing now — discarded, no replacement.`;

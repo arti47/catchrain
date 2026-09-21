@@ -40,7 +40,8 @@ export function renderHome(host) {
   add(host, section(c.investigators.length > 1 ? `Investigator — ${inv.name}` : "Investigator",
     row("Name", inv.name),
     row("Trait", inv.trait || "—"),
-    row("Attributes", DATA.ATTRIBUTES.map((a) => `${a.name[0]}${D.attrValue(inv, a.id)}${D.isStruck(inv, a.id) ? "✕" : ""}`).join("  ")),
+    row("Attributes", el("span", { class: "chip-list" }, ...DATA.ATTRIBUTES.map((a) =>
+      pill(`${a.name} ${D.attrValue(inv, a.id)}${D.isStruck(inv, a.id) ? " \u2715" : ""}`, D.isStruck(inv, a.id) ? "loss" : "")))),
     row("Fatigue", `${inv.fatigue}/${DATA.FATIGUE_BOXES}`),
     row("Day", `${inv.day} · clock ${inv.clock}/${DATA.CLOCK_SEGMENTS}`),
     el("div", { class: "btn-row" },
@@ -92,7 +93,7 @@ export function renderHome(host) {
   }
 
   add(host, section("The problem",
-    el("p", { text: R.problemText(m) }),
+    el("p", { class: "premise", text: R.problemText(m) }),
     row("Motivation", m.motivation || "—"),
     row("Genre", DATA.GENRES[m.genre].name),
     row("Difficulty", R.difficulty(m.difficulty).name),

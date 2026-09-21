@@ -183,6 +183,24 @@ export const optionBtn = (label, onClick, selected) =>
 
 export const pill = (text, kind = "") => el("span", { class: `pill ${kind}`, text });
 
+const SUIT_PIP = { S: "\u2660", H: "\u2665", D: "\u2666", C: "\u2663" };
+/** One playing card, drawn as a card: corner index, suit pip, red suits in rust. */
+export const cardFace = (c) => el("span", {
+  class: `pcard ${c.suit === "H" || c.suit === "D" ? "red" : ""}`,
+  "aria-label": `${c.rank} of ${{ S: "spades", H: "hearts", D: "diamonds", C: "clubs" }[c.suit] || "?"}`,
+}, el("span", { class: "rank", text: c.rank }), el("span", { class: "pip", text: SUIT_PIP[c.suit] || "?" }));
+
+/** A die face as pips, not a digit. */
+const PIPS = {
+  1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
+};
+export function dieFace(n, kind = "") {
+  const die = el("span", { class: `die ${kind}`, role: "img", "aria-label": `${n}` });
+  const on = new Set(PIPS[n] || []);
+  for (let i = 0; i < 9; i++) add(die, on.has(i) ? el("i") : el("span"));
+  return die;
+}
+
 export const emptyState = (text, actionLabel, onAction) =>
   el("div", { class: "empty" }, el("p", { text }), actionLabel ? btn(actionLabel, onAction, "primary") : null);
 

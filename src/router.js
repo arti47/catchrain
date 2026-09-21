@@ -3,12 +3,29 @@
 import { el, add, clear } from "./core.js";
 
 const routes = new Map();
+/**
+ * Icons are inline SVG on one 24px grid at one stroke weight, so the bar reads
+ * as a set rather than as five glyphs borrowed from a font.
+ */
+const ICON = {
+  case: "<circle cx='10.5' cy='10.5' r='6.2'/><path d='M15.2 15.2 20 20'/>",
+  play: "<rect x='4' y='4' width='16' height='16' rx='3.4'/><circle cx='9' cy='9' r='1.15' fill='currentColor' stroke='none'/><circle cx='15' cy='15' r='1.15' fill='currentColor' stroke='none'/><circle cx='12' cy='12' r='1.15' fill='currentColor' stroke='none'/>",
+  clues: "<rect x='3.4' y='6.6' width='10.5' height='13.5' rx='2'/><path d='M8.4 4.2h9.2a2 2 0 0 1 2 2v9.4'/>",
+  tables: "<rect x='3.5' y='4.5' width='17' height='15' rx='2'/><path d='M3.5 9.5h17M9.2 9.5v10'/>",
+  more: "<circle cx='5.5' cy='12' r='1.3'/><circle cx='12' cy='12' r='1.3'/><circle cx='18.5' cy='12' r='1.3'/>",
+};
+const icon = (id) => {
+  const holder = el("span", { class: "tab-icon", "aria-hidden": "true" });
+  holder.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICON[id] || ""}</svg>`;
+  return holder;
+};
+
 export const TABS = [
-  { id: "case", label: "Case", icon: "◈", route: "home" },
-  { id: "play", label: "Play", icon: "▶", route: "play" },
-  { id: "clues", label: "Clues", icon: "♣", route: "clues" },
-  { id: "tables", label: "Tables", icon: "≡", route: "tables" },
-  { id: "more", label: "More", icon: "•••", route: "rules" },
+  { id: "case", label: "Case", route: "home" },
+  { id: "play", label: "Play", route: "play" },
+  { id: "clues", label: "Clues", route: "clues" },
+  { id: "tables", label: "Tables", route: "tables" },
+  { id: "more", label: "More", route: "rules" },
 ];
 
 export function register(name, def) { routes.set(name, def); }
@@ -48,9 +65,9 @@ export function renderTabs() {
     const active = current && def && current.group === def.group;
     add(bar, el("a", {
       class: "tab", href: `#/${t.route}`, "aria-current": active ? "page" : null,
-    }, el("span", { class: "tab-icon", "aria-hidden": "true", text: t.icon }),
+    }, icon(t.id),
        el("span", { text: t.label }),
-       badges[t.id] ? el("span", { class: "badge", text: String(badges[t.id]) }) : null));
+       badges[t.id] ? el("span", { class: "badge", title: `${t.label} needs attention`, text: String(badges[t.id]) }) : null));
   }
 }
 

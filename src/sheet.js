@@ -1,9 +1,10 @@
 // The investigator sheet and the persistent resource header.
 
-import { el, add, clear } from "./core.js";
+import { el, add, clear, clamp } from "./core.js";
 import { FATIGUE_BOXES, CLOCK_SEGMENTS, ATTRIBUTES, KEYWORD_ACTIONS } from "../data.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
+import { rankName } from "./deck.js";
 import { Settings } from "./settings.js";
 import { section, row, defRow, btn, explain, promptModal, showToast, chooseModal, modal, actionBar } from "./ui.js";
 import * as Roller from "./roller.js";
@@ -20,8 +21,11 @@ export function renderResourceHeader(routeName) {
   if (!c || !m || !IN_PLAY.has(routeName)) { host.hidden = true; clear(host); return; }
   host.hidden = false;
   clear(host);
-  const res = (label, value, kind = "", warn = false) =>
-    el("div", { class: `res ${kind} ${warn ? "warn" : ""}` }, el("b", { text: String(value) }), el("span", { text: label }));
+  const res = (label, value, kind = "", warn = false, meter = null) =>
+    el("div", { class: `res ${kind} ${warn ? "warn" : ""}` },
+      el("b", { text: String(value) }),
+      el("span", { text: label }),
+      meter === null ? null : el("i", { class: "meter", style: `--fill:${Math.round(clamp(meter, 0, 1) * 100)}%` }));
   const band = D.dangerBand(m.danger);
   add(host,
     // With a party the header follows whoever is in context, and switching is
@@ -30,8 +34,8 @@ export function renderResourceHeader(routeName) {
       ? el("button", { class: "res who", type: "button", "aria-label": `Playing as ${inv.name}. Switch investigator`, onclick: () => switchInvestigator() },
           el("b", { text: (inv.name || "?").split(" ")[0] }), el("span", { text: "playing as" }))
       : null,
-    res("Danger", m.danger, "danger", band === "high" || band === "extreme"),
-    res("Fatigue", `${inv.fatigue}/${FATIGUE_BOXES}`, "loss", inv.fatigue >= 4),
+    res("Danger", m.danger, "danger", band === "high" || band === "extreme", m.danger / 12),
+    res("Fatigue", `${inv.fatigue}/${FATIGUE_BOXES}`, "loss", inv.fatigue >= 4, inv.fatigue / FATIGUE_BOXES),
     res("Day", `${inv.day}·${inv.clock}/${CLOCK_SEGMENTS}`),
     res("Truths", `${m.truthRevealed.length}/${m.truthRevealed.length + m.truthDeck.length}`, "truth"),
     res("Clue deck", m.clueDeck.length, "", m.clueDeck.length <= 5),
@@ -58,9 +62,20 @@ export function fatigueTrack(inv, onChange) {
   return track;
 }
 
-export function clockTrack(inv) {
+/** The clock as the book draws it: one circle, four wedges, filled as they go. */
+export function clockTrack(inv, size = 46) {
   const wrap = el("div", { class: "clock", role: "img", "aria-label": `Clock ${inv.clock} of ${CLOCK_SEGMENTS} segments marked` });
-  for (let i = 0; i < CLOCK_SEGMENTS; i++) add(wrap, el("div", { class: `seg ${i < inv.clock ? "on" : ""}` }));
+  const c = size / 2, r = size / 2 - 3;
+  const point = (deg) => {
+    const rad = ((deg - 90) * Math.PI) / 180;
+    return `${(c + r * Math.cos(rad)).toFixed(2)},${(c + r * Math.sin(rad)).toFixed(2)}`;
+  };
+  const wedges = [];
+  for (let i = 0; i < CLOCK_SEGMENTS; i++) {
+    const from = (360 / CLOCK_SEGMENTS) * i, to = from + 360 / CLOCK_SEGMENTS;
+    wedges.push(`<path class="${i < inv.clock ? "seg-on" : "seg-off"}" stroke-width="1" d="M${c},${c} L${point(from)} A${r},${r} 0 0 1 ${point(to)} Z"/>`);
+  }
+  wrap.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">${wedges.join("")}</svg>`;
   return wrap;
 }
 
@@ -103,7 +118,7 @@ export async function useKeywordFlow(keyword) {
   } else if (action === "strengthen") {
     const open = D.openSets(m);
     if (!open.length) { showToast("No clue set to strengthen yet."); return; }
-    const rank = await chooseModal({ title: "Strengthen which clue?", options: open.map((s) => ({ value: s.rank, label: `The ${s.rank}s`, note: s.description || `${s.cards.length} card(s)` })) });
+    const rank = await chooseModal({ title: "Strengthen which clue?", options: open.map((s) => ({ value: s.rank, label: `The ${rankName(s.rank)}`, note: s.description || `${s.cards.length} card(s)` })) });
     if (!rank) return;
     payload = { rank };
   } else if (action === "reroll") {

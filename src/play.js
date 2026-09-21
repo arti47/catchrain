@@ -11,18 +11,19 @@ import * as Roller from "./roller.js";
 import * as Life from "./lifecycle.js";
 import { eventList } from "./prompts.js";
 import { useKeywordFlow } from "./sheet.js";
+import { rankName } from "./deck.js";
 import { framingCard, framingLines } from "./framing.js";
 import { SCENE_FRAMING } from "../data.js";
 const SCENE_FRAMING_NOTE = SCENE_FRAMING.note;
 import { go } from "./router.js";
-import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState } from "./ui.js";
+import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace } from "./ui.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());
 
 // --- Result presentation ------------------------------------------------------
 function diceRow(dice, attrValue, total, doubles) {
   const wrap = el("div", { class: "dice" });
-  for (const d of dice) add(wrap, el("span", { class: `die ${doubles ? "doubles" : ""}`, text: String(d) }));
+  for (const d of dice) add(wrap, dieFace(d, doubles ? "doubles" : ""));
   add(wrap, el("span", { class: "math", text: `${dice.join(" + ")}${attrValue ? ` + ${attrValue}` : ""} = ${total}` }));
   return wrap;
 }
@@ -281,7 +282,7 @@ async function startTruth() {
   const rank = await chooseModal({
     title: "Establish a truth",
     message: "Turn a clue set sideways and reveal that many truth cards. The set can never become a false lead afterwards.",
-    options: open.map((s) => ({ value: s.rank, label: `The ${s.rank}s — ${s.cards.length} card(s)`, note: s.description || "no description yet" })),
+    options: open.map((s) => ({ value: s.rank, label: `The ${rankName(s.rank)} — ${s.cards.length} card(s)`, note: s.description || "no description yet" })),
   });
   if (!rank) return;
   Store.begin("truth scene");
@@ -296,7 +297,7 @@ async function startTruth() {
     multiline: true,
   });
   if (text) { out.set.entries.push(text); out.set.description = out.set.entries.join(" — "); }
-  Store.journal("scene", `Truth scene: established the ${rank}s, removing ${out.drawn.length} truth card(s).`);
+  Store.journal("scene", `Truth scene: established the ${rankName(rank)}, removing ${out.drawn.length} truth card(s).`);
   Store.commit();
   await rerender();
 }
@@ -391,7 +392,7 @@ export function renderPlay(host) {
   if (m.ended) {
     add(host, el("h1", { text: "It ends here" }),
       explain("The mystery is over: either you chose to stop, the clue deck ran dry, or a consequence forced your investigator out. All that is left is to name the truth."));
-    add(host, section("How it ended", el("p", { text: R.problemText(m) }),
+    add(host, section("How it ended", el("p", { class: "premise", text: R.problemText(m) }),
       row("Trigger", (END_TRIGGERS.find((t) => t.id === m.endTrigger) || END_TRIGGERS[0]).text)));
     return { action: actionBar("Resolve the mystery", () => go("solve"), "Name the three truth cards") };
   }
@@ -404,7 +405,7 @@ export function renderPlay(host) {
       ? "Play the scene out. Each stage needs one successful test; failure and success-at-a-cost both bring consequences, and every threat that you did not act against gets a roll of its own."
       : "Pick the scene that fits what your investigator needs: clues, certainty, recovery, or the rest of their life. Ending a scene marks the clock; four scenes make a day."));
 
-  add(host, section("The problem", el("p", { text: R.problemText(m) }),
+  add(host, section("The problem", el("p", { class: "premise", text: R.problemText(m) }),
     m.motivation ? row("Motivation", m.motivation) : null,
     row("Danger", el("span", { class: `pill ${m.danger >= 6 ? "danger" : ""}`, text: String(m.danger) }))));
 

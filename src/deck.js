@@ -5,9 +5,11 @@
 import { shuffle, uid } from "./core.js";
 import { DECK, DIFFICULTIES } from "../data.js";
 
+/** How a clue set is spoken: "the aces", "the 7s", "the 10s". */
+export const rankName = (rank) => (rank === "A" ? "aces" : `${rank}s`);
+
 export const cardName = (c) =>
   c.rank === "JOKER" ? "Joker" : `${c.rank}${{ S: "♠", H: "♥", D: "♦", C: "♣" }[c.suit]}`;
-export const isRed = (c) => c.suit === "H" || c.suit === "D";
 
 export function buildClueDeck() {
   const cards = [];

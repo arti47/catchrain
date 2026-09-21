@@ -323,6 +323,41 @@ roll you were in the middle of, and "Later" meant "never" until the next deploy.
 the screen, that it clears the tab bar, and that dismissing it never loses the
 update — watched failing against the modal.
 
+## Cycle 15 — the visual pass
+
+Not a defect hunt: the app worked and looked like a wireframe. Screenshots of
+every screen in both themes (now `npm run shots`) made the problems obvious in a
+way reading the CSS never did.
+
+What was wrong, and what changed:
+- **No type voice.** One sans at one weight for everything. Now a serif carries
+  what the player reads as fiction — headings, the premise, clue
+  descriptions, card and die faces — while sans carries labels,
+  controls and numbers, with tabular figures so stats stop jittering.
+- **Boxes inside boxes.** Cards, accordions and rows each drew their own border
+  and fill. Now panels are hairline over one surface, section titles are small
+  caps with a rule, and an accordion inside a card is part of that card.
+- **Glyphs borrowed from a font.** The tab bar was `◈ ▶ ♣ ≡ •••` at five
+  different weights — the clearest tell in the whole app. Now one
+  inline-SVG set on a 24px grid at one stroke weight.
+- **Things the game draws, typed as text.** Dice were digits, cards were "A♠" in
+  a rounded box, the clock was four dots. Now pip faces, card faces with a corner
+  index and suit pip, and an SVG clock dial with filled wedges.
+- **Shouting state.** Danger and fatigue sat in red-outlined boxes. Now they read
+  as values with a hairline meter under them, and the warn state tints the label.
+- **Copy.** Clue sets were "the As"; a rank is now spoken properly ("the aces",
+  "the 7s") from one helper.
+
+### F26 — The stage rail overflowed at 320px
+*Caught by:* the browser smoke, on the first run of the new stylesheet.
+*Fix:* the four stage labels shrink and ellipsise instead of forcing the row
+wider than the phone.
+
+### Tap targets held
+The measured pass reports 44px minimum across every route after the pass; the
+section-nav pills sit at 40 with a 6px gap, above the WCAG floor and the only
+control below 44.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -353,6 +388,8 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - A pre-party save opens, migrates into a party of one, and keeps its experience.
 - A roll keeps your place on the screen; putting the case down keeps the people;
   erasing everything keeps nothing.
+- After the visual pass: no overflow at 320/360/390, 44px minimum tap target,
+  every primary action still above the fold, and every harness clean.
 - Every scene carries the book's framing questions, and what is written reaches
   the journal.
 - A whole session runs end to end: creation → scenes → day boundaries → the

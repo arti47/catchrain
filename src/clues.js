@@ -3,21 +3,20 @@
 
 import { el, add } from "./core.js";
 import { DECK } from "../data.js";
+import { rankName } from "./deck.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
-import { cardName, isRed } from "./deck.js";
-import { section, row, btn, pill, explain, promptModal, emptyState, actionBar } from "./ui.js";
+import { section, row, btn, pill, explain, promptModal, emptyState, actionBar, cardFace } from "./ui.js";
 import { go } from "./router.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());
 
-const cardEl = (c) => el("span", { class: `pcard ${isRed(c) ? "red" : ""}`, text: cardName(c) });
 
 function setBlock(m, s) {
-  const hand = el("div", { class: "hand" }, ...s.cards.map(cardEl));
+  const hand = el("div", { class: "hand" }, ...s.cards.map(cardFace));
   const box = el("div", { class: `clue-set ${s.truth ? "truth" : ""} ${s.falseLead ? "false" : ""}` },
     el("div", { class: "threat-head" },
-      el("strong", { text: `The ${s.rank}s` }),
+      el("strong", { text: `The ${rankName(s.rank)}` }),
       s.truth ? pill("Truth", "truth") : s.falseLead ? pill("False lead", "loss") : pill(`${s.cards.length} card${s.cards.length === 1 ? "" : "s"}`)),
     s.cards.length ? hand : null,
     el("p", { class: "small", text: s.description || "No description yet." }),
@@ -25,7 +24,7 @@ function setBlock(m, s) {
     s.truth ? el("p", { class: "small muted", text: "Established. Further cards of this rank are discarded and replaced." }) : null);
   if (!s.falseLead) {
     add(box, el("div", { class: "btn-row" }, btn(s.description ? "Add to this clue" : "Describe this clue", async () => {
-      const t = await promptModal({ title: `The ${s.rank}s`, message: "Add a word, a phrase, or a connection to another clue.", multiline: true });
+      const t = await promptModal({ title: `The ${rankName(s.rank)}`, message: "Add a word, a phrase, or a connection to another clue.", multiline: true });
       if (t) { Store.update("describe clue", () => { s.entries.push(t); s.description = s.entries.join(" — "); }); rerender(); }
     })));
   }
@@ -64,7 +63,7 @@ export function renderClues(host) {
 
   if (m.truthRevealed.length) {
     add(host, section("Face cards you have ruled out",
-      el("div", { class: "hand" }, ...m.truthRevealed.map(cardEl)),
+      el("div", { class: "hand" }, ...m.truthRevealed.map(cardFace)),
       el("p", { class: "small muted", text: "None of these are among the three set aside. Everything still unseen might be." })));
   }
 
