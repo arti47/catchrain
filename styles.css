@@ -92,6 +92,10 @@ a { color: var(--accent); }
 .res.loss b { color: var(--loss); }
 .res.truth b { color: var(--accent); }
 .res.warn { outline: 2px solid var(--loss); }
+.res.who { border: 1px solid var(--accent); color: inherit; font: inherit; cursor: pointer; min-height: 44px; }
+.res.who b { color: var(--accent); }
+.res.who { border: 1px solid var(--accent); color: inherit; font: inherit; cursor: pointer; min-height: 44px; }
+.res.who b { color: var(--accent); }
 
 .screen {
   padding: var(--gutter) var(--gutter) calc(var(--tabbar) + env(safe-area-inset-bottom) + 24px);

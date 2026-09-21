@@ -26,7 +26,7 @@ export function renderSolve(host) {
 
   m.guesses = m.guesses || [null, null, null];
   add(host, el("h1", { text: "Name the truth" }),
-    explain("Three face cards were set aside before play and never seen. Guess them one by one: every correct guess earns your investigator one answer about what really happened. Cards you revealed in truth scenes are already ruled out."));
+    explain("Three face cards were set aside before play and never seen. Guess them one by one: every correct guess earns one answer about what really happened. Cards you revealed in truth scenes are already ruled out. With a party, the guesses and the answers belong to all of you."));
 
   add(host, section("What you know",
     el("p", { text: R.problemText(m) }),
@@ -129,7 +129,7 @@ async function closeCase() {
   const ok = await confirmModal({
     title: "Close this case?",
     message: Settings.get("career")
-      ? "The mystery moves to your career history. Your investigator keeps their fatigue, strikes, keywords and XP; danger is halved, rounded up."
+      ? "The mystery moves to your career history. Everyone keeps their fatigue, strikes, keywords and experience; danger is halved, rounded up."
       : "The mystery moves to your career history and the case screen goes back to a blank slate.",
     confirmLabel: "Close it",
   });

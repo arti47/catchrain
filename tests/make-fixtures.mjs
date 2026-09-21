@@ -102,8 +102,34 @@ const joker = { v: 1, activeId: "c1", careers: { c1: career({
   }),
 }) } };
 
+// Chapter 3 co-op: two investigators, one mystery, a round already half taken.
+const party = { v: 1, activeId: "c1", careers: { c1: {
+  id: "c1", name: "Amine Deckard", createdAt: 1730000000000,
+  rivals: [], history: [], questions: [], journal: [], rollLog: [],
+  activeInvestigatorId: "inv1",
+  investigators: [
+    { id: "inv1", name: "Amine Deckard", trait: "Insomniac", notes: "", xp: 2,
+      attributes: { power: 2, insight: 1, method: 0 }, struck: {}, fatigue: 2, clock: 1, day: 2,
+      obligations: [{ id: "o1", text: "Run the lake", struck: true }],
+      keywords: [{ id: "k1", text: "Smooth talker", signature: true, struck: false }] },
+    { id: "inv2", name: "Percy Roh", trait: "Paranoid", notes: "", xp: 2,
+      attributes: { power: 0, insight: 2, method: 1 }, struck: {}, fatigue: 3, clock: 1, day: 2,
+      obligations: [{ id: "o2", text: "Write a novel", struck: false }],
+      keywords: [{ id: "k2", text: "Polaroid", signature: true, struck: false }] },
+  ],
+  mystery: mystery({
+    danger: 4,
+    clueSets: {
+      "7": { rank: "7", cards: [clue[24], clue[25]], entries: ["A strong person took the console"], description: "A strong person took the console", truth: false, falseLead: false, truthCards: [] },
+    },
+    threats: [],
+    scene: { id: "s1", type: "rest", stage: null, order: [], index: 0, done: true, forceEscape: false, actorId: "inv1", participants: ["inv1"] },
+    round: { mode: "individual", scenes: { inv1: { type: "rest", done: true } } },
+  }),
+} } };
+
 mkdirSync("tests/fixtures", { recursive: true });
-for (const [name, value] of Object.entries({ fresh, "mid-session": mid, stress, joker })) {
+for (const [name, value] of Object.entries({ fresh, "mid-session": mid, stress, joker, party })) {
   writeFileSync(`tests/fixtures/${name}.json`, JSON.stringify(value, null, 1));
   console.log(`tests/fixtures/${name}.json`);
 }

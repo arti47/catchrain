@@ -38,6 +38,13 @@ const STEPS = [
     "Play → Truth scene. Turning a clue set sideways reveals as many face cards as it has cards, and those cards are ruled out for good.",
     "It also makes that set joker-proof. A two-card set revealed early is worth more than a perfect description.",
   ]],
+  ["Playing it with other people", [
+    "Settings → Co-op turns the career into a party: several investigators, one mystery, one clock and one danger track. Fatigue, keywords, obligations and experience stay personal.",
+    "An investigation or truth scene is played by everybody; anything else is taken separately, and the clock only moves once each of you has had a scene. The app hands the spotlight to whoever is still owed one.",
+    "Threats stick to whoever brought them down on themselves, and their rolls land on that person until somebody else acts against it.",
+    "In a scene you are not in, play the people around it: the person on the other end of the obligation, the voice in the doorway.",
+  ]],
+
   ["Name the truth", [
     "When the deck runs out, a consequence forces you out, or you decide you have enough, go to the solve.",
     "Guess all three cards, then turn them over. Every correct guess buys one answer about what really happened — and whatever you write is true.",

@@ -52,11 +52,11 @@ async function manualDie(label) {
 }
 
 // --- Choosing an attribute ----------------------------------------------------
-async function chooseAttribute(purpose) {
-  const inv = Store.investigator;
+async function chooseAttribute(purpose, who) {
+  const inv = who || Store.investigator;
   const usable = D.usableAttributes(inv);
   if (!usable.length) {
-    modal({ title: "Nothing left to try", body: el("p", { text: "Every attribute is struck. Your investigator needs to rest before testing anything else." }), actions: [{ label: "Back" }] });
+    modal({ title: "Nothing left to try", body: el("p", { text: `Every one of ${inv.name}'s attributes is struck. They need to rest before testing anything else.` }), actions: [{ label: "Back" }] });
     return null;
   }
   const struck = D.unstruck(inv).length < 3
@@ -71,22 +71,52 @@ async function chooseAttribute(purpose) {
 
 // --- Running a test -----------------------------------------------------------
 async function runTest({ label, purpose, againstThreatId, stageTest }) {
-  const attrId = await chooseAttribute(purpose || label);
+  const actor = await chooseActor(label);
+  if (!actor) return;
+  const attrId = await chooseAttribute(purpose || label, actor);
   if (!attrId) return;
   let manual = null;
   if (Settings.get("manualDice")) {
-    manual = await manualDicePair(label);
+    manual = await manualDicePair(`${label}${Store.party.length > 1 ? ` \u2014 ${actor.name}` : ""}`);
     if (!manual) return;
   }
-  await applyTest({ attrId, label, manual, againstThreatId, stageTest, undoLabel: label });
+  await applyTest({ attrId, label, manual, againstThreatId, stageTest, undoLabel: label, actorId: actor.id });
+}
+
+/**
+ * Who makes this test. In co-op the spotlight is meant to move around, so the
+ * chooser says who has and has not acted in this scene (Ch.3, Sharing the narration).
+ */
+async function chooseActor(label) {
+  const party = Store.party;
+  if (party.length < 2) return Store.investigator;
+  const scene = Store.mystery.scene;
+  const rolls = (scene && scene.rolls) || {};
+  const id = await chooseModal({
+    title: "Who acts?",
+    message: "Everyone should get their hands on the scene at least once.",
+    options: party.map((i) => ({
+      value: i.id,
+      label: i.name,
+      note: `${rolls[i.id] ? `${rolls[i.id]} test(s) this scene` : "has not acted yet"} \u00b7 ${D.usableAttributes(i).map((a) => `${a.name[0]}${a.value}`).join(" ")}`,
+    })),
+  });
+  if (!id) return null;
+  Store.setActive(id);
+  return Store.investigatorById(id);
 }
 
 /** Rolls (or replays) one test, applies it, and offers the re-roll keyword. */
-async function applyTest({ attrId, label, manual, againstThreatId, stageTest, undoLabel }) {
+async function applyTest({ attrId, label, manual, againstThreatId, stageTest, undoLabel, actorId }) {
   const m = Store.mystery;
+  const actor = (actorId && Store.investigatorById(actorId)) || Store.investigator;
   Store.begin(undoLabel);
+  if (m.scene) {
+    m.scene.rolls = m.scene.rolls || {};
+    m.scene.rolls[actor.id] = (m.scene.rolls[actor.id] || 0) + 1;
+  }
   const res = await Roller.attributeTest({
-    attrId, label, manualDice: manual, againstThreatId,
+    attrId, label, manualDice: manual, againstThreatId, actorId: actor.id,
     inInvestigation: !!(m.scene && m.scene.type === "investigation" && !m.scene.done),
   });
   const extra = [];
@@ -94,13 +124,13 @@ async function applyTest({ attrId, label, manual, againstThreatId, stageTest, un
     const out = await Life.completeStage();
     extra.push(...out.events);
   }
-  Store.journal("test", `${label}: ${res.dice.join("+")}${res.attrValue ? `+${res.attrValue}` : ""} = ${res.total} (${res.outcome.name}).`, { outcome: res.outcome.id });
+  Store.journal("test", `${actor.name} \u2014 ${label}: ${res.dice.join("+")}${res.attrValue ? `+${res.attrValue}` : ""} = ${res.total} (${res.outcome.name}).`, { outcome: res.outcome.id });
   Store.commit();
-  const spare = D.usableKeywords(Store.investigator);
+  const spare = D.usableKeywords(actor);
   const onReroll = spare.length && !Store.mystery.ended
-    ? () => rerollFlow({ attrId, label, againstThreatId, stageTest, first: { dice: res.dice, total: res.total, outcome: res.outcome, attrValue: res.attrValue } })
+    ? () => rerollFlow({ attrId, label, againstThreatId, stageTest, actorId: actor.id, first: { dice: res.dice, total: res.total, outcome: res.outcome, attrValue: res.attrValue } })
     : null;
-  showResult(label, { ...res, attrValue: D.attrValue(Store.investigator, attrId) }, extra, onReroll);
+  showResult(Store.party.length > 1 ? `${actor.name} \u2014 ${label}` : label, { ...res, attrValue: D.attrValue(actor, attrId) }, extra, onReroll);
   await rerender();
 }
 
@@ -108,24 +138,25 @@ async function applyTest({ attrId, label, manual, againstThreatId, stageTest, un
  * The re-roll keyword: the test un-happens, the keyword is struck, the dice are
  * thrown again, and whichever of the two outcomes the player keeps is applied.
  */
-async function rerollFlow({ attrId, label, againstThreatId, stageTest, first }) {
-  const spare = D.usableKeywords(Store.investigator);
+async function rerollFlow({ attrId, label, againstThreatId, stageTest, first, actorId }) {
+  const actor = (actorId && Store.investigatorById(actorId)) || Store.investigator;
+  const spare = D.usableKeywords(actor);
   if (!spare.length) { showToast("No keyword left to spend."); return; }
   const id = await chooseModal({
-    title: "Spend which keyword?",
+    title: `Spend which of ${actor.name}'s keywords?`,
     message: "Striking it buys one re-roll of this test. You will see both outcomes and keep either.",
     options: spare.map((k) => ({ value: k.id, label: k.text, note: k.signature ? "Signature — comes back when you rest" : "One use" })),
   });
   if (!id) return;
 
   Store.undo();
-  const keyword = Store.investigator.keywords.find((k) => k.id === id);
+  const keyword = (Store.investigatorById(actor.id) || Store.investigator).keywords.find((k) => k.id === id);
   let manual = null;
   if (Settings.get("manualDice")) {
     manual = await manualDicePair(`${label} (re-roll)`);
     if (!manual) { await rerender(); return; }
   }
-  const second = Roller.previewTest(attrId, manual);
+  const second = Roller.previewTest(attrId, manual, actor);
   const keep = await chooseModal({
     title: "Which outcome stands?",
     allowCancel: false,
@@ -139,15 +170,36 @@ async function rerollFlow({ attrId, label, againstThreatId, stageTest, first }) 
   await Roller.useKeyword(keyword, "reroll");
   Store.journal("keyword", `Spent "${keyword.text}" to re-roll ${label}; kept the ${keep === "first" ? "first" : "new"} outcome.`);
   Store.commit();
-  await applyTest({ attrId, label, manual: dice, againstThreatId, stageTest, undoLabel: `${label} (re-rolled)` });
+  await applyTest({ attrId, label, manual: dice, againstThreatId, stageTest, undoLabel: `${label} (re-rolled)`, actorId: actor.id });
 }
 
 // --- Scene starters -----------------------------------------------------------
+/** One scene each per segment of the clock (Ch.3, Game turns). */
+function canTakeScene(who) {
+  const m = Store.mystery;
+  if (Store.party.length < 2 || !m.round) return true;
+  if (!m.round.scenes[who.id]) return true;
+  showToast(`${who.name} has already had a scene this round.`);
+  return false;
+}
+
 async function startInvestigation() {
   let die = null;
   if (Settings.get("manualDice")) { die = await manualDie("Investigation roll"); if (!die) return; }
+  // A threat that nobody called up is attached by the players (Ch.3, Threats).
+  let threatOn = Store.investigator;
+  if (Store.party.length > 1) {
+    const id = await chooseModal({
+      title: "If something is waiting for you",
+      message: "An investigation roll can put a threat in your way before anyone has acted. Whose way is it in?",
+      options: Store.party.map((i) => ({ value: i.id, label: i.name, note: `Fatigue ${i.fatigue}/5` })),
+    });
+    if (!id) return;
+    threatOn = Store.investigatorById(id);
+  }
   Store.begin("start investigation");
-  const out = await Life.beginInvestigation(die);
+  Life.startRound("shared");
+  const out = await Life.beginInvestigation(die, { threatOn });
   Store.journal("scene", `Investigation scene: rolled ${out.die} + ${out.danger} danger = ${out.total}.`);
   Store.commit();
   modal({
@@ -161,27 +213,32 @@ async function startInvestigation() {
 }
 
 async function startRest() {
+  const who = Store.investigator;
+  if (!canTakeScene(who)) return;
   Store.begin("rest scene");
-  Life.startScene("rest");
-  const events = await Life.restScene();
+  Life.startScene("rest", who);
+  const events = await Life.restScene(null, who);
   Store.mystery.scene.done = true;
-  Store.journal("scene", "Rest scene.");
+  Life.recordRoundScene("rest", who);
+  Store.journal("scene", `${who.name} rests.`);
   Store.commit();
-  modal({ title: "Rest", body: el("div", {}, el("p", { class: "muted", text: "Describe how your investigator unwinds." }), eventList(events)), actions: [{ label: "Done" }] });
-  await rerender();
+  modal({ title: "Rest", body: el("div", {}, el("p", { class: "muted", text: `Describe how ${who.name} unwinds.` }), eventList(events)), actions: [{ label: "Done" }] });
+  await afterIndividualScene();
 }
 
 async function startObligation() {
   const inv = Store.investigator;
+  if (!canTakeScene(inv)) return;
   const open = D.openObligations(inv);
-  if (!open.length) { showToast("Every obligation is already attended today."); return; }
+  if (!open.length) { showToast(`${inv.name} has attended every obligation today.`); return; }
   const id = await chooseModal({ title: "Which obligation?", options: open.map((o) => ({ value: o.id, label: o.text })) });
   if (!id) return;
   Store.begin("obligation scene");
-  Life.startScene("obligation");
-  const out = await Life.obligationScene(id);
+  Life.startScene("obligation", inv);
+  const out = await Life.obligationScene(id, inv);
   Store.mystery.scene.done = true;
-  Store.journal("scene", `Obligation: ${out.obligation.text}.`);
+  Life.recordRoundScene("obligation", inv);
+  Store.journal("scene", `${inv.name} attends: ${out.obligation.text}.`);
   Store.commit();
   modal({
     title: "Obligation",
@@ -191,6 +248,20 @@ async function startObligation() {
       eventList(out.events)),
     actions: [{ label: "Done" }],
   });
+  await afterIndividualScene();
+}
+
+/**
+ * In co-op, one segment of the clock covers a scene for everybody. When an
+ * individual scene ends, the spotlight moves to whoever still owes one.
+ */
+async function afterIndividualScene() {
+  const waiting = Life.pendingInvestigators();
+  if (waiting.length) {
+    const next = waiting[0];
+    Store.setActive(next.id);
+    showToast(`${next.name} takes a scene next.`);
+  }
   await rerender();
 }
 
@@ -206,7 +277,9 @@ async function startTruth() {
   });
   if (!rank) return;
   Store.begin("truth scene");
+  Life.startRound("shared");
   Life.startScene("truth");
+  Store.mystery.scene.participants = Store.party.map((i) => i.id); // everyone works it out together
   const out = Life.truthScene(rank);
   Store.mystery.scene.done = true;
   const text = await promptModal({
@@ -223,6 +296,19 @@ async function startTruth() {
 // --- Boundaries ---------------------------------------------------------------
 async function endSceneFlow() {
   const inv = Store.investigator, m = Store.mystery;
+  // In co-op the clock is only marked once everybody has had a scene (Ch.3).
+  const waiting = Life.pendingInvestigators();
+  if (waiting.length && Store.party.length > 1) {
+    modal({
+      title: "Not everyone has had a scene",
+      body: el("p", { text: `The clock is marked once per round, for all of you. Still to take a scene: ${waiting.map((i) => i.name).join(", ")}.` }),
+      actions: [
+        { label: `Switch to ${waiting[0].name}`, onClick: () => { Store.setActive(waiting[0].id); rerender(); } },
+        { label: "Back", kind: "ghost" },
+      ],
+    });
+    return;
+  }
   Store.begin("end scene");
   const out = Life.endScene();
   Store.commit();
@@ -316,25 +402,69 @@ export function renderPlay(host) {
 
   if (inScene && scene.type === "investigation") return renderInvestigation(host, m, scene);
 
-  if (scene && scene.done) {
+  const party = Store.party;
+  const waiting = Life.pendingInvestigators();
+  const individualRound = m.round && m.round.mode === "individual";
+
+  if (party.length > 1) add(host, roundPanel(m, waiting));
+
+  if (scene && scene.done && (!waiting.length || party.length === 1)) {
     add(host, section("This scene is finished",
       el("p", { class: "muted small", text: "Mark the clock, then choose again — or resolve the mystery now." }),
       el("div", { class: "btn-row" }, btn("Resolve the mystery instead", () => confirmEnd(), "danger"))));
-    return { action: actionBar("End the scene", endSceneFlow, `Clock ${Store.investigator.clock}/${CLOCK_SEGMENTS}`) };
+    return { action: actionBar("End the scene", endSceneFlow, party.length > 1 ? "Everyone marks the clock" : `Clock ${Store.investigator.clock}/${CLOCK_SEGMENTS}`) };
   }
 
-  // Scene picker, in the book's own order.
+  const mine = m.round && m.round.scenes[Store.investigator.id];
+  if (mine && waiting.length && party.length > 1) {
+    const next = waiting[0];
+    add(host, section("Your scene is done",
+      el("p", { text: `${Store.investigator.name} has had a scene this round. ${next.name} still owes one, and the clock only moves when everybody has had theirs.` })));
+    return { action: actionBar(`Play as ${next.name}`, () => { Store.setActive(next.id); rerender(); }, `${waiting.length} still to go`) };
+  }
+
+  // Scene picker, in the book's own order. Once a round of individual scenes
+  // has begun, the investigators still owing one take a scene of their own.
   const list = el("div", {});
   for (const t of SCENE_TYPES) {
     const handler = { investigation: startInvestigation, truth: startTruth, rest: startRest, obligation: startObligation }[t.id];
-    add(list, el("button", { class: "choice", type: "button", onclick: handler },
-      el("span", { class: "choice-label", text: t.name }), el("span", { class: "choice-note", text: t.text })));
+    const shared = Life.SHARED_SCENES.has(t.id);
+    const barred = individualRound && shared && party.length > 1;
+    const note = party.length > 1
+      ? `${shared ? "The whole party plays this one." : "Each investigator takes their own."} ${t.text}`
+      : t.text;
+    add(list, el("button", {
+      class: "choice", type: "button",
+      onclick: barred ? () => showToast("This round is already a round of separate scenes.") : handler,
+      "aria-disabled": barred ? "true" : null,
+    }, el("span", { class: "choice-label", text: t.name }),
+       el("span", { class: "choice-note", text: barred ? "Not this round — the party is taking separate scenes." : note })));
   }
-  add(host, section("Choose a scene", list));
+  add(host, section(party.length > 1 ? `Choose a scene — ${Store.investigator.name}` : "Choose a scene", list));
   add(host, section("Or stop here",
     el("p", { class: "small muted", text: "You may resolve the mystery at the end of any scene. The fewer truth cards you have revealed, the wilder the guess." }),
     btn("Resolve the mystery", () => confirmEnd(), "danger")));
+  if (individualRound && party.length > 1) {
+    return { action: actionBar("Rest scene", startRest, `${Store.investigator.name} takes a scene`) };
+  }
   return { action: actionBar("Investigation scene", startInvestigation, `Roll 1d6 + ${m.danger} danger`) };
+}
+
+/** Where the round stands: who has taken a scene this segment, and who has not. */
+function roundPanel(m, waiting) {
+  const mode = m.round ? (m.round.mode === "shared" ? "everyone is in this one" : "separate scenes") : "nothing chosen yet";
+  const rows = Store.party.map((i) => {
+    const taken = m.round && m.round.scenes[i.id];
+    const shared = m.round && m.round.mode === "shared";
+    return row(i.name, el("span", {},
+      shared ? pill("in the scene", "truth") : taken ? pill(R.sceneType(taken.type).name, "ok") : pill("waiting", "loss"),
+      " ", pill(`clock ${i.clock}/${CLOCK_SEGMENTS}`), " ",
+      i.id === Store.investigator.id ? pill("you", "truth") : btn("Play as", () => { Store.setActive(i.id); rerender(); })));
+  });
+  return section(`The round — ${mode}`, ...rows,
+    Life.roundComplete()
+      ? el("p", { class: "small muted", text: "Everyone has had a scene. Mark the clock to move on." })
+      : el("p", { class: "small muted", text: `Still to take a scene: ${waiting.map((i) => i.name).join(", ") || "nobody"}.` }));
 }
 
 async function confirmEnd() {
@@ -367,8 +497,11 @@ function renderInvestigation(host, m, scene) {
         el("strong", { text: t.name }),
         el("span", {}, pill(`Level ${t.level}`, "loss"), " ", pill(`${t.marks || 0}/${t.level} marks`))),
       el("p", { class: "small muted", text: R.threatLevelText(t.level) }),
+      Store.party.length > 1
+        ? el("p", { class: "small", text: `On ${Roller.attachedTo(t).name} — its rolls land on them until someone else acts against it.` })
+        : null,
       el("div", { class: "btn-row" },
-        btn("Act against it", () => runTest({ label: `Act against ${t.name}`, purpose: `How does your investigator deal with ${t.name}?`, againstThreatId: t.id })))));
+        btn("Act against it", () => runTest({ label: `Act against ${t.name}`, purpose: `How do they deal with ${t.name}?`, againstThreatId: t.id })))));
   }
   add(host, section(`Threats (${threats.length})`,
     threats.length ? tl : el("p", { class: "muted small", text: "Nothing is in your way. The scene ends when you take the clue." })));

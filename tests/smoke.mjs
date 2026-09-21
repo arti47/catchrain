@@ -235,6 +235,78 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8. co-op: the party, the round, and who a test belongs to (Ch.3)
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "party", { multiplayer: true, career: true });
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(150);
+
+  const header = await page.locator("#resource-header").innerText();
+  if (!/AMINE|Amine/i.test(header)) fail("the header does not say who is in context");
+
+  const screen = await page.locator("#screen").innerText();
+  if (!/Percy/.test(screen)) fail("the round panel does not name the investigator still owing a scene");
+
+  // Amine has had her scene, so the screen hands over rather than offering
+  // her a second one, and the clock waits.
+  const handover = await page.locator(".action-bar .btn").innerText();
+  if (!/Play as Percy/.test(handover)) fail(`the screen did not hand over to the waiting investigator (bar: "${handover.split("\n")[0]}")`);
+  await page.locator(".action-bar .btn").click();
+  await page.waitForTimeout(250);
+
+  const now = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    return s.careers[s.activeId].activeInvestigatorId;
+  });
+  if (now !== "inv2") fail("the refusal did not hand the spotlight to whoever was waiting");
+
+  // Percy takes a rest; the round completes and both clocks advance together.
+  const rest = page.locator("#screen .choice", { has: page.locator(".choice-label", { hasText: /^Rest$/ }) }).first();
+  await rest.click();
+  await page.waitForTimeout(300);
+  for (let i = 0; i < 4; i++) {
+    const act = page.locator(".modal-actions .btn").first();
+    if (!(await act.count())) break;
+    await act.click();
+    await page.waitForTimeout(120);
+  }
+  const bar = await page.locator(".action-bar .btn").innerText().catch(() => "");
+  if (!/End the scene/.test(bar)) fail(`the round did not complete after everyone had a scene (bar: "${bar.split("\n")[0]}")`);
+  await page.locator(".action-bar .btn").click();
+  await page.waitForTimeout(300);
+  for (let i = 0; i < 4; i++) {
+    const act = page.locator(".modal-actions .btn").first();
+    if (!(await act.count())) break;
+    await act.click();
+    await page.waitForTimeout(120);
+  }
+  const clocks = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    return s.careers[s.activeId].investigators.map((i) => i.clock);
+  });
+  if (!clocks.every((n) => n === 2)) fail(`the clock did not advance for everyone (${clocks.join(", ")})`);
+
+  // A shared scene asks who is rolling.
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(150);
+  await page.locator("#screen .choice", { has: page.locator(".choice-label", { hasText: /^Investigation$/ }) }).first().click();
+  await page.waitForTimeout(200);
+  const attach = await page.locator(".modal-title").innerText().catch(() => "");
+  if (!/waiting for you/i.test(attach)) fail(`the investigation roll did not ask who a waiting threat is on (saw "${attach}")`);
+  await page.locator(".modal-overlay .choice").first().click();
+  await page.waitForTimeout(250);
+  await page.locator(".modal-actions .btn").first().click(); // set the scene
+  await page.waitForTimeout(200);
+  await page.locator(".action-bar .btn").click();
+  await page.waitForTimeout(250);
+  const asked = await page.locator(".modal-title").innerText().catch(() => "");
+  if (!/who acts/i.test(asked)) fail(`a shared scene did not ask who acts (saw "${asked}")`);
+  if (errors.length) fail(`console error in co-op: ${errors[0].slice(0, 120)}`);
+  if (!failures.length) ok("co-op: the party shares a round, a clock and a scene");
+  await ctx.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures.length ? `\n${failures.length} failed` : "\nsmoke clean");

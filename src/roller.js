@@ -210,8 +210,8 @@ export async function gainKeyword(events = [], who) {
 }
 
 /** Dice and outcome only — no effects. The re-roll keyword compares two of these. */
-export function previewTest(attrId, manualDice) {
-  const inv = Store.investigator;
+export function previewTest(attrId, manualDice, who) {
+  const inv = who || Store.investigator;
   const dice = manualDice && manualDice.length === 2 ? manualDice.slice() : roll2d6();
   const attrValue = attrId ? D.attrValue(inv, attrId) : 0;
   const total = dice[0] + dice[1] + attrValue;

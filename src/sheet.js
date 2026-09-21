@@ -24,6 +24,12 @@ export function renderResourceHeader(routeName) {
     el("div", { class: `res ${kind} ${warn ? "warn" : ""}` }, el("b", { text: String(value) }), el("span", { text: label }));
   const band = D.dangerBand(m.danger);
   add(host,
+    // With a party the header follows whoever is in context, and switching is
+    // the most repeated interaction in co-op, so it sits first.
+    c.investigators.length > 1
+      ? el("button", { class: "res who", type: "button", "aria-label": `Playing as ${inv.name}. Switch investigator`, onclick: () => switchInvestigator() },
+          el("b", { text: (inv.name || "?").split(" ")[0] }), el("span", { text: "playing as" }))
+      : null,
     res("Danger", m.danger, "danger", band === "high" || band === "extreme"),
     res("Fatigue", `${inv.fatigue}/${FATIGUE_BOXES}`, "loss", inv.fatigue >= 4),
     res("Day", `${inv.day}·${inv.clock}/${CLOCK_SEGMENTS}`),
@@ -56,6 +62,26 @@ export function clockTrack(inv) {
   const wrap = el("div", { class: "clock", role: "img", "aria-label": `Clock ${inv.clock} of ${CLOCK_SEGMENTS} segments marked` });
   for (let i = 0; i < CLOCK_SEGMENTS; i++) add(wrap, el("div", { class: `seg ${i < inv.clock ? "on" : ""}` }));
   return wrap;
+}
+
+/** The party switcher: one tap from anywhere in play. */
+export async function switchInvestigator() {
+  const c = Store.career;
+  if (!c || c.investigators.length < 2) return null;
+  const id = await chooseModal({
+    title: "Who are you playing?",
+    message: "The sheet, the header and every roll you make belong to whoever is in context.",
+    options: c.investigators.map((i) => ({
+      value: i.id,
+      label: i.name || "unnamed",
+      note: `Fatigue ${i.fatigue}/${FATIGUE_BOXES} \u00b7 clock ${i.clock}/${CLOCK_SEGMENTS}${D.unstruck(i).length < 3 ? " \u00b7 struck" : ""}`,
+    })),
+  });
+  if (!id) return null;
+  Store.setActive(id);
+  const mod = await import("./router.js");
+  await mod.render();
+  return id;
 }
 
 /** Keyword use is the game's one always-available lever, so it lives on the sheet. */
@@ -108,6 +134,9 @@ export function renderSheet(host) {
   const inv = Store.investigator, m = c.mystery;
 
   add(host, el("h1", { text: inv.name }),
+    c.investigators.length > 1
+      ? el("div", { class: "btn-row" }, btn(`Playing as ${inv.name} — switch`, () => switchInvestigator()))
+      : null,
     explain("Your investigator's sheet. Attributes feed every test; fatigue rises until the track fills and strikes your best attribute; keywords are one-use favours you can spend at any moment. Obligations are struck when you attend them and bite at the end of the day when you do not."));
 
   add(host, section("Attributes",

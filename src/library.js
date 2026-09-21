@@ -111,9 +111,21 @@ export const RULES_LIBRARY = [
       "A threat still standing when a scene ends can join a list of six rivals at level 2 or its own level, whichever is higher.",
       "When a new threat would arrive, 4–6 on 1d6 brings back a rival instead. Beating one for good hands you a keyword.",
     ] },
-    { id: "coop", name: "Co-op", cite: "Ch.3, Multiplayer", text: [
-      "Several investigators share one mystery and one clock. The consequences table is harsher: danger rises by 3 when no threat is present, and a discard result discards two cards.",
-      "The app tracks one investigator per career — run a career each and keep the mystery's numbers on whichever device is sharing the screen.",
+    { id: "coop", name: "Co-op: the party", cite: "Ch.3, Multiplayer", text: [
+      "Several investigators share one mystery, one clock and one danger track. Fatigue, strikes, keywords, obligations and experience stay each investigator's own.",
+      "Bring in a new investigator, or an existing one who is not already in the middle of a mystery.",
+    ] },
+    { id: "coop-turns", name: "Co-op: whose scene is it", cite: "Ch.3, Game turns", text: [
+      "An investigation or a truth scene is played by everybody. Any other scene is taken separately: each investigator plays their own rest or obligation for that segment.",
+      "Only when every investigator has had a scene does the clock advance — and then it advances for all of them at once.",
+    ] },
+    { id: "coop-threats", name: "Co-op: who a threat is on", cite: "Ch.3, Threats", text: [
+      "A threat attaches to whoever caused the consequences roll that brought it; when nobody did, the players decide between them.",
+      "When it acts, its consequences land on the investigator it is attached to. Acting against it turns its attention on you instead.",
+    ] },
+    { id: "coop-narration", name: "Co-op: sharing the narration", cite: "Ch.3, Sharing the narration", text: [
+      "In a scene everybody is in, try to give each investigator something to do — a test that moves a stage along, or a piece of the fiction to describe.",
+      "In a scene only one investigator is in, the others can play the people around them: the person the obligation is owed to, the voice on the phone.",
     ] },
   ] },
 ];

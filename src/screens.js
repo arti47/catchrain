@@ -26,13 +26,40 @@ export function renderHome(host) {
   }
   const inv = Store.investigator, m = c.mystery;
 
-  add(host, section("Investigator",
+  if (c.investigators.length > 1) {
+    const rows = c.investigators.map((i) => row(i.name || "unnamed", el("span", {},
+      pill(`fatigue ${i.fatigue}/${DATA.FATIGUE_BOXES}`, i.fatigue >= 4 ? "loss" : ""), " ",
+      pill(`clock ${i.clock}/${DATA.CLOCK_SEGMENTS}`), " ",
+      D.unstruck(i).length < 3 ? pill("struck", "loss") : null, " ",
+      D.openObligations(i).length ? pill(`${D.openObligations(i).length} owed`, "danger") : pill("clear", "ok"), " ",
+      i.id === inv.id ? pill("you", "truth") : btn("Play as", () => { Store.setActive(i.id); rerender(); }))));
+    add(host, section(`The party (${c.investigators.length})`, ...rows,
+      el("p", { class: "small muted", text: "One mystery, one clock, one danger track. Fatigue, keywords and obligations are each investigator's own." })));
+  }
+
+  add(host, section(c.investigators.length > 1 ? `Investigator — ${inv.name}` : "Investigator",
     row("Name", inv.name),
     row("Trait", inv.trait || "—"),
     row("Attributes", DATA.ATTRIBUTES.map((a) => `${a.name[0]}${D.attrValue(inv, a.id)}${D.isStruck(inv, a.id) ? "✕" : ""}`).join("  ")),
     row("Fatigue", `${inv.fatigue}/${DATA.FATIGUE_BOXES}`),
     row("Day", `${inv.day} · clock ${inv.clock}/${DATA.CLOCK_SEGMENTS}`),
-    el("div", { class: "btn-row" }, btn("Open the sheet", () => go("sheet")))));
+    el("div", { class: "btn-row" },
+      btn("Open the sheet", () => go("sheet")),
+      Settings.get("multiplayer")
+        ? btn("Add an investigator", () => go("wizard"))
+        : null,
+      Settings.get("multiplayer") && c.investigators.length > 1
+        ? btn("Remove one", async () => {
+            const id = await chooseModal({
+              title: "Who leaves the case?",
+              options: c.investigators.filter((i) => i.id !== inv.id).map((i) => ({ value: i.id, label: i.name, note: `${i.xp} XP` })),
+            });
+            if (!id) return;
+            const person = Store.investigatorById(id);
+            const ok = await confirmModal({ title: `Remove ${person.name}?`, message: `Their sheet, keywords, obligations and experience go with them. The mystery, the decks and the journal stay.`, confirmLabel: "Remove", danger: true });
+            if (ok) { Store.removeInvestigator(id); rerender(); }
+          }, "danger")
+        : null)));
 
   if (!m) {
     add(host, section("Next step",

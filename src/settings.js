@@ -7,7 +7,7 @@ const DEFAULTS = {
   theme: "system",          // system | light | dark
   textScale: 100,           // pays back the zoom lock
   manualDice: false,        // enter physically rolled dice instead of rolling in-app
-  multiplayer: false,       // Ch.3 co-op consequences table
+  multiplayer: false,       // Ch.3 co-op: a party sharing one mystery
   rivals: false,            // Ch.3 rivals
   career: true,             // Ch.3 career: XP, multiple mysteries, lingering questions
   safetyFilter: false,      // house aid: suppress chosen table rows
@@ -32,7 +32,7 @@ export const Settings = {
 export const TOGGLES = [
   { key: "career", name: "Career", text: "Keep one investigator across mysteries: XP, rivals, lingering questions (Ch.3)." },
   { key: "rivals", name: "Rivals", text: "Threats that survive a scene can come back in later ones (Ch.3)." },
-  { key: "multiplayer", name: "Co-op mode", text: "Use the multiplayer consequences table: danger +3 and two discards (Ch.3)." },
+  { key: "multiplayer", name: "Co-op", text: "Several investigators share one mystery, one clock and one danger track. Adds the party, the harsher consequences table, and threats that stay attached to whoever drew them (Ch.3)." },
   { key: "manualDice", name: "Manual dice", text: "Type the faces you rolled for every resolution roll: tests, the investigation roll, consequences, threats and rest. Table rolls stay digital." },
   { key: "autoOracle", name: "Oracle prompts", text: "Offer subject-oracle words whenever a scene asks you to invent a detail." },
   { key: "safetyFilter", name: "Content filter", text: "House aid: hide chosen table rows and re-roll past them." },
