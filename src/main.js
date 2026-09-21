@@ -1,11 +1,11 @@
 // Boot: storage, theme, prompts, routes, the service worker and the update toast.
 
-import { $, el, add } from "./core.js";
+import { $, el } from "./core.js";
 import { Store } from "./store.js";
 import { Settings } from "./settings.js";
 import * as R from "./rules.js";
 import * as D from "./derived.js";
-import { register, start, render, setBadges, go } from "./router.js";
+import { register, start, render, setBadges } from "./router.js";
 import { installPrompts } from "./prompts.js";
 import { renderHome, renderTables, renderOracle, renderRules, renderJournal, renderSettings, renderCareers, applyTheme, applyTextScale, applyWakeLock } from "./screens.js";
 import { renderSheet, renderResourceHeader } from "./sheet.js";

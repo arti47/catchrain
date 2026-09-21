@@ -7,7 +7,7 @@ import * as R from "./rules.js";
 import { Store } from "./store.js";
 import { Settings } from "./settings.js";
 import { scoreGuesses, cardName, isRed } from "./deck.js";
-import { section, row, btn, pill, explain, modal, promptModal, confirmModal, actionBar, emptyState, showToast } from "./ui.js";
+import { section, row, btn, pill, explain, promptModal, confirmModal, actionBar, emptyState, showToast } from "./ui.js";
 import { go } from "./router.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());

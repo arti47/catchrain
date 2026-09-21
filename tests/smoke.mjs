@@ -1,7 +1,7 @@
 // Browser smoke: every route renders, nothing overflows, no stray null text,
 // no console errors, and the end-to-end walk works.
 import { chromium } from "playwright-core";
-import { serve, launch } from "./server.mjs";
+import { serve, launch, seed } from "./server.mjs";
 
 const ROUTES = ["home", "sheet", "journal", "play", "clues", "solve", "tables", "oracle", "rules", "tutorial", "careers", "settings", "wizard", "mystery"];
 const WIDTHS = [320, 360, 390];
@@ -22,39 +22,7 @@ async function newPage(width = 390) {
   return { ctx, page, errors };
 }
 
-/** A career mid-case, so screens are measured with something on them. */
-const SEED = `(() => {
-  const clue = [];
-  for (const r of ["A","2","3","4","5","6","7","8","9","10"]) for (const s of ["S","H","D","C"]) clue.push({id:r+s,rank:r,suit:s});
-  const truth = [];
-  for (const r of ["J","Q","K"]) for (const s of ["S","H","D","C"]) truth.push({id:r+s,rank:r,suit:s});
-  const state = { v:1, activeId:"c1", careers: { c1: {
-    id:"c1", name:"Amine Deckard", createdAt: Date.now(), xp: 4, rivals:[{id:"r1",name:"Rival detective",level:2}],
-    history:[{id:"h1",problem:"It happened at the pier.",correct:2,difficulty:"standard",answers:[],closedAt:Date.now()}],
-    questions:[{id:"q1",text:"Who paid for the van?"}],
-    journal: Array.from({length:60},(_,i)=>({id:"j"+i,ts:Date.now()-i*60000,kind:"test",text:"Test "+i+": rolled and something happened in the rain outside the shopping centre.",day:1})),
-    rollLog: Array.from({length:80},(_,i)=>({id:"l"+i,ts:Date.now()-i*30000,kind:"test",dice:[1+i%6,1+(i*3)%6],attrValue:2,total:7,outcome:"cost",label:"Find a way in"})),
-    investigator: { name:"Amine Deckard", trait:"Insomniac", notes:"Ex-detective.", attributes:{power:2,insight:1,method:0}, struck:{insight:true}, fatigue:4, clock:2, day:3,
-      obligations:[{id:"o1",text:"Run the lake",struck:false},{id:"o2",text:"Work at a day job",struck:true}],
-      keywords:[{id:"k1",text:"Smooth talker",signature:true,struck:false},{id:"k2",text:"Polaroid",signature:false,struck:true},{id:"k3",text:"Backdoor",signature:false,struck:false}] },
-    mystery: { id:"m1", genre:"noir", difficulty:"standard", danger:7, motivation:"Right a wrong",
-      location:"Shopping centre", object:"Resident", treachery:"Perished", secondObject:null,
-      clueDeck: clue.slice(6), clueDiscard: clue.slice(0,3), truthDeck: truth.slice(5), truthRevealed: truth.slice(0,2), setAside: truth.slice(2,5),
-      clueSets: { "7": {rank:"7",cards:[clue[24],clue[25]],entries:["A strong person took the console"],description:"A strong person took the console",truth:false,falseLead:false,truthCards:[]},
-                  "3": {rank:"3",cards:[clue[8]],entries:["Head injury"],description:"Head injury",truth:true,falseLead:false,truthCards:[]},
-                  "9": {rank:"9",cards:[],entries:[],description:"Taped door",truth:false,falseLead:true,truthCards:[]} },
-      threats: [{id:"t1",name:"Restless crowd",level:2,marks:1,removed:false},{id:"t2",name:"Police presence",level:3,marks:0,removed:false}],
-      scene: { id:"s1", type:"investigation", stage:"acquisition", order:["infiltration","discovery","acquisition","escape"], index:2, done:false, forceEscape:false },
-      jokersDrawn:1, ended:false } } } };
-  localStorage.setItem("citr:v1", JSON.stringify(state));
-})()`;
-
-async function withSeed(page, seed = true) {
-  await page.goto(base);
-  if (seed) await page.evaluate(SEED);
-  else await page.evaluate(() => localStorage.clear());
-  await page.reload(); // a hash change is not a load: the app must boot against the seeded state
-}
+const withSeed = (page, seeded = true) => seed(page, base, seeded ? "stress" : "fresh");
 
 // 1. every route renders, no console errors, no stray null text
 for (const seeded of [false, true]) {

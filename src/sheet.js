@@ -1,11 +1,11 @@
 // The investigator sheet and the persistent resource header.
 
-import { el, add, clear, $ } from "./core.js";
-import { FATIGUE_BOXES, CLOCK_SEGMENTS, ATTRIBUTES } from "../data.js";
+import { el, add, clear } from "./core.js";
+import { FATIGUE_BOXES, CLOCK_SEGMENTS, ATTRIBUTES, KEYWORD_ACTIONS } from "../data.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
 import { Settings } from "./settings.js";
-import { section, row, defRow, btn, pill, explain, promptModal, confirmModal, showToast, chooseModal, modal } from "./ui.js";
+import { section, row, defRow, btn, explain, promptModal, confirmModal, showToast, chooseModal, modal, actionBar } from "./ui.js";
 import * as Roller from "./roller.js";
 import { eventList } from "./prompts.js";
 import { go } from "./router.js";
@@ -14,7 +14,7 @@ const IN_PLAY = new Set(["home", "play", "sheet", "clues", "solve", "journal"]);
 
 /** Sticky under the app header: the numbers that decide every choice in the game. */
 export function renderResourceHeader(routeName) {
-  const host = $("#resource-header");
+  const host = document.querySelector("#resource-header");
   if (!host) return;
   const c = Store.career, m = Store.mystery, inv = Store.investigator;
   if (!c || !m || !IN_PLAY.has(routeName)) { host.hidden = true; clear(host); return; }
@@ -22,8 +22,9 @@ export function renderResourceHeader(routeName) {
   clear(host);
   const res = (label, value, kind = "", warn = false) =>
     el("div", { class: `res ${kind} ${warn ? "warn" : ""}` }, el("b", { text: String(value) }), el("span", { text: label }));
+  const band = D.dangerBand(m.danger);
   add(host,
-    res("Danger", m.danger, "danger", m.danger >= 6),
+    res("Danger", m.danger, "danger", band === "high" || band === "extreme"),
     res("Fatigue", `${inv.fatigue}/${FATIGUE_BOXES}`, "loss", inv.fatigue >= 4),
     res("Day", `${inv.day}·${inv.clock}/${CLOCK_SEGMENTS}`),
     res("Truths", `${m.truthRevealed.length}/${m.truthRevealed.length + m.truthDeck.length}`, "truth"),
@@ -60,11 +61,10 @@ export function clockTrack(inv) {
 /** Keyword use is the game's one always-available lever, so it lives on the sheet. */
 export async function useKeywordFlow(keyword) {
   const m = Store.mystery;
-  const options = [
-    { value: "reroll", label: "Re-roll an attribute test", note: "Use after seeing the outcome; keep either result." },
-    { value: "strengthen", label: "Strengthen a clue", note: "Search the deck or discard for a matching card." },
-    { value: "eliminate", label: "Eliminate a threat", note: D.hasThreat(m) ? "Remove a threat from the scene." : "No threat is present." },
-  ];
+  const options = KEYWORD_ACTIONS.map((a) => ({
+    value: a.id, label: a.name,
+    note: a.id === "eliminate" && !D.hasThreat(m) ? "No threat is present." : a.text,
+  }));
   const action = await chooseModal({ title: `Use "${keyword.text}"`, message: "Striking a keyword spends it. Signature keywords come back after a rest.", options });
   if (!action) return;
   let payload = {};
@@ -122,7 +122,7 @@ export function renderSheet(host) {
       onclick: () => { if (k.struck) { showToast(k.signature ? "Struck until you rest." : "Already spent."); return; } useKeywordFlow(k); },
     }, k.signature ? "★ " : "", k.text));
   }
-  add(host, section("Keywords",
+  add(host, section(`Keywords (${D.usableKeywords(inv).length} ready)`,
     inv.keywords.length ? kw : el("p", { class: "muted small", text: "None yet. Failing a test is how most keywords arrive." }),
     el("div", { class: "btn-row" }, btn("Add a keyword", async () => {
       const text = await promptModal({ title: "Add a keyword", message: "Usually gained from a failed test; add one here if play handed you something." });
@@ -152,5 +152,10 @@ export function renderSheet(host) {
         if (t !== null) Store.update("edit notes", () => { inv.notes = t; });
       }))));
 
-  return {};
+  if (!m) return { action: actionBar("Set up a mystery", () => go("mystery"), "Roll the problem") };
+  const inScene = m.scene && !m.scene.done;
+  return { action: actionBar(
+    m.ended ? "Resolve the mystery" : inScene ? "Back to the scene" : "Play the next scene",
+    () => go(m.ended ? "solve" : "play"),
+    m.ended ? "Name the three cards" : inScene ? `${m.scene.type} scene in progress` : `Danger ${m.danger} · clock ${inv.clock}/4`) };
 }

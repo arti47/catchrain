@@ -21,7 +21,6 @@ export function d66() {
   return { dice: [a, b], code: `${a}${b}`, index: (a - 1) * 6 + (b - 1) };
 }
 export const d66Code = (i) => `${Math.floor(i / 6) + 1}${(i % 6) + 1}`;
-export const pick = (arr) => arr[randInt(arr.length)];
 export function shuffle(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) { const j = randInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; }
@@ -68,8 +67,6 @@ export const $ = (sel, root = document) => root.querySelector(sel);
 // --- Misc ---------------------------------------------------------------------
 export const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 export const halveUp = (n) => Math.ceil(n / 2);
-export const sum = (a) => a.reduce((x, y) => x + y, 0);
-export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 export function fmtTime(ts) {
   const d = new Date(ts);
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;

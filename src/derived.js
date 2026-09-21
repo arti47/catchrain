@@ -16,7 +16,6 @@ export function highestUnstruck(inv) {
   return list.filter((a) => a.value === top);
 }
 
-export const fatigueFull = (inv) => (inv.fatigue || 0) >= FATIGUE_BOXES;
 export const clockFull = (inv) => (inv.clock || 0) >= CLOCK_SEGMENTS;
 export const openObligations = (inv) => (inv.obligations || []).filter((o) => !o.struck);
 export const usableKeywords = (inv) => (inv.keywords || []).filter((k) => !k.struck);
@@ -31,14 +30,6 @@ export const openSets = (m) => clueSetList(m).filter((s) => !s.truth && !s.false
 export const truthSets = (m) => clueSetList(m).filter((s) => s.truth);
 export const falseLeads = (m) => clueSetList(m).filter((s) => s.falseLead);
 export const clueCount = (m) => clueSetList(m).reduce((n, s) => n + s.cards.length, 0);
-
-/** The four end-of-game thresholds, live for the persistent header. */
-export const endState = (m) => ({
-  deckEmpty: (m.clueDeck || []).length === 0,
-  ended: !!m.ended,
-  truthsLeft: (m.truthDeck || []).length,
-  known: (m.truthRevealed || []).length,
-});
 
 export const dangerBand = (d) => (d <= 2 ? "low" : d <= 5 ? "mid" : d <= 8 ? "high" : "extreme");
 

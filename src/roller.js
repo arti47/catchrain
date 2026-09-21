@@ -1,8 +1,8 @@
 // The dice engine. Every rule that charges something is charged here, not in the UI.
 // Player decisions arrive through the `prompts` object so the engine stays testable.
 
-import { roll2d6, d6, halveUp, uid, clamp } from "./core.js";
-import { FATIGUE_BOXES, ATTRIBUTE_MAX } from "../data.js";
+import { roll2d6, d6, halveUp, uid, clamp, randInt } from "./core.js";
+import { FATIGUE_BOXES, RIVAL_SLOTS } from "../data.js";
 import * as R from "./rules.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
@@ -60,7 +60,7 @@ export async function introduceThreat(level, events = [], cause = "") {
   if (Settings.get("rivals") && c.rivals.length) {
     const rollRival = d6();
     if (rollRival >= 4) {
-      const slot = d6();
+      const slot = randInt(RIVAL_SLOTS) + 1;
       const rival = c.rivals[slot - 1];
       if (rival) {
         threat = { id: uid(), name: rival.name, level: Math.max(level, rival.level), marks: 0, removed: false, rivalId: rival.id, justIntroduced: true };
@@ -204,7 +204,7 @@ export async function attributeTest(opts) {
     if (threat && !threat.removed) {
       threat.marks = (threat.marks || 0) + (outcome.id === "success" ? 2 : 1);
       events.push({ t: "threat_marked", name: threat.name, marks: threat.marks, level: threat.level });
-      if (threat.marks >= threat.level) {
+      if (D.threatDone(threat)) {
         threat.removed = true;
         events.push({ t: "threat_removed", name: threat.name });
         if (Settings.get("rivals") && threat.rivalId) {
@@ -277,5 +277,3 @@ export function investigationRoll(manualDie) {
   Store.log({ kind: "investigation", dice: [die], danger: m.danger, total, outcome: row.startStage });
   return { die, danger: m.danger, total, row };
 }
-
-export const maxAttribute = ATTRIBUTE_MAX;

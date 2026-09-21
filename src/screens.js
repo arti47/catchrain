@@ -7,7 +7,8 @@ import * as D from "./derived.js";
 import { Store } from "./store.js";
 import { Settings, TOGGLES } from "./settings.js";
 import { RULES_LIBRARY } from "./library.js";
-import { section, row, defRow, btn, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState } from "./ui.js";
+import { resetDrafts } from "./wizard.js";
+import { section, row, defRow, btn, optionBtn, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState } from "./ui.js";
 import { go } from "./router.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());
@@ -107,7 +108,7 @@ export function renderTables(host) {
 
   const genreWrap = el("div", {});
   const genreBtns = el("div", { class: "btn-row" }, ...DATA.GENRE_IDS.map((g) =>
-    btn(DATA.GENRES[g].name, () => { current = g; paint(); }, g === genreId ? "primary" : "ghost")));
+    optionBtn(DATA.GENRES[g].name, () => { current = g; paint(); }, g === genreId)));
   let current = genreId;
   const paint = () => {
     genreWrap.replaceChildren();
@@ -115,7 +116,11 @@ export function renderTables(host) {
       const label = kind[0].toUpperCase() + kind.slice(1);
       add(genreWrap, tableBlock(`${DATA.GENRES[current].name} · ${label}`, DATA.GENRES[current][kind]));
     }
-    for (const b of genreBtns.children) b.className = `btn ${b.textContent === DATA.GENRES[current].name ? "primary" : "ghost"}`;
+    for (const b of genreBtns.children) {
+      const on = b.textContent === DATA.GENRES[current].name;
+      b.className = `btn ${on ? "primary" : "ghost"}`;
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    }
     filter();
   };
   add(host, section("Genre tables", genreBtns, genreWrap));
@@ -253,14 +258,17 @@ export function renderJournal(host) {
   add(host, section("Entries", listHost));
 
   const log = c.rollLog.slice().reverse().slice(0, 40);
-  add(host, section(`Roll log (${c.rollLog.length})`,
+  const logBody = el("div", { class: "acc-body" },
     log.length ? el("div", {}, ...log.map((r) => el("div", { class: "log-entry" },
       el("div", { class: "log-when", text: `${fmtTime(r.ts)} · ${r.kind}${r.manual ? " · entered by hand" : ""}` }),
       el("div", { class: "mono small", text: `${(r.dice || []).join(" + ")}${r.attrValue ? ` + ${r.attrValue}` : ""}${r.total !== undefined ? ` = ${r.total}` : ""} ${r.outcome || ""} ${r.label || ""}` }))))
       : el("p", { class: "muted small", text: "No rolls yet." }),
+    c.rollLog.length > 40 ? el("p", { class: "small muted", text: `Showing the most recent 40 of ${c.rollLog.length}.` }) : null,
     el("div", { class: "btn-row" },
       btn("Face distribution", () => showDistribution(c)),
-      btn("Export as text", () => exportText(c)))));
+      btn("Export as text", () => exportText(c))));
+  const logAcc = el("details", { class: "acc" }, el("summary", { text: `Roll log (${c.rollLog.length})` }), logBody);
+  add(host, logAcc);
   return {};
 }
 
@@ -295,10 +303,10 @@ export function renderCareers(host) {
       row("Cases closed", String(car.history.length)),
       row("Experience", `${car.xp} XP`),
       el("div", { class: "btn-row" },
-        car.id === (c && c.id) ? pill("Current", "ok") : btn("Switch to this", () => { Store.selectCareer(car.id); go("home"); }),
+        car.id === (c && c.id) ? pill("Current", "ok") : btn("Switch to this", () => { resetDrafts(); Store.selectCareer(car.id); go("home"); }),
         btn("Delete", async () => {
           const ok = await confirmModal({ title: "Delete this career?", message: `This erases ${car.investigator.name || "this investigator"}, their journal, their decks and their history. It cannot be undone.`, confirmLabel: "Delete", danger: true });
-          if (ok) { Store.deleteCareer(car.id); rerender(); }
+          if (ok) { resetDrafts(); Store.deleteCareer(car.id); rerender(); }
         }, "danger"))));
   }
   add(host, section("Your investigators", Store.careers().length ? list : el("p", { class: "muted small", text: "No careers yet." })));
@@ -311,10 +319,35 @@ export function renderCareers(host) {
         btn("Spend", () => spendXP(b), b.cost <= c.xp ? "primary" : "ghost", { disabled: b.cost > c.xp || !!(Store.mystery && !Store.mystery.solved) }))),
       Store.mystery && !Store.mystery.solved ? el("p", { class: "small", text: "Experience is spent between mysteries, not during one." }) : null,
       spendable.length === 0 ? el("p", { class: "small muted", text: "Nothing affordable yet." }) : null));
+    add(host, section("Take on more",
+      el("p", { class: "small muted", text: `The book lets you shoulder a new obligation before your next mystery and take ${DATA.NEW_OBLIGATION_XP} experience for it. Swapping one that no longer fits is free, and pays nothing.` }),
+      el("div", { class: "btn-row" },
+        btn(`New obligation (+${DATA.NEW_OBLIGATION_XP} XP)`, async () => {
+          if (Store.mystery && !Store.mystery.solved) { showToast("Between mysteries only."); return; }
+          const text = await promptModal({ title: "A new obligation", value: R.rollGenre(c.defaultGenre || "noir", "obligations").value });
+          if (!text) return;
+          Store.update("take an obligation", () => {
+            c.investigator.obligations.push({ id: uid(), text, struck: false });
+            c.xp += DATA.NEW_OBLIGATION_XP;
+          });
+          showToast(`Obligation taken. +${DATA.NEW_OBLIGATION_XP} XP.`);
+          rerender();
+        }),
+        btn("Replace one", async () => {
+          const id = await chooseModal({ title: "Replace which obligation?", options: c.investigator.obligations.map((o) => ({ value: o.id, label: o.text })) });
+          if (!id) return;
+          const text = await promptModal({ title: "Its replacement", message: "No experience for this one: it is a swap, not a new burden.", value: R.rollGenre(c.defaultGenre || "noir", "obligations").value });
+          if (!text) return;
+          Store.update("replace an obligation", () => {
+            const ob = c.investigator.obligations.find((o) => o.id === id);
+            if (ob) { ob.text = text; ob.struck = false; }
+          });
+          rerender();
+        }))));
   }
 
   add(host, section("Start another",
-    btn("New investigator", () => { Store.newCareer("New career"); go("wizard"); }, "primary")));
+    btn("New investigator", () => { resetDrafts(); Store.newCareer("New career"); go("wizard"); }, "primary")));
   return {};
 }
 
@@ -371,9 +404,9 @@ export function renderSettings(host) {
 
   add(host, section("Appearance",
     defRow("Theme", el("div", { class: "btn-row" }, ...["system", "light", "dark"].map((t) =>
-      btn(t[0].toUpperCase() + t.slice(1), () => { Settings.set("theme", t); applyTheme(); rerender(); }, Settings.get("theme") === t ? "primary" : "ghost")))),
-    defRow("Text size", el("div", { class: "btn-row" }, ...[90, 100, 115, 130].map((s) =>
-      btn(`${s}%`, () => { Settings.set("textScale", s); applyTextScale(); rerender(); }, Settings.get("textScale") === s ? "primary" : "ghost"))))));
+      optionBtn(t[0].toUpperCase() + t.slice(1), () => { Settings.set("theme", t); applyTheme(); rerender(); }, Settings.get("theme") === t)))),
+    defRow("Text size", el("div", { class: "btn-row" }, ...[90, 100, 115, 130].map((sz) =>
+      optionBtn(`${sz}%`, () => { Settings.set("textScale", sz); applyTextScale(); rerender(); }, Settings.get("textScale") === sz))))));
 
   const blocked = R.blockedList();
   add(host, section("Content filter · house aid",

@@ -1,6 +1,6 @@
 // Bottom-nav routing plus the section nav every multi-route tab carries.
 
-import { el, add, clear, $ } from "./core.js";
+import { el, add, clear } from "./core.js";
 
 const routes = new Map();
 export const TABS = [
@@ -37,7 +37,7 @@ export function sectionNav(current) {
 }
 
 export function renderTabs() {
-  const bar = $("#tab-bar");
+  const bar = document.querySelector("#tab-bar");
   if (!bar) return;
   clear(bar);
   const current = routes.get(route());
@@ -56,8 +56,8 @@ export function renderTabs() {
 export async function render() {
   const name = route();
   const def = routes.get(name) || routes.get("home");
-  const host = $("#screen");
-  const actionHost = $("#action-host");
+  const host = document.querySelector("#screen");
+  const actionHost = document.querySelector("#action-host");
   clear(host); clear(actionHost);
   host.classList.remove("has-action");
   const nav = sectionNav(name);

@@ -2,7 +2,7 @@
 // changed and is covered by the single-step undo in the store.
 
 import { d6, uid } from "./core.js";
-import { CLOCK_SEGMENTS } from "../data.js";
+import { RIVAL_SLOTS } from "../data.js";
 import * as R from "./rules.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
@@ -125,7 +125,7 @@ export function endScene() {
   const leftover = D.activeThreats(m);
   if (leftover.length) events.push({ t: "threats_left", names: leftover.map((t) => t.name) });
   m.threats = [];
-  const dayOver = inv.clock >= CLOCK_SEGMENTS;
+  const dayOver = D.clockFull(inv);
   return { events, dayOver, leftover };
 }
 
@@ -156,7 +156,7 @@ export function addRival(threat) {
   const c = Store.career;
   if (!Settings.get("rivals")) return null;
   const rival = { id: uid(), name: threat.name, level: Math.max(2, threat.level) };
-  if (c.rivals.length >= 6) return { full: true, rival };
+  if (c.rivals.length >= RIVAL_SLOTS) return { full: true, rival };
   c.rivals.push(rival);
   return { rival };
 }

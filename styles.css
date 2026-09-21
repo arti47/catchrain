@@ -133,6 +133,7 @@ a { color: var(--accent); }
   border-radius: 999px; background: var(--bg-3); color: var(--ink-2); text-decoration: none; font-size: .85rem;
 }
 .section-nav a[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
+.section-nav .section-step { flex: 0 0 auto; padding: .45rem .8rem; min-height: 38px; display: inline-flex; align-items: center; border-radius: 999px; background: transparent; color: var(--ink-2); opacity: .5; font-size: .85rem; }
 .section-nav .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--loss); }
 
 /* --- Blocks --------------------------------------------------------------- */
@@ -177,12 +178,12 @@ a { color: var(--accent); }
 /* --- Trackers ------------------------------------------------------------- */
 .track { display: flex; gap: .3rem; flex-wrap: wrap; }
 .box {
-  width: 38px; height: 38px; border-radius: 9px; border: 2px solid var(--line);
+  width: 44px; height: 44px; border-radius: 9px; border: 2px solid var(--line);
   background: var(--bg-3); cursor: pointer; padding: 0;
 }
 .box.on { background: var(--loss); border-color: var(--loss); }
 .clock { display: flex; gap: .3rem; }
-.clock .seg { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--line); background: var(--bg-3); }
+.clock .seg { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--line); background: var(--bg-3); }
 .clock .seg.on { background: var(--accent); border-color: var(--accent); }
 
 .attr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
@@ -198,7 +199,7 @@ a { color: var(--accent); }
 .chip-list { display: flex; flex-wrap: wrap; gap: .4rem; }
 .chip {
   border: 1px solid var(--line); background: var(--bg-3); border-radius: 999px;
-  padding: .4rem .7rem; min-height: 38px; font-size: .85rem; display: inline-flex; align-items: center; gap: .35rem; cursor: pointer;
+  padding: .5rem .8rem; min-height: 44px; font-size: .85rem; display: inline-flex; align-items: center; gap: .35rem; cursor: pointer;
 }
 .chip.struck { text-decoration: line-through; color: var(--ink-2); opacity: .6; }
 .chip.signature { border-color: var(--accent); }

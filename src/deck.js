@@ -34,7 +34,6 @@ export function buildTruth(difficultyId) {
 // --- Clue sets ----------------------------------------------------------------
 export const setsOf = (m) => Object.values(m.clueSets);
 export const eligibleForFalseLead = (m) => setsOf(m).filter((s) => !s.truth && !s.falseLead);
-export const eligibleForTruth = (m) => setsOf(m).filter((s) => !s.truth && !s.falseLead);
 export const isFalseLeadRank = (m, rank) => !!(m.clueSets[rank] && m.clueSets[rank].falseLead);
 export const isTruthRank = (m, rank) => !!(m.clueSets[rank] && m.clueSets[rank].truth);
 

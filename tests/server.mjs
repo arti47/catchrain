@@ -27,3 +27,14 @@ export const CHROME = process.env.CHROME_PATH || "/opt/pw-browsers/chromium-1194
 export async function launch(chromium) {
   return chromium.launch({ executablePath: CHROME, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
 }
+
+import { readFileSync } from "node:fs";
+/** The three shared seed states (§11.1 D). */
+export const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
+/** Boot the app against a fixture: a hash change is not a load, so reload. */
+export async function seed(page, base, name) {
+  await page.goto(base);
+  const state = fixture(name);
+  await page.evaluate((s) => { localStorage.clear(); if (s.activeId) localStorage.setItem("citr:v1", JSON.stringify(s)); }, state);
+  await page.reload();
+}

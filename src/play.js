@@ -2,7 +2,7 @@
 // boundaries between them. Controls are ordered by the book's sequence of play.
 
 import { el, add } from "./core.js";
-import { SCENE_TYPES, CLOCK_SEGMENTS } from "../data.js";
+import { SCENE_TYPES, CLOCK_SEGMENTS, END_TRIGGERS } from "../data.js";
 import * as R from "./rules.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
@@ -10,6 +10,7 @@ import { Settings } from "./settings.js";
 import * as Roller from "./roller.js";
 import * as Life from "./lifecycle.js";
 import { eventList } from "./prompts.js";
+import { useKeywordFlow } from "./sheet.js";
 import { go } from "./router.js";
 import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState } from "./ui.js";
 
@@ -184,9 +185,23 @@ async function endSceneFlow() {
       options: [...out.leftover.map((t) => ({ value: t, label: t.name, note: `Level ${t.level} → rival at level ${Math.max(2, t.level)}` })), { value: null, label: "Let them go", note: "Add no rival." }],
     });
     if (pick) {
+      Store.begin("add rival");
       const res = Life.addRival(pick);
-      Store.update("add rival", () => {});
-      if (res && res.full) showToast("Your rival list is full — replace one from the case screen.");
+      if (res && res.full) {
+        // The book lets a full list be replaced by a rival of matching level.
+        const matching = Store.career.rivals.map((r, i) => ({ r, i })).filter(({ r }) => r.level === res.rival.level);
+        const pool = matching.length ? matching : Store.career.rivals.map((r, i) => ({ r, i }));
+        const slot = await chooseModal({
+          title: "Your rival list is full",
+          message: matching.length
+            ? "Replace a rival of the same threat level, or let this one go."
+            : "No rival shares this one's level, so by the book it cannot be added. Drop one anyway, or let it go.",
+          options: [...pool.map(({ r, i }) => ({ value: i, label: `${i + 1}. ${r.name}`, note: `Level ${r.level}` })),
+                    { value: null, label: "Let this one go", note: "The list stays as it is." }],
+        });
+        if (slot !== null && slot !== undefined) Life.replaceRival(slot, res.rival);
+      }
+      Store.commit();
     }
   }
 
@@ -234,7 +249,7 @@ export function renderPlay(host) {
     add(host, el("h1", { text: "It ends here" }),
       explain("The mystery is over: either you chose to stop, the clue deck ran dry, or a consequence forced your investigator out. All that is left is to name the truth."));
     add(host, section("How it ended", el("p", { text: R.problemText(m) }),
-      row("Trigger", m.endTrigger === "deck_empty" ? "The clue deck ran out" : m.endTrigger === "consequence" ? "A consequence forced you out" : "You chose to stop")));
+      row("Trigger", (END_TRIGGERS.find((t) => t.id === m.endTrigger) || END_TRIGGERS[0]).text)));
     return { action: actionBar("Resolve the mystery", () => go("solve"), "Name the three truth cards") };
   }
 
@@ -308,6 +323,17 @@ function renderInvestigation(host, m, scene) {
   }
   add(host, section(`Threats (${threats.length})`,
     threats.length ? tl : el("p", { class: "muted small", text: "Nothing is in your way. The scene ends when you take the clue." })));
+
+  const ready = D.usableKeywords(Store.investigator);
+  if (ready.length) {
+    const chips = el("div", { class: "chip-list" });
+    for (const k of ready) {
+      add(chips, el("button", { class: `chip ${k.signature ? "signature" : ""}`, type: "button", onclick: () => useKeywordFlow(k).then(rerender) },
+        k.signature ? "★ " : "", k.text));
+    }
+    add(host, section(`Keywords ready (${ready.length})`, chips,
+      el("p", { class: "small muted", text: "Spend one to re-roll a test, strengthen a clue, or remove a threat outright." })));
+  }
 
   const label = { infiltration: "Find a way in", discovery: "Find where the clue is", acquisition: "Take the clue", escape: "Get out" }[scene.stage];
   return { action: actionBar(label, () => runTest({ label, purpose: `${label} — which approach?`, stageTest: true }), `${R.stage(scene.stage).name} stage · danger ${m.danger}`) };

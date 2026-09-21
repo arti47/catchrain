@@ -1,7 +1,7 @@
 // Themed modal / toast / confirm / prompt, the explain() note, and the pinned action bar.
 // No native alert/confirm/prompt anywhere in the app.
 
-import { el, add, clear, $ } from "./core.js";
+import { el, add, clear } from "./core.js";
 
 let openModal = null;
 
@@ -115,7 +115,7 @@ export function chooseModal({ title, message, options, allowCancel = true }) {
 
 let toastTimer = null;
 export function showToast(text, kind = "") {
-  let host = $("#toast");
+  let host = document.querySelector("#toast");
   if (!host) { host = el("div", { id: "toast", class: "toast", role: "status", "aria-live": "polite" }); document.body.append(host); }
   host.className = `toast show ${kind}`;
   host.textContent = text;
@@ -151,6 +151,10 @@ export const defRow = (label, value) =>
 
 export const btn = (label, onClick, kind = "ghost", attrs = {}) =>
   el("button", { class: `btn ${kind}`, type: "button", onclick: onClick, ...attrs }, label);
+
+/** One option out of a set: the chosen one is pressed, for screen readers and for the audit. */
+export const optionBtn = (label, onClick, selected) =>
+  btn(label, onClick, selected ? "primary" : "ghost", { "aria-pressed": selected ? "true" : "false" });
 
 export const pill = (text, kind = "") => el("span", { class: `pill ${kind}`, text });
 

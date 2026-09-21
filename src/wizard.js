@@ -7,7 +7,7 @@ import * as D from "./derived.js";
 import { Store } from "./store.js";
 import { Settings } from "./settings.js";
 import { buildClueDeck, buildTruth } from "./deck.js";
-import { section, row, btn, pill, explain, actionBar, showToast, promptModal, chooseModal } from "./ui.js";
+import { section, row, btn, optionBtn, explain, actionBar, showToast, promptModal } from "./ui.js";
 import { go } from "./router.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());
@@ -29,8 +29,11 @@ export function renderWizard(host) {
   add(host, el("h1", { text: "Create an investigator" }),
     explain("Four steps, in the book's order: spread 2/1/0 across your three attributes, take one obligation from the rest of your life, name the signature keyword you can lean on again and again, then say who this person is."));
   add(host, section(`Step ${draft.step + 1} of 4`,
-    el("div", { class: "section-nav" }, ...["Attributes", "Obligation", "Signature", "Identity"].map((n, i) =>
-      el("a", { href: "#/wizard", "aria-current": i === draft.step ? "page" : null, onclick: (e) => { e.preventDefault(); if (i < draft.step) { draft.step = i; rerender(); } } }, n)))));
+    el("div", { class: "section-nav" }, ...["Attributes", "Obligation", "Signature", "Identity"].map((n, i) => {
+      if (i > draft.step) return el("span", { class: "section-step", "aria-disabled": "true", text: n });
+      return el("a", { href: "#/wizard", "aria-current": i === draft.step ? "page" : null,
+        onclick: (e) => { e.preventDefault(); if (i < draft.step) { draft.step = i; rerender(); } } }, n);
+    }))));
   const out = step(host);
   return out;
 }
@@ -43,11 +46,11 @@ function stepAttributes(host) {
       el("span", { class: "row-label" }, a.name, " — ", el("small", { class: "muted", text: a.text })),
       el("div", { class: "defrow-value btn-row" }, ...ATTRIBUTE_ARRAY.map((v) => {
         const takenBy = Object.entries(draft.attributes).find(([k, val]) => val === v && k !== a.id);
-        return btn(String(v), () => {
+        return optionBtn(String(v), () => {
           if (takenBy) draft.attributes[takenBy[0]] = null;
           draft.attributes[a.id] = v;
           rerender();
-        }, draft.attributes[a.id] === v ? "primary" : "ghost");
+        }, draft.attributes[a.id] === v);
       }))))));
   const done = used.length === 3;
   return { action: actionBar("Next: obligation", () => { if (!done) { showToast("Assign all three values."); return; } draft.step = 1; rerender(); }, done ? "2 / 1 / 0 assigned" : "Assign all three") };
@@ -55,7 +58,7 @@ function stepAttributes(host) {
 
 function genrePicker(onPick) {
   return el("div", { class: "btn-row" }, ...GENRE_IDS.map((g) =>
-    btn(GENRES[g].name, () => { draft.genre = g; onPick(); }, draft.genre === g ? "primary" : "ghost")));
+    optionBtn(GENRES[g].name, () => { draft.genre = g; onPick(); }, draft.genre === g)));
 }
 
 function stepObligation(host) {
@@ -133,12 +136,12 @@ export function renderMysteryWizard(host) {
     explain("A problem is a place, a thing, and something bad that happened to it. Roll all three, give your investigator a reason to care, and the decks are built for you."));
 
   add(host, section("Genre", el("div", { class: "btn-row" }, ...GENRE_IDS.map((g) =>
-    btn(GENRES[g].name, () => { mDraft.genre = g; rerender(); }, mDraft.genre === g ? "primary" : "ghost"))),
+    optionBtn(GENRES[g].name, () => { mDraft.genre = g; rerender(); }, mDraft.genre === g))),
     el("p", { class: "small muted", text: "This picks which set of tables the mystery rolls on." })));
 
   if (Settings.get("career")) {
     add(host, section("Difficulty", el("div", { class: "btn-row" }, ...DIFFICULTIES.map((d) =>
-      btn(d.name, () => { mDraft.difficulty = d.id; rerender(); }, mDraft.difficulty === d.id ? "primary" : "ghost"))),
+      optionBtn(d.name, () => { mDraft.difficulty = d.id; rerender(); }, mDraft.difficulty === d.id))),
       el("p", { class: "small muted", text: R.difficulty(mDraft.difficulty).text }),
       row("Experience bonus", `${R.difficulty(mDraft.difficulty).xpBonus >= 0 ? "+" : ""}${R.difficulty(mDraft.difficulty).xpBonus} XP`)));
   }

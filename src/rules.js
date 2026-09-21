@@ -1,6 +1,6 @@
 // Pure rules lookups over the data library. No state, no DOM.
 
-import { d6, d66, lookupRange, pick } from "./core.js";
+import { d6, d66, lookupRange } from "./core.js";
 import * as D from "../data.js";
 
 export const genre = (id) => D.GENRES[id] || D.GENRES.noir;
@@ -50,8 +50,6 @@ export const testOutcome = (total) => lookupRange(D.TEST_OUTCOMES, total);
 export const consequenceRow = (total, multiplayer = false) =>
   lookupRange(multiplayer ? D.CONSEQUENCES_MULTI : D.CONSEQUENCES_SOLO, total);
 export const difficulty = (id) => D.DIFFICULTIES.find((x) => x.id === id) || D.DIFFICULTIES[1];
-export const xpBenefit = (id) => D.XP_BENEFITS.find((x) => x.id === id);
-export const attribute = (id) => D.ATTRIBUTES.find((a) => a.id === id);
 export const threatLevelText = (lvl) => (D.THREAT_LEVELS.find((t) => t.level === lvl) || {}).text || "";
 export const sceneType = (id) => D.SCENE_TYPES.find((s) => s.id === id);
 export const stage = (id) => D.STAGES.find((s) => s.id === id);
@@ -79,4 +77,3 @@ export const problemText = (m) => {
 
 export const randomMotivation = () => rollTable(D.MOTIVATIONS);
 export const randomTrait = () => rollTable(D.TRAITS);
-export const randomFrom = (arr) => pick(arr);

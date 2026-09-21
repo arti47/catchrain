@@ -50,6 +50,7 @@ export function renderClues(host) {
   add(host, section("The decks",
     row("Clue deck", `${m.clueDeck.length} left`),
     row("Discarded", `${m.clueDiscard.length}`),
+    row("Clue cards held", `${D.clueCount(m)} across ${D.clueSetList(m).filter((s) => !s.falseLead).length} set(s)`),
     row("Truth cards known", `${m.truthRevealed.length} of ${m.truthRevealed.length + m.truthDeck.length + 0}`),
     row("Jokers drawn", `${m.jokersDrawn || 0} of 2`),
     m.clueDeck.length <= 5 ? el("p", { class: "small", text: "The deck is nearly out. When it empties the mystery ends." }) : null));
