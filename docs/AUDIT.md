@@ -206,6 +206,40 @@ build is done. The one item recorded during this cycle is a ruling, not a
 defect: A16, the career danger carry-over is `ceil(danger / 2)`, matching the
 in-play halving rather than the stricter reading of "reduce by half".
 
+## Cycle 9 — the two gaps closed (co-op, and the book's solo guidance)
+
+Both were gaps rather than defects: Chapter 3's multiplayer existed only as its
+consequences table, and Chapter 1's solo advice existed only as the app's own
+paraphrase in `explain()` notes. Closing them turned up two findings.
+
+### F19 — An investigator could take two scenes in one round
+*Rule:* "investigators can each do a different scene for that segment of the
+clock. Once all scenes are finished, all investigators mark a segment"
+(Ch.3, Game turns).
+*Target:* `play.canTakeScene`, and the hand-over panel on the play screen.
+*Fix:* an investigator who has had their scene is offered the next person, not
+a second scene; the starters refuse one either way.
+*Why it mattered:* the first co-op browser run walked straight into it — the
+picker cheerfully offered Amine a second rest while Percy had had none, which
+would have quietly given one player twice the turns.
+*Guard:* the co-op smoke run asserts the hand-over, then that the clock
+advances for both only after each has had a scene.
+
+### F20 — The flow-walk harness still read the pre-party shape
+*Target:* `tests/walk-session.mjs`, `tests/make-fixtures.mjs`.
+*Fix:* the harness reads the active investigator out of the party, and every
+fixture ships in the current shape — with one deliberately old `legacy` fixture
+kept so the migration has a fixture of its own (§10.17) and the browser proves a
+pre-party save still opens, migrates and keeps its experience.
+
+### Rules read-through of Ch.3 and Ch.1
+Everything else in both chapters is now implemented or recorded: rounds, shared
+versus separate scenes, threat attachment and re-attachment, per-investigator
+obligations and experience, the narration guidance in the "Who acts?" chooser,
+the scene-framing questions, the oracle at the point of use, and the recording
+methods. Rulings A17–A20 cover where the book is written for one investigator
+and co-op needs an answer.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -231,6 +265,11 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - A deploy reaches an already-installed app, and accepting the prompt activates
   the new version.
 - Every path that removes a clue card checks the deck-empty end condition.
+- Co-op: one scene each per round, one clock for everyone, threats that stay on
+  the investigator who drew them.
+- A pre-party save opens, migrates into a party of one, and keeps its experience.
+- Every scene carries the book's framing questions, and what is written reaches
+  the journal.
 - A whole session runs end to end: creation → scenes → day boundaries → the
   solve → closing the case → the career history picking it up.
 - No export unread, no import unused (dead-data scan clean).

@@ -25,9 +25,11 @@ so no table was de-interleaved and nothing is blocked.
 These were taken as the template's defaults for a solo game and are recorded so
 later work does not re-open them.
 
-1. **Usage mode — single device, local only.** The game is solo; there is no
-   sync phase and no Firebase. Chapter 3's co-op rules ship as a consequences-table
-   toggle, not as multiplayer infrastructure.
+1. **Usage mode — single device, local only.** There is no sync phase and no
+   Firebase. Chapter 3's co-op rules ship in full, as a party sharing one device
+   (or one device passed around): the party, the round structure, threat
+   attachment and the harsher consequences table. What is *not* built is
+   networked multiplayer — a device each, syncing.
 2. **Seat — the player.** There is no GM in this game, so there is no GM screen.
    Every table in the book is player-facing and lives in the Tables tab.
 3. **Dice — digital by default, manual entry available.** `crypto.getRandomValues`
@@ -50,9 +52,9 @@ Recorded so a later pass does not rediscover the same non-decision.
 | Powers / spell automation | No such subsystem. |
 | Inventory, encumbrance, wealth | No carrying model at all. Keywords are the nearest thing and are their own system. |
 | Pregens | The book publishes none. |
-| Group entity | Co-op play shares a mystery, not a party-level entity. |
+| Group entity | Co-op play shares a mystery, not a party-level entity with its own stats. |
 | GM screen, GM tables | No GM role exists. |
-| Firebase, campaigns, join codes | See decision 1. |
+| Firebase, campaigns, join codes | See decision 1: co-op is played around one device, not across several. |
 
 ## 2. System Profile
 
@@ -123,11 +125,22 @@ between mysteries pays 2.
 
 **2.17 Combat.** None. Threats act after every attribute test they were not
 acted against, rolling 1d6 + level on the consequences table. A threat
-introduced by a test does not act on that same test.
+introduced by a test does not act on that same test. In co-op a threat is
+attached to an investigator and its consequences land on them; acting against
+it re-attaches it to whoever acted.
+
+**2.17a Co-op turns (Ch.3).** A career holds a party. An investigation or truth
+scene is played by everybody; any other scene is taken separately, one each, and
+the clock is marked only once every investigator has had a scene — then for all
+of them together. The day boundary charges each investigator for their own
+neglected obligations. The consequences table is the co-op one: danger +3 with
+no threat present, and two discards.
 
 **2.18 Bestiary.** None — see §1.2.
 
-**2.20 Solo.** The whole game. Not a toggle.
+**2.20 Solo.** The whole game. Not a toggle. The chapter's *guidance* is treated
+as content, not prose: the two scene-framing questions open every scene with an
+oracle to hand, and the ways of keeping a record sit on the journal screen.
 
 **2.22 Safety tools.** **The book supplies none.** The app adds a content
 filter as a labelled house aid (§4).
@@ -159,6 +172,10 @@ rival) and Exception (four asymmetric draw rules that look alike and are not).
 | A10 | Does a rest clear ordinary keyword strikes? | No. Attributes and signature keywords only. |
 | A11 | The yes/no oracle is 1d6, but the worked example rolls 2d6 against it | The table wins; the example is treated as an erratum and the app rolls 1d6. |
 | A12 | *Which* threat rises when a consequence raises a level and several are present | The least advanced one, so the scene escalates broadly rather than spiking one threat to 3. The book does not say. |
+| A17 | A filled fatigue track inside a co-op investigation | The forced escape applies to the scene, so the whole party leaves. The rule is written for one investigator's scene, and in co-op the scene is shared. |
+| A18 | How many scenes an investigator takes in one round | One. A shared investigation or truth scene counts as that round's scene for everyone in it. |
+| A19 | Whose clock advances, and when | Everyone's, together, once every investigator has taken a scene. The day turns when all the clocks are full, and each investigator marks fatigue for their own unstruck obligations. |
+| A20 | Who earns a mystery's experience in co-op | Every investigator in the party, at the full amount. The book gives experience for solving the mystery, and they solved it together. |
 | A16 | "Reduce the danger by half (rounded up)" between mysteries | The next mystery starts at `ceil(danger / 2)`, matching the in-play halving rule ("halve the danger, rounded up") rather than the stricter reading where the *reduction* is rounded up. |
 | A15 | How much of a manual-dice session the app rolls | Every resolution roll is typed in (tests, investigation roll, consequences, threats, rest); d66 table lookups stay digital, since the app is rolling those on the player's behalf rather than resolving an action. |
 | A13 | A rival roll landing on a blank slot | Introduce an ordinary new threat. The book offers "choose a rival or create a new one"; the app takes the second. |
@@ -206,6 +223,7 @@ in the README rather than hidden behind an encoding.
 | `src/roller.js` | Attribute tests, consequences, fatigue, threats, keyword actions, clue draws. |
 | `src/lifecycle.js` | Scenes, stages, the clock, the day boundary, rest, obligations, truths, rivals. |
 | `src/prompts.js` | The engine's player decisions wired to real dialogs; one event → one sentence. |
+| `src/framing.js` | Setting the scene: the book's two questions, an oracle to hand, and the answer kept in the journal. |
 | `src/wizard.js` | The investigator wizard and the mystery wizard. |
 | `src/sheet.js` | The investigator sheet and the persistent resource header. |
 | `src/play.js` | The scene loop: choosing, running stages, threats, boundaries. |
@@ -225,24 +243,27 @@ shell list, and bumps `CACHE_VERSION`, in the same change.
 ```
 citr:v1
   activeId, careers/{id}:
-    name, createdAt, xp, defaultGenre, carryDanger
+    name, createdAt, defaultGenre, carryDanger
+    activeInvestigatorId                  // who is in context
+    investigators[ ... ]                  // the party: one solo, several in co-op
     rivals[{id,name,level}]         // Ch.3 rivals, max RIVAL_SLOTS
     history[{problem,correct,difficulty,answers,closedAt,danger,clues}]
     questions[{id,text,from}]       // lingering questions
     journal[{id,ts,kind,text,day,scene}]   // capped 500
     rollLog[{id,ts,kind,dice,attrValue,total,outcome,label,manual}]  // capped 200
-    investigator: { name, trait, notes, attributes{power,insight,method},
-                    struck{attrId:true}, fatigue, clock, day,
-                    obligations[{id,text,struck}], keywords[{id,text,signature,struck}] }
+      each: { id, name, trait, notes, xp, attributes{power,insight,method},
+              struck{attrId:true}, fatigue, clock, day,
+              obligations[{id,text,struck}], keywords[{id,text,signature,struck}] }
     mystery: { id, genre, difficulty, danger, motivation,
                location, object, treachery, secondObject,
                clueDeck[], clueDiscard[], truthDeck[], truthRevealed[], setAside[],
                clueSets{rank:{rank,cards[],entries[],description,truth,falseLead,truthCards[]}},
-               threats[{id,name,level,marks,removed,rivalId,justIntroduced}],
-               scene{id,type,stage,order[],index,done,forceEscape},
+               threats[{id,name,level,marks,removed,rivalId,justIntroduced,attachedTo}],
+               scene{id,type,stage,order[],index,done,forceEscape,actorId,participants[],rolls{},framing},
+               round{mode:"shared"|"individual", scenes{invId:{type,done}}},
                jokersDrawn, ended, endTrigger, guesses[], results[], solved, correct, answers[], xpGained }
 citr:v1:settings  { theme, textScale, manualDice, multiplayer, rivals, career,
-                    safetyFilter, blocked[], wakeLock, autoOracle }
+                    safetyFilter, blocked[], wakeLock, autoOracle, sceneFraming }
 ```
 
 Every schema addition ships a back-fill in `derived.normalize*` and is recorded
@@ -355,6 +376,19 @@ this whole document exists to prevent.
 | Lingering questions seed the next mystery | Permission | — | `solve.renderOutcome`, `wizard.renderMysteryWizard` | Solve, mystery wizard | guidance only |
 | Mix genre tables freely | Permission | `GENRES` | `rules.rollGenre` | Tables tab, both wizards | guidance only |
 | Write your own clue descriptions | Permission | — | `prompts.describeClue` | Clue dialog, clues screen | guidance only |
+| Co-op: the party shares one mystery, one clock, one danger track | Exception | — | `store.party`, `derived.normalizeCareer` | Party panel, header switcher | `a party can be joined, switched and thinned out`, `a pre-party save migrates into a party of one, with its experience` |
+| Co-op: investigation and truth scenes are played by everyone | Compulsion | — | `lifecycle.SHARED_SCENES`, `startRound` | Scene picker labels, round panel | `an investigation scene is played by the whole party` |
+| Co-op: any other scene is taken separately, one each | Compulsion | — | `lifecycle.recordRoundScene`, `play.canTakeScene` | Round panel, hand-over action | `an individual round is not finished until everyone has taken a scene`, smoke: the party round |
+| Co-op: the clock is marked once everyone has had a scene | Threshold | `CLOCK_SEGMENTS` | `lifecycle.pendingInvestigators`, `endScene` | End-the-scene action and its refusal | `ending a scene marks every clock, and the day turns only when all are full` |
+| Co-op: each investigator answers for their own obligations | Cost | — | `lifecycle.applyDayBoundary` | Day dialog | `the day boundary bites each investigator for their own obligations` |
+| Co-op: a threat is attached to whoever drew it | Conversion | — | `roller.introduceThreat`, `attachedTo` | Threat card | `a threat is attached to the investigator whose test called it up` |
+| Co-op: a threat's consequences land on the investigator it is on | Exception | `CONSEQUENCES_MULTI` | `roller.threatActs` | Result dialog | `a threat acts against whoever it is attached to` |
+| Co-op: acting against a threat turns it on you | Conversion | — | `roller.attributeTest` | Threat card | `acting against a threat turns its attention on you` |
+| Co-op: give everyone something to do | Permission | — | `play.chooseActor` | "Who acts?" chooser, with who has acted | guidance: the chooser names who has not acted |
+| Co-op: everyone earns the mystery's experience | Cost | `DIFFICULTIES` | `solve.reveal` | Solve results | `everyone who worked the case earns its experience` |
+| Solo: open a scene by saying where it is and who is there | Permission | `SCENE_FRAMING` | `framing.framingCard`, `framingLines` | Top of every scene; rest and obligation dialogs | smoke: setting the scene |
+| Solo: ask the game when you do not know | Permission | oracles | `framing.framingCard` buttons | Oracle and yes/no on the framing card | smoke: the oracle button produces words |
+| Solo: keep the record however you like | Permission | `RECORDING_METHODS` | `screens.renderJournal` | Journal screen, rules library | guidance only |
 | Content filter (house aid) | Gate | `Settings.blocked` | `rules.rollTable` | Settings, and a note on any redirected roll | `the content filter skips the rows a player blocked` |
 
 ## 7. Roadmap
@@ -367,6 +401,9 @@ this whole document exists to prevent.
 - [x] **Phase 4 — In-play systems.** The guided solve with onward routes, rest, the lifecycle bundle with one-step undo, the stage tracker, career advancement, rivals.
 - [x] **Phase 6 — Conditional surfaces.** Career, rivals and co-op toggles; the tables browser; the rules library; the tutorial; the journal.
 - [x] **Hardening.** Unit, smoke, interaction and dead-data harnesses; the layout and flow probes; the audit cycles in `docs/AUDIT.md`.
+- [x] **Phase 7 — Co-op and the book's own guidance.** The party, the round
+  structure, threat attachment, per-investigator boundaries and experience; the
+  scene-framing questions, the oracle to hand, and the recording methods.
 - [ ] **Backlog** (deliberately not built): a general snapshot stack beyond the current single-step undo; a rendered HTML character sheet alongside the JSON export; a tablet two-column layout.
 
 ## 8. Process rules
@@ -388,6 +425,8 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | Co-op (Ch.3) in full: a career now holds a party sharing one mystery, one clock and one danger track; shared and individual rounds; threats attached to whoever drew them; per-investigator obligations, fatigue and experience. Old saves migrate into a party of one. | 58 unit invariants; co-op and legacy-save checks in the browser; interaction, scan, walk and probes clean | citr-v2 |
+| 2026-09-21 | The book's solo guidance surfaced: every scene opens with its two questions and an oracle, the answer goes to the journal, and the recording methods sit on the journal screen and in the library. New `src/framing.js`; `sceneFraming` defaults on. | smoke: setting the scene | citr-v2 |
 | 2026-09-21 | Audit cycle 8: every pass clean — unit, dead-data, smoke, interaction, walk, probes and the update path. Ruling A16 recorded for the career danger carry-over. | full cycle, no findings | citr-v1 |
 | 2026-09-21 | Engine read-through: only some of the paths that remove a clue card noticed the deck running out. One `checkDeckEmpty` now guards them all. | 47 unit invariants; guard watched failing | citr-v1 |
 | 2026-09-21 | The content filter leaked about one roll in forty; a blocked row now redirects the roll and says so. Added a service-worker update-path test (`npm run sw`). | 45 unit invariants; interaction, scan, walk, probes and the update path clean | citr-v1 |

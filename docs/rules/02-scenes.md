@@ -13,6 +13,8 @@ mark the clock and choose again, or resolve the mystery.
 - **Obligation:** strike one obligation, play a short scene (a subject-oracle
   prompt is offered), discard one card from the clue deck. No test is rolled.
 - **Truth:** see `05-clues-and-truths.md`. No test is rolled.
+- In co-op, a segment of the clock covers a scene for everybody: see
+  `08-coop.md`.
 - Threats do not survive the end of a scene. With the rivals rule, one leftover
   threat may be kept as a rival.
 

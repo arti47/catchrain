@@ -37,10 +37,14 @@ screen": it installs as an app and works offline afterwards.
   Settings has a manual-entry mode that keeps everything else.
 - **The solve** — a guided procedure: name the three cards, reveal, and answer
   one question per correct guess.
+- **Setting the scene** — every scene opens with the book's two questions, where
+  is this and who is here, with an oracle to hand; what you write goes into the
+  journal.
 - **Reference** — every d66 table with a roll button, both oracles, a searchable
   rules library, and a tutorial that walks a whole first session.
-- **Optional rules** — career, rivals and the co-op consequences table, each
-  behind its own toggle in Settings.
+- **Optional rules** — career, rivals, and co-op: a party of investigators
+  sharing one mystery, one clock and one danger track, with the round structure
+  and threat attachment the book asks for. Each behind its own toggle.
 
 ## Your data
 
