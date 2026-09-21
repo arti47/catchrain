@@ -252,6 +252,32 @@ as failing to offer an update — a harness that manufactures a finding (D-15) a
 would have hidden a real regression in the one PWA behaviour you cannot see by
 looking.
 
+## Cycle 11 — a one-in-a-hundred test, and the last uncontrolled rule
+
+### F22 — A rules test could fail on a rule it was not testing
+*Target:* `tests/unit.mjs` `freshMystery`.
+*Fix:* the default test deck carries no jokers; the joker rules get their own
+tests, with jokers placed where they can be seen.
+*Why it mattered:* "rolling under danger halves danger" failed once in roughly
+a hundred runs. The engine was right: the failed test's consequence roll landed
+on *discard a clue card*, the discarded card was a joker, no clue set existed to
+burn, so danger doubled before it halved. A test that fails once in a hundred
+runs for a reason nobody can reproduce is a test the next person disbelieves.
+
+### F23 — "Bring in your current investigators" had no control
+*Rule:* "you can create new investigators for your cooperative mystery, or
+bring in your current investigators (assuming they are not already in the middle
+of another mystery)" (Ch.3, The investigators).
+*Target:* `store.availableToBorrow`, `store.borrowInvestigator`, and a
+"Bring one in" control on the party panel.
+*Why it mattered:* the last permission in Chapter 3 that read as flavour and
+got no control (D-22) — a table starting a co-op game had to rebuild people they
+already had.
+*Ruling A21:* they are copied, not moved, so no other career is left without its
+investigator or its history; an investigator mid-mystery elsewhere is refused.
+*Guard:* `an investigator can be brought in from another career, unless they are
+mid-mystery`.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -278,7 +304,7 @@ Settled ground; later passes need not re-litigate these without new evidence.
   the new version.
 - Every path that removes a clue card checks the deck-empty end condition.
 - Co-op: one scene each per round, one clock for everyone, threats that stay on
-  the investigator who drew them.
+  the investigator who drew them, and a party you can bring people into.
 - A pre-party save opens, migrates into a party of one, and keeps its experience.
 - Every scene carries the book's framing questions, and what is written reaches
   the journal.

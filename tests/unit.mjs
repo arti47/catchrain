@@ -60,7 +60,7 @@ await test("consequence boundaries, solo and co-op", () => {
 
 // --- Decks --------------------------------------------------------------------
 await test("clue deck is 40 cards plus 2 jokers", () => {
-  const d = deck.buildClueDeck();
+  const d = deck.buildClueDeck(); // the real thing, jokers and all
   eq(d.length, 42);
   eq(d.filter((c) => c.rank === "JOKER").length, 2);
   eq(d.filter((c) => c.rank === "A").length, 4);
@@ -77,11 +77,18 @@ await test("hard adds 2 red herrings, easy reveals 3, trivial reveals 6", () => 
 });
 
 // --- Fixtures -----------------------------------------------------------------
+/**
+ * A mystery to test against. Its clue deck carries no jokers by default: a
+ * consequence that discards one would otherwise double danger once in a few
+ * hundred runs and fail a test about something else entirely. The joker rules
+ * get their own tests, with jokers put where they can be seen.
+ */
 function freshMystery(overrides = {}) {
   const t = deck.buildTruth("standard");
   return Object.assign({
     genre: "noir", difficulty: "standard", danger: 0,
-    clueDeck: deck.buildClueDeck(), clueDiscard: [], clueSets: {}, threats: [],
+    clueDeck: deck.buildClueDeck().filter((c) => c.rank !== "JOKER"),
+    clueDiscard: [], clueSets: {}, threats: [],
     scene: null, jokersDrawn: 0, ended: false, ...t,
   }, overrides);
 }
