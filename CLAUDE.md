@@ -195,6 +195,17 @@ versioned app-shell cache and network-first navigation. Storage is plain JSON in
 and re-importable in one tap. Dice come from `crypto.getRandomValues` with
 rejection sampling, never `Math.random`. No native `alert`/`confirm`/`prompt`.
 
+**Two clean slates, both irreversible and both confirmed by naming the loss:**
+*Put down this case* drops the mystery, its decks, clue sets, threats and scene
+while keeping the investigators, journal, history, rivals and experience (no
+danger carries over, because the case was never closed). *Erase everything*
+removes every career and resets the settings, behind two confirmations.
+
+**Re-rendering keeps your place.** Rolling in the middle of a long scene
+re-renders the screen you are on; the router restores the scroll position when
+the route has not changed, so a roll never throws you back to the top. A screen
+that got shorter clamps to its new bottom.
+
 **The one piece of hidden state:** the three set-aside truth cards live in the
 same JSON as everything else. The app never renders them before the solve, but a
 player who reads their own export will spoil their own mystery. That is stated
@@ -427,6 +438,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | A roll no longer throws the screen back to the top: the router keeps the scroll position when re-rendering the route you are already on. Settings gains two clean slates: put down this case (keeps the investigators, journal and history) and erase everything (two confirmations). | 61 unit invariants; smoke asserts the kept scroll and both resets, the scroll guard watched failing | citr-v2 |
 | 2026-09-21 | Audit cycle 12: every pass clean at 59 invariants and thirteen browser checks, with co-op and the framing guidance in. | full cycle, no findings | citr-v2 |
 | 2026-09-21 | Chapter 3's last uncontrolled permission: an investigator you already play can join a co-op case unless they are mid-mystery (ruling A21). A unit fixture no longer ships jokers, which was failing an unrelated rules test about once in a hundred runs. | 59 unit invariants; interaction, scan, smoke, walk, probes and the deploy path clean | citr-v2 |
 | 2026-09-21 | Co-op (Ch.3) in full: a career now holds a party sharing one mystery, one clock and one danger track; shared and individual rounds; threats attached to whoever drew them; per-investigator obligations, fatigue and experience. Old saves migrate into a party of one. | 58 unit invariants; co-op and legacy-save checks in the browser; interaction, scan, walk and probes clean | citr-v2 |

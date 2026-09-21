@@ -369,6 +369,84 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 9. a roll keeps your place on the screen
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress");
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(200);
+  const room = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+  if (room < 200) fail(`the play screen is too short to test scrolling (${room}px of scroll)`);
+  await page.evaluate(() => window.scrollTo(0, 300));
+  await page.waitForTimeout(100);
+  const before = await page.evaluate(() => window.scrollY);
+  // Act against a threat: the scene carries on, so the screen keeps its length.
+  await page.getByRole("button", { name: "Act against it" }).first().click();
+  for (let i = 0; i < 6; i++) {
+    await page.waitForSelector(".modal-overlay", { timeout: 1500 }).catch(() => {});
+    const ch = page.locator(".modal-overlay .choice").first();
+    const act = page.locator(".modal-actions .btn").first();
+    if (await ch.count()) await ch.click();
+    else if (await act.count()) await act.click();
+    else break;
+    await page.waitForTimeout(80);
+  }
+  await page.waitForTimeout(300);
+  const { after, max } = await page.evaluate(() => ({
+    after: window.scrollY,
+    max: Math.max(0, document.documentElement.scrollHeight - window.innerHeight),
+  }));
+  // Keep where you were, or as close as a shorter screen allows.
+  const expected = Math.min(before, max);
+  if (before < 200) fail(`the page did not scroll before the roll (${before})`);
+  else if (after < expected - 8) fail(`a roll threw the screen back up (${before} -> ${after}, ${max} available)`);
+  else if (!errors.length) ok("a roll keeps your place on the screen");
+  if (errors.length) fail(`console error during the roll: ${errors[0].slice(0, 120)}`);
+  await ctx.close();
+}
+
+// 10. the two clean slates: put down the case, and erase everything
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "party", { multiplayer: true, career: true });
+  await page.goto(`${base}#/settings`);
+  await page.waitForTimeout(150);
+  await page.getByRole("button", { name: "Put down this case" }).click();
+  await page.waitForTimeout(200);
+  await page.locator(".modal-actions .btn").first().click();
+  await page.waitForTimeout(300);
+  const kept = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId];
+    return { mystery: c.mystery, party: c.investigators.length, journal: c.journal.length, carry: c.carryDanger };
+  });
+  if (kept.mystery !== null) fail("putting down the case left the mystery behind");
+  if (kept.party !== 2) fail(`putting down the case took the investigators with it (${kept.party} left)`);
+  if (!kept.journal) fail("putting down the case wiped the journal");
+  if (kept.carry) fail("an unfinished case carried danger forward");
+
+  await page.goto(`${base}#/settings`);
+  await page.waitForTimeout(150);
+  await page.getByRole("button", { name: "Erase everything" }).click();
+  await page.waitForTimeout(200);
+  await page.locator(".modal-actions .btn").first().click();   // erase it all
+  await page.waitForTimeout(200);
+  await page.locator(".modal-actions .btn").first().click();   // last chance
+  await page.waitForTimeout(400);
+  const gone = await page.evaluate(() => {
+    const raw = localStorage.getItem("citr:v1");
+    const s = raw ? JSON.parse(raw) : { careers: {} };
+    return { careers: Object.keys(s.careers || {}).length, multiplayer: JSON.parse(localStorage.getItem("citr:v1:settings") || "{}").multiplayer };
+  });
+  if (gone.careers) fail(`erasing everything left ${gone.careers} career(s)`);
+  if (gone.multiplayer) fail("erasing everything left the settings as they were");
+  const text = await page.locator("#screen").innerText();
+  if (!/create an investigator/i.test(text)) fail("after erasing, the app does not offer a fresh start");
+  if (errors.length) fail(`console error while clearing data: ${errors[0].slice(0, 120)}`);
+  if (!gone.careers && !gone.multiplayer) ok("put down the case keeps the people; erase everything keeps nothing");
+  await ctx.close();
+}
+
 await browser.close();
 server.close();
 console.log(failures.length ? `\n${failures.length} failed` : "\nsmoke clean");

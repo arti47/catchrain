@@ -643,6 +643,41 @@ await test("a journal note written outside a transaction still persists", () => 
   eq(c.journal.length, 1, "the note reached storage");
 });
 
+await test("putting the case down keeps the people who worked it", () => {
+  const c = seedParty();
+  Store.update("some history", () => {
+    c.history.push({ id: "h1", problem: "An earlier case.", correct: 2, closedAt: 1 });
+    c.rivals.push({ id: "r1", name: "Rival detective", level: 2 });
+    c.carryDanger = 4;
+  });
+  Store.journal("note", "Something worth keeping.");
+  assert(Store.mystery, "a mystery is running");
+  assert(Store.clearMystery(), "it can be put down");
+  eq(Store.mystery, null, "the mystery is gone");
+  eq(Store.party.length, 2, "both investigators stay");
+  eq(Store.career.history.length, 1, "so does the history");
+  eq(Store.career.rivals.length, 1, "and the rivals");
+  eq(Store.career.carryDanger, 0, "an unfinished case carries no danger");
+  assert(Store.career.journal.some((e) => /worth keeping/.test(e.text)), "the journal stays");
+  assert(Store.career.journal.some((e) => /put down unfinished/.test(e.text)), "and records it");
+  assert(!Store.clearMystery(), "there is nothing left to put down");
+});
+
+await test("erasing everything leaves nothing behind, and the app still opens", () => {
+  seedParty();
+  Settings.set("multiplayer", true);
+  Store.eraseEverything();
+  eq(Store.careers().length, 0, "no careers");
+  eq(Store.career, null);
+  eq(Store.investigator, null);
+  eq(Store.mystery, null);
+  assert(!Store.canUndo(), "and no undo back into them");
+  Settings.reset();
+  eq(Settings.get("multiplayer"), false, "and the toggles go back to their defaults");
+  Store.init();
+  eq(Store.careers().length, 0, "a fresh boot finds nothing");
+});
+
 await test("export round-trips through import", () => {
   seed();
   const json = Store.exportJSON();

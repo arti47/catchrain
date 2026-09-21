@@ -52,6 +52,11 @@ Everything is stored on the device as plain JSON under `citr:v1`, and Settings
 exports and re-imports it in one tap. Nothing is sent anywhere; there is no
 account and no server.
 
+Settings also has two clean slates: **put down this case**, which drops the
+mystery and its decks but keeps your investigators, journal, closed cases and
+experience, and **erase everything**, which removes every career and resets the
+settings. Neither can be undone, so both say what they are about to take.
+
 One warning: the three set-aside truth cards live in that same JSON. The app
 never shows them before the solve, but if you read your own backup you will spoil
 your own mystery.

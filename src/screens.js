@@ -514,6 +514,46 @@ export function renderSettings(host) {
       }),
       btn("Check my data", () => showToast(Store.integrityCheck())))));
 
+  // Destructive, and at the end of the scroll rather than under the thumb.
+  add(host, section("Start over",
+    el("p", { class: "small muted", text: "Two different sizes of clean slate. Export a backup first if there is anything here you might want back." }),
+    el("div", { class: "btn-row" },
+      btn("Put down this case", async () => {
+        const c = Store.career;
+        if (!c || !c.mystery) { showToast("No mystery is running."); return; }
+        const who = c.investigators.map((i) => i.name || "your investigator").join(", ");
+        const ok = await confirmModal({
+          title: "Put down this case?",
+          message: `The mystery, both decks, every clue set and the three cards set aside are discarded, unsolved. ${who} stays exactly as they are — fatigue, strikes, keywords, obligations and experience — along with the journal, the closed cases and any rivals. No danger carries over.`,
+          confirmLabel: "Put it down", danger: true,
+        });
+        if (!ok) return;
+        Store.clearMystery();
+        showToast("Case put down. Set up a new mystery when you are ready.");
+        go("home");
+      }, "danger"),
+      btn("Erase everything", async () => {
+        const careers = Store.careers().length;
+        const ok = await confirmModal({
+          title: "Erase everything?",
+          message: `Every career on this device — ${careers === 1 ? "one career" : `${careers} careers`}, every investigator, every journal and every closed case — and your settings with them. There is no undo, and no copy anywhere else.`,
+          confirmLabel: "Erase it all", danger: true,
+        });
+        if (!ok) return;
+        const second = await confirmModal({
+          title: "Last chance",
+          message: "This cannot be undone. If you have not exported a backup, cancel and do that first.",
+          confirmLabel: "Erase everything", danger: true,
+        });
+        if (!second) return;
+        Store.eraseEverything();
+        Settings.reset();
+        applyTheme();
+        applyTextScale();
+        showToast("Everything erased.");
+        go("home");
+      }, "danger"))));
+
   add(host, section("About",
     el("p", { class: "small", text: "A personal play aid for Caught in the Rain by Nicholas Robinia (The Ravensridge Emporium, 2025). It holds the rules and tables you need at the table; it is not the book and does not reproduce it." }),
     el("p", { class: "small muted", text: "Built from the owner's own copy. If you share or publish this app, the licensing is yours to sort out." }),

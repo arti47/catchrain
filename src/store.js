@@ -157,6 +157,37 @@ export const Store = {
     write();
   },
 
+  /**
+   * Put the current case down and keep the people: the mystery, both decks,
+   * every clue set, the threats and the scene go; investigators, journal,
+   * history, rivals and experience stay. No danger carries over, because the
+   * case was never closed.
+   */
+  clearMystery() {
+    const c = Store.career;
+    if (!c || !c.mystery) return false;
+    Store.update("clear the mystery", () => {
+      Store.journal("mystery", "The case was put down unfinished.");
+      c.mystery = null;
+      c.carryDanger = 0;
+    });
+    return true;
+  },
+
+  /**
+   * Erase every career on this device. Settings are the settings module's to
+   * clear; the screen that offers this calls both.
+   */
+  eraseEverything() {
+    try { localStorage.removeItem(APP.storageKey); }
+    catch (e) { console.warn("erase failed", e); }
+    state = normalize({});
+    undoStack = [];
+    write();
+    Store.emit();
+    return true;
+  },
+
   exportJSON() { return JSON.stringify(Store.state, null, 2); },
   /** Import replaces everything; the caller confirms and names the loss first. */
   importJSON(text) {

@@ -16,6 +16,7 @@ export const route = () => (location.hash.replace(/^#\//, "").split("?")[0] || "
 export const go = (name) => { location.hash = `#/${name}`; };
 
 let badgeFn = () => ({});
+let lastRoute = null;
 
 export function setBadges(fn) { badgeFn = fn; }
 
@@ -56,6 +57,10 @@ export function renderTabs() {
 export async function render() {
   const name = route();
   const def = routes.get(name) || routes.get("home");
+  // Re-rendering the screen you are already on keeps your place: a roll mid-way
+  // down a scene should not throw you back to the top of it.
+  const sameScreen = name === lastRoute;
+  const keepTo = sameScreen ? window.scrollY : 0;
   const host = document.querySelector("#screen");
   const actionHost = document.querySelector("#action-host");
   clear(host); clear(actionHost);
@@ -70,7 +75,8 @@ export async function render() {
   }
   renderTabs();
   host.focus({ preventScroll: true });
-  if (!out || !out.keepScroll) window.scrollTo(0, 0);
+  window.scrollTo(0, keepTo); // the browser clamps if the screen got shorter
+  lastRoute = name;
   document.title = `${def.title} · Caught in the Rain`;
 }
 

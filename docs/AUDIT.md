@@ -289,6 +289,26 @@ probes at mid-session, stress and co-op, and the service-worker deploy path.
 By the stopping rule the build is done again, now with Chapter 3 and Chapter
 1's guidance included.
 
+## Cycle 13 — from play, not from a pass
+
+### F24 — Every roll threw the screen back to the top
+*Reported from play.* *Target:* `router.render`.
+*Fix:* re-rendering the route you are already on restores the scroll position;
+only a change of route goes back to the top.
+*Why it mattered:* a test mid-way down an investigation scene re-rendered the
+screen and jumped to the top, so every roll cost a scroll back to the threats
+and the stage rail. None of the passes could see it: the layout probe measures a
+screen at rest, and the interaction audit only asks whether a control changed
+anything.
+*Guard:* the smoke run scrolls down, acts against a threat, and asserts the page
+stayed where it was (or as close as a shorter screen allows) — watched failing.
+
+### Two clean slates added
+*Put down this case* and *erase everything*, both at the end of Settings rather
+than under the thumb, both confirming by naming exactly what goes and what
+stays, and the second behind a second confirmation. The reversibility inventory
+(§10.18) now covers them: neither has an undo, so both say so before acting.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -317,6 +337,8 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - Co-op: one scene each per round, one clock for everyone, threats that stay on
   the investigator who drew them, and a party you can bring people into.
 - A pre-party save opens, migrates into a party of one, and keeps its experience.
+- A roll keeps your place on the screen; putting the case down keeps the people;
+  erasing everything keeps nothing.
 - Every scene carries the book's framing questions, and what is written reaches
   the journal.
 - A whole session runs end to end: creation → scenes → day boundaries → the
