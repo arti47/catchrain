@@ -278,6 +278,17 @@ investigator or its history; an investigator mid-mystery elsewhere is refused.
 *Guard:* `an investigator can be brought in from another career, unless they are
 mid-mystery`.
 
+## Cycle 12 — clean
+
+Every pass against the current head, no finding: the parse gate and 59 unit
+invariants, the dead-data scan, the browser smoke (thirteen checks, three phone
+widths, the stress fixture, the joker path, the legacy save, scene framing and
+the co-op round), the interaction audit, the whole-session flow walk, the layout
+probes at mid-session, stress and co-op, and the service-worker deploy path.
+
+By the stopping rule the build is done again, now with Chapter 3 and Chapter
+1's guidance included.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
