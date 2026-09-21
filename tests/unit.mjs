@@ -473,6 +473,16 @@ await test("export round-trips through import", () => {
   assert(Store.investigator.name === "Amine", "career came back");
 });
 
+await test("the content filter skips the rows a player blocked", () => {
+  const D2 = D.GENRES.noir.threats;
+  rules.setBlocked(D2.slice(0, 30)); // block all but six rows
+  const seen = new Set();
+  for (let i = 0; i < 200; i++) seen.add(rules.rollGenre("noir", "threats").value);
+  rules.setBlocked([]);
+  for (const v of seen) assert(!D2.slice(0, 30).includes(v), `rolled a filtered row: ${v}`);
+  eq(seen.size, 6, "every unfiltered row is still reachable");
+});
+
 await test("old saves normalize without crashing", () => {
   globalThis.__resetStorage();
   localStorage.setItem("citr:v1", JSON.stringify({ careers: { a: { id: "a", name: "Old", investigator: { name: "X" }, mystery: { danger: 2 } } }, activeId: "a" }));

@@ -8,7 +8,8 @@
     "interact": "node tests/interact.mjs",
     "probe": "node tests/probe-layout.mjs",
     "walk": "node tests/walk-session.mjs",
-    "scan": "node tests/scan-dead.mjs"
+    "scan": "node tests/scan-dead.mjs",
+    "sw": "node tests/sw-update.mjs"
   },
   "devDependencies": {
     "playwright-core": "^1.47.0"

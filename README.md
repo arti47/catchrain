@@ -59,6 +59,8 @@ npm install          # playwright-core, dev only
 npm test             # parse gate + rules invariants
 npm run smoke        # every route, three phone widths, the end-to-end walk
 npm run interact     # clicks every control in isolation, flags no-ops
+npm run walk         # a whole session: creation, scenes, the solve, the next case
+npm run sw           # ships a change and asserts the update reaches an installed app
 node tests/scan-dead.mjs           # exports nothing reads, imports nothing uses
 node tests/probe-layout.mjs stress # the measurement table, per route
 node tests/probe-flow.mjs          # tap counts for the common sequences

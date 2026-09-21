@@ -82,7 +82,8 @@ export function renderTables(host) {
     resultHost.replaceChildren(
       el("h3", { text: name }),
       el("p", { class: "mono", text: `d66 ${r.code} — ${r.value}` }),
-      R.isBlocked(r.value) ? el("p", { class: "small", text: "Filtered row (house aid)." }) : null,
+      r.redirected ? el("p", { class: "small", text: `Your content filter moved this roll (house aid): ${r.dice.join("")} was a row you blocked.` }) : null,
+      r.allBlocked ? el("p", { class: "small", text: "Every row of this table is filtered, so the roll stands (house aid)." }) : null,
     );
   };
 

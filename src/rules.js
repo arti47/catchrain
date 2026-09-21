@@ -1,6 +1,6 @@
 // Pure rules lookups over the data library. No state, no DOM.
 
-import { d6, d66, lookupRange } from "./core.js";
+import { d6, d66, d66Code, lookupRange, randInt } from "./core.js";
 import * as D from "../data.js";
 
 export const genre = (id) => D.GENRES[id] || D.GENRES.noir;
@@ -10,13 +10,24 @@ export const genreTable = (id, kind) => genre(id)[kind];
 let blocked = new Set();
 export const setBlocked = (list) => { blocked = new Set(list || []); };
 export const blockedList = () => [...blocked];
-export const isBlocked = (v) => blocked.has(v);
 
-/** Roll 1d66 on a table; returns the dice, the d66 code and the row. */
+/**
+ * Roll 1d66 on a table. A filtered row does not become a near-miss: the roll is
+ * redirected to a row the player has not blocked, and says so, rather than
+ * re-rolling a handful of times and leaking one every so often.
+ */
 export function rollTable(table) {
-  let r = d66();
-  for (let i = 0; i < 20 && blocked.size && blocked.has(table[r.index]); i++) r = d66();
-  return { dice: r.dice, code: r.code, index: r.index, value: table[r.index], filtered: blocked.has(table[r.index]) };
+  const r = d66();
+  if (!blocked.size || !blocked.has(table[r.index])) {
+    return { dice: r.dice, code: r.code, index: r.index, value: table[r.index], redirected: false };
+  }
+  const allowed = [];
+  for (let i = 0; i < table.length; i++) if (!blocked.has(table[i])) allowed.push(i);
+  if (!allowed.length) {
+    return { dice: r.dice, code: r.code, index: r.index, value: table[r.index], redirected: false, allBlocked: true };
+  }
+  const i = allowed[randInt(allowed.length)];
+  return { dice: r.dice, code: d66Code(i), index: i, value: table[i], redirected: true };
 }
 export const rollGenre = (id, kind) => rollTable(genreTable(id, kind));
 

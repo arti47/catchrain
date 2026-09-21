@@ -162,6 +162,23 @@ instead of silently eating the point.
 *Also:* difficulty is Chapter 3's own rule, so it no longer hides behind the
 career toggle; only its experience line does.
 
+## Cycle 6 — the two things you cannot see by looking
+
+### F17 — The content filter leaked
+*Target:* `rules.rollTable`. *Fix:* a blocked row redirects the roll to an
+allowed one and says so, instead of re-rolling twenty times and giving up.
+*Why it mattered:* with thirty of thirty-six rows filtered, a best-effort
+re-roll leaks about one roll in forty. A safety tool that mostly works is not
+one. *Guard:* `the content filter skips the rows a player blocked` — 200 rolls
+against a table with six rows left, asserting no leak and that all six remain
+reachable. It failed against the old implementation on its first run.
+
+### The service-worker update path now has a test
+Not a finding, a gap: nothing proved a deploy reaches a player who already has
+the app installed. `npm run sw` copies the project, installs the worker, ships
+a change, reloads, and asserts both the update prompt and that accepting it
+activates the new cache.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -183,6 +200,9 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - All three keyword actions fire in the engine, not in prose.
 - The joker path: the chosen lead burns, exactly one set per joker, no error.
 - Manual-dice mode covers every resolution roll.
+- The content filter never shows a blocked row and never collapses the table.
+- A deploy reaches an already-installed app, and accepting the prompt activates
+  the new version.
 - A whole session runs end to end: creation → scenes → day boundaries → the
   solve → closing the case → the career history picking it up.
 - No export unread, no import unused (dead-data scan clean).
