@@ -309,6 +309,20 @@ than under the thumb, both confirming by naming exactly what goes and what
 stays, and the second behind a second confirmation. The reversibility inventory
 (§10.18) now covers them: neither has an undo, so both say so before acting.
 
+## Cycle 14 — the update prompt
+
+### F25 — A new version interrupted the game to announce itself
+*Reported from play.* *Target:* `ui.actionToast`, `main.js`.
+*Fix:* the update prompt is a toast above the tab bar with a Reload button and a
+dismiss, not a modal. The screen behind it stays usable, and a dismissed update
+is offered again on the next load — the boot path now checks
+`registration.waiting`, not only `updatefound`.
+*Why it mattered:* a deploy landing mid-scene put a blocking dialog over the
+roll you were in the middle of, and "Later" meant "never" until the next deploy.
+*Guards:* the deploy test asserts the toast appears, that nothing is blocking
+the screen, that it clears the tab bar, and that dismissing it never loses the
+update — watched failing against the modal.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -331,8 +345,8 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - The joker path: the chosen lead burns, exactly one set per joker, no error.
 - Manual-dice mode covers every resolution roll.
 - The content filter never shows a blocked row and never collapses the table.
-- A deploy reaches an already-installed app, and accepting the prompt activates
-  the new version.
+- A deploy reaches an already-installed app through a toast that blocks nothing,
+  and the update survives being dismissed.
 - Every path that removes a clue card checks the deck-empty end condition.
 - Co-op: one scene each per round, one clock for everyone, threats that stay on
   the investigator who drew them, and a party you can bring people into.

@@ -123,6 +123,31 @@ export function showToast(text, kind = "") {
   toastTimer = setTimeout(() => { host.className = "toast"; }, 3200);
 }
 
+/**
+ * A toast that asks for one tap instead of blocking the game: it sits above the
+ * tab bar, stays until it is answered or dismissed, and never covers the screen
+ * the way a modal does. Used for the update prompt.
+ */
+let actionToastEl = null;
+export function actionToast({ text, actionLabel, onAction, dismissLabel = "Dismiss" }) {
+  dismissActionToast();
+  const act = el("button", {
+    class: "btn primary", type: "button",
+    onclick: () => { dismissActionToast(); if (onAction) onAction(); },
+  }, actionLabel);
+  const close = el("button", {
+    class: "icon-btn", type: "button", "aria-label": dismissLabel, title: dismissLabel,
+    onclick: () => dismissActionToast(),
+  }, "\u2715");
+  actionToastEl = el("div", { class: "toast-action", role: "status", "aria-live": "polite" },
+    el("span", { class: "toast-text", text }), act, close);
+  document.body.append(actionToastEl);
+  return { dismiss: dismissActionToast };
+}
+export function dismissActionToast() {
+  if (actionToastEl) { actionToastEl.remove(); actionToastEl = null; }
+}
+
 /** The per-screen "what this does" note: collapsed by default, two to four sentences. */
 export function explain(text) {
   const d = el("details", { class: "explain" });

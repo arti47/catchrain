@@ -226,7 +226,7 @@ in the README rather than hidden behind an encoding.
 | Module | Responsibility |
 |---|---|
 | `src/core.js` | Constants, DOM helpers (incl. the null-safe `add`), crypto dice, d66. No imports. |
-| `src/ui.js` | Modals, toasts, `explain()`, `actionBar()`, option buttons. |
+| `src/ui.js` | Modals, toasts (including the answerable `actionToast`), `explain()`, `actionBar()`, option buttons. |
 | `src/rules.js` | Pure lookups over `data.js`, table rolls, the content filter hook. |
 | `src/derived.js` | Derivations over investigator and mystery state; normalization and migration. |
 | `src/settings.js` | Toggles, all off unless the fiction's default is on. |
@@ -438,6 +438,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | The update prompt is a toast with a Reload button rather than a modal, so a new version never interrupts a scene; dismissing it is offered again on the next load, and the waiting worker is checked at boot. | `npm run sw` asserts the toast, that it blocks nothing and clears the tab bar, and that a dismissed update is never lost; watched failing | citr-v2 |
 | 2026-09-21 | A roll no longer throws the screen back to the top: the router keeps the scroll position when re-rendering the route you are already on. Settings gains two clean slates: put down this case (keeps the investigators, journal and history) and erase everything (two confirmations). | 61 unit invariants; smoke asserts the kept scroll and both resets, the scroll guard watched failing | citr-v2 |
 | 2026-09-21 | Audit cycle 12: every pass clean at 59 invariants and thirteen browser checks, with co-op and the framing guidance in. | full cycle, no findings | citr-v2 |
 | 2026-09-21 | Chapter 3's last uncontrolled permission: an investigator you already play can join a co-op case unless they are mid-mystery (ruling A21). A unit fixture no longer ships jokers, which was failing an unrelated rules test about once in a hundred runs. | 59 unit invariants; interaction, scan, smoke, walk, probes and the deploy path clean | citr-v2 |

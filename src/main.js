@@ -1,6 +1,6 @@
 // Boot: storage, theme, prompts, routes, the service worker and the update toast.
 
-import { $, el } from "./core.js";
+import { $ } from "./core.js";
 import { Store } from "./store.js";
 import { Settings } from "./settings.js";
 import * as R from "./rules.js";
@@ -14,7 +14,7 @@ import { renderClues } from "./clues.js";
 import { renderSolve } from "./solve.js";
 import { renderWizard, renderMysteryWizard } from "./wizard.js";
 import { renderTutorial } from "./tutorial.js";
-import { showToast, modal } from "./ui.js";
+import { showToast, actionToast } from "./ui.js";
 
 Store.init();
 applyTheme();
@@ -78,21 +78,23 @@ paintChrome();
 
 // PWA: register, and tell the player when a new version is waiting.
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  // A toast, not a modal: an update is worth a tap, not an interruption in the
+  // middle of a scene. "Not now" means not now, so a waiting version is offered
+  // again on the next load rather than never again.
+  const offerUpdate = (worker) => actionToast({
+    text: "Update available. Reloading keeps everything you have saved.",
+    actionLabel: "Reload",
+    dismissLabel: "Not now",
+    onAction: () => { worker.postMessage("skip-waiting"); location.reload(); },
+  });
+
   navigator.serviceWorker.register("service-worker.js").then((reg) => {
+    if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
     reg.addEventListener("updatefound", () => {
       const sw = reg.installing;
       if (!sw) return;
       sw.addEventListener("statechange", () => {
-        if (sw.state === "installed" && navigator.serviceWorker.controller) {
-          modal({
-            title: "Update available",
-            body: el("p", { text: "A newer version of the app is ready. Reloading takes a second and keeps everything you have saved." }),
-            actions: [
-              { label: "Reload now", onClick: () => { sw.postMessage("skip-waiting"); location.reload(); } },
-              { label: "Later", kind: "ghost" },
-            ],
-          });
-        }
+        if (sw.state === "installed" && navigator.serviceWorker.controller) offerUpdate(sw);
       });
     });
   }).catch(() => { /* offline install is a bonus, never a blocker */ });

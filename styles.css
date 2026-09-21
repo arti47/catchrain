@@ -296,6 +296,24 @@ label.opt .opt-text small { display: block; color: var(--ink-2); }
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
+/* A toast you can answer: stays put until it is tapped or dismissed. */
+.toast-action {
+  position: fixed; left: var(--gutter); right: var(--gutter); z-index: 71;
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 12px);
+  max-width: 688px; margin: 0 auto;
+  display: flex; align-items: center; gap: .5rem;
+  padding: .5rem .5rem .5rem .8rem; border-radius: 14px;
+  background: var(--bg-2); border: 1px solid var(--accent); box-shadow: var(--shadow);
+}
+.toast-action .toast-text { flex: 1; font-size: .9rem; }
+.toast-action .btn { min-height: 44px; padding: .5rem .9rem; flex: 0 0 auto; }
+.toast-action .icon-btn { flex: 0 0 auto; font-size: .95rem; }
+@media (max-width: 359px) {
+  .toast-action { flex-wrap: wrap; }
+  .toast-action .toast-text { flex: 1 0 100%; margin-bottom: .35rem; }
+  .toast-action .btn { flex: 1; }
+}
+
 /* --- Tables & library ----------------------------------------------------- */
 .table-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .35rem; }
 .table-row { display: flex; gap: .5rem; align-items: baseline; padding: .3rem .4rem; border-radius: 8px; background: var(--bg-3); font-size: .85rem; min-height: 32px; }

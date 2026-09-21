@@ -40,18 +40,42 @@ if (!failures.length) {
   writeFileSync(css, readFileSync(css, "utf8") + "\n/* shipped change */\n");
 
   await page.reload();
-  const toast = page.locator(".modal-title", { hasText: "Update available" });
-  await toast.waitFor({ timeout: 15000 }).catch(() => fail("no update prompt after a deploy"));
+  const toast = page.locator(".toast-action", { hasText: "Update available" });
+  await toast.waitFor({ timeout: 15000 }).catch(() => fail("no update toast after a deploy"));
 
   if (!failures.length) {
-    await page.locator(".modal-actions .btn").first().click(); // Reload now
-    await page.waitForTimeout(1500);
-    const version = await page.evaluate(async () => {
-      const keys = await caches.keys();
-      return keys.join(",");
+    // The prompt is a toast, not a modal: the screen behind it stays usable.
+    const blocking = await page.locator(".modal-overlay").count();
+    if (blocking) fail("the update prompt blocks the screen");
+    const reachable = await page.locator("#screen .btn, .tab").first().isVisible().catch(() => false);
+    if (!reachable) fail("the update toast hides the app behind it");
+    const clearsTabBar = await page.evaluate(() => {
+      const t = document.querySelector(".toast-action").getBoundingClientRect();
+      const bar = document.querySelector(".tab-bar").getBoundingClientRect();
+      return t.bottom <= bar.top + 1 && t.left >= 0 && t.right <= window.innerWidth;
     });
+    if (!clearsTabBar) fail("the update toast sits over the tab bar");
+
+    // "Not now" means not now: dismissing it must not lose the update. On the
+    // next load either it is offered again, or the browser has already let the
+    // waiting worker take over — never silently neither.
+    await page.locator(".toast-action .icon-btn").click();
+    await page.waitForTimeout(150);
+    if (await page.locator(".toast-action").count()) fail("dismissing the update toast left it on screen");
+    await page.reload();
+    await page.waitForTimeout(1500);
+    const offeredAgain = await page.locator(".toast-action", { hasText: "Update available" })
+      .waitFor({ timeout: 4000 }).then(() => true, () => false);
+    const already = await page.evaluate(async () => (await caches.keys()).join(","));
+    if (!offeredAgain && !already.includes(next)) fail("a dismissed update was lost: no prompt, and the old version is still active");
+
+    if (offeredAgain) {
+      await page.locator(".toast-action .btn").first().click(); // Reload
+      await page.waitForTimeout(1500);
+    }
+    const version = await page.evaluate(async () => (await caches.keys()).join(","));
     if (!version.includes(next)) fail(`the new cache never became active (caches: ${version})`);
-    else console.log("  ok   a deploy reaches an installed app, and accepting it activates the new version");
+    else console.log(`  ok   a deploy reaches an installed app through a toast, and ${offeredAgain ? "accepting it" : "the next load"} activates the new version`);
   }
 }
 
