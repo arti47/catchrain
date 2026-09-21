@@ -139,12 +139,12 @@ export function renderMysteryWizard(host) {
     optionBtn(GENRES[g].name, () => { mDraft.genre = g; rerender(); }, mDraft.genre === g))),
     el("p", { class: "small muted", text: "This picks which set of tables the mystery rolls on." })));
 
-  if (Settings.get("career")) {
-    add(host, section("Difficulty", el("div", { class: "btn-row" }, ...DIFFICULTIES.map((d) =>
-      optionBtn(d.name, () => { mDraft.difficulty = d.id; rerender(); }, mDraft.difficulty === d.id))),
-      el("p", { class: "small muted", text: R.difficulty(mDraft.difficulty).text }),
-      row("Experience bonus", `${R.difficulty(mDraft.difficulty).xpBonus >= 0 ? "+" : ""}${R.difficulty(mDraft.difficulty).xpBonus} XP`)));
-  }
+  add(host, section("Difficulty", el("div", { class: "btn-row" }, ...DIFFICULTIES.map((d) =>
+    optionBtn(d.name, () => { mDraft.difficulty = d.id; rerender(); }, mDraft.difficulty === d.id))),
+    el("p", { class: "small muted", text: R.difficulty(mDraft.difficulty).text }),
+    Settings.get("career")
+      ? row("Experience bonus", `${R.difficulty(mDraft.difficulty).xpBonus >= 0 ? "+" : ""}${R.difficulty(mDraft.difficulty).xpBonus} XP`)
+      : null));
 
   const line = (label, value, onRoll) => el("div", { class: "defrow" },
     el("span", { class: "row-label", text: label }),

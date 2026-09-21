@@ -361,6 +361,16 @@ async function spendXP(benefit) {
     extra = await chooseModal({ title: "Raise which attribute?", options: DATA.ATTRIBUTES.filter((a) => D.attrValue(inv, a.id) < DATA.ATTRIBUTE_MAX).map((a) => ({ value: a.id, label: `${a.name} ${D.attrValue(inv, a.id)} → ${D.attrValue(inv, a.id) + 1}` })) });
     if (!extra) return;
   }
+  if (benefit.id === "rival") {
+    if (!c.rivals.length) { showToast("You have no rivals to reduce."); return; }
+    const reducible = c.rivals.filter((r) => r.level > 1);
+    if (!reducible.length) { showToast("Every rival is already at level 1."); return; }
+    extra = await chooseModal({ title: "Ease off which rival?", options: reducible.map((r) => ({ value: r.id, label: r.name, note: `Level ${r.level} → ${r.level - 1}` })) });
+    if (!extra) return;
+  }
+  if (benefit.id === "danger") {
+    if (!c.carryDanger) { showToast("No danger is carrying over yet — spend this between mysteries."); return; }
+  }
   if (benefit.id === "drop_obligation") {
     if (inv.obligations.length < 2) { showToast("You need more than one obligation."); return; }
     extra = await chooseModal({ title: "Drop which obligation?", options: inv.obligations.map((o) => ({ value: o.id, label: o.text })) });
@@ -378,7 +388,7 @@ async function spendXP(benefit) {
   Store.update("spend experience", () => {
     c.xp -= benefit.cost;
     if (benefit.id === "danger") { if (c.carryDanger) c.carryDanger = Math.max(0, c.carryDanger - 1); }
-    if (benefit.id === "rival") { const r = c.rivals[0]; if (r) r.level = Math.max(1, r.level - 1); }
+    if (benefit.id === "rival") { const r = c.rivals.find((x) => x.id === extra); if (r) r.level = Math.max(1, r.level - 1); }
     if (benefit.id === "drop_obligation") inv.obligations = inv.obligations.filter((o) => o.id !== extra);
     if (benefit.id === "clear") { inv.fatigue = 0; inv.struck = {}; }
     if (benefit.id === "signature") inv.keywords.push({ id: uid(), text: newSignature, signature: true, struck: false });

@@ -88,8 +88,22 @@ const stress = { v: 1, activeId: "c1", careers: { c1: career({
   }),
 }) } };
 
+// The joker path is 2 cards in 42, so it gets a fixture of its own: the next
+// card is a joker and there are two leads for it to choose between.
+const joker = { v: 1, activeId: "c1", careers: { c1: career({
+  mystery: mystery({
+    clueDeck: [{ id: "JOKER1", rank: "JOKER", suit: null }, ...clue.slice(10)],
+    clueSets: {
+      "7": { rank: "7", cards: [clue[24], clue[25]], entries: ["A strong person took the console"], description: "A strong person took the console", truth: false, falseLead: false, truthCards: [] },
+      "5": { rank: "5", cards: [clue[16]], entries: ["A second witness"], description: "A second witness", truth: false, falseLead: false, truthCards: [] },
+    },
+    threats: [],
+    scene: { id: "s1", type: "investigation", stage: "acquisition", order: ["discovery", "acquisition"], index: 1, done: false, forceEscape: false },
+  }),
+}) } };
+
 mkdirSync("tests/fixtures", { recursive: true });
-for (const [name, value] of Object.entries({ fresh, "mid-session": mid, stress })) {
+for (const [name, value] of Object.entries({ fresh, "mid-session": mid, stress, joker })) {
   writeFileSync(`tests/fixtures/${name}.json`, JSON.stringify(value, null, 1));
   console.log(`tests/fixtures/${name}.json`);
 }

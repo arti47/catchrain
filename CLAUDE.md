@@ -159,6 +159,7 @@ rival) and Exception (four asymmetric draw rules that look alike and are not).
 | A10 | Does a rest clear ordinary keyword strikes? | No. Attributes and signature keywords only. |
 | A11 | The yes/no oracle is 1d6, but the worked example rolls 2d6 against it | The table wins; the example is treated as an erratum and the app rolls 1d6. |
 | A12 | *Which* threat rises when a consequence raises a level and several are present | The least advanced one, so the scene escalates broadly rather than spiking one threat to 3. The book does not say. |
+| A15 | How much of a manual-dice session the app rolls | Every resolution roll is typed in (tests, investigation roll, consequences, threats, rest); d66 table lookups stay digital, since the app is rolling those on the player's behalf rather than resolving an action. |
 | A13 | A rival roll landing on a blank slot | Introduce an ordinary new threat. The book offers "choose a rival or create a new one"; the app takes the second. |
 | A14 | Danger for the stage that ends the scene | Danger is paid for moving to a stage, not for finishing one, so taking the clue with no threat present costs nothing. The flowchart puts +1 only on the arrows between stages, and the worked example charges it on each move. |
 
@@ -319,7 +320,7 @@ this whole document exists to prevent.
 | A total under danger adds a threat and halves danger | Escalation | — | `roller.attributeTest` | Result dialog | `rolling under danger introduces a threat and halves danger` |
 | Doubles trigger a random event | Lookup | subject oracles | `roller.attributeTest` → `prompts.randomEvent` | Random-event dialog | smoke walk |
 | A new clue set, or a stronger one | Conversion | — | `deck.drawClue` | Clues screen | `first card of a rank starts a set; a second strengthens it` |
-| A joker burns a clue set | Compulsion | — | `deck.drawClue` | False-lead dialog | `a joker burns a clue set and the draw continues` |
+| A joker burns a clue set | Compulsion | — | `deck.drawClue` | False-lead dialog | `a joker burns a clue set and the draw continues`, `the joker's false-lead choice is awaited, not assumed` |
 | A joker with no eligible set doubles danger | Exception | — | `deck.drawClue` | Event list | `a joker with no eligible set doubles danger instead` |
 | A false-lead rank is discarded with no replacement | Exception | — | `deck.drawClue` | Event list | `a false-lead rank is discarded with no replacement` |
 | An established-truth rank is discarded and replaced | Exception | — | `deck.drawClue` | Event list | `a rank already established as truth is discarded AND replaced` |
@@ -386,6 +387,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | Optional-rules read-through: drawing a joker threw and ignored the player's choice (the picker is async and was not awaited); manual dice now cover consequences, threats and rest; two career benefits ask what the book asks. | 44 unit invariants + a joker fixture driven through the UI; both guards watched failing | citr-v1 |
 | 2026-09-21 | Ability sweep: the re-roll keyword was prose, not an engine path. It now undoes the test, re-rolls, and applies whichever outcome the player keeps. Journal and roll log save themselves. | 43 unit invariants; smoke asserts the offer; interaction, scan and walk clean | citr-v1 |
 | 2026-09-21 | Flow walk: journal and roll-log entries written outside a transaction never reached storage. Both records now save themselves. `npm run walk` added. | 41 unit invariants, guard watched failing; flow walk clean | citr-v1 |
 | 2026-09-21 | Rules read-through: danger was charged for ending a scene as well as for moving between stages (ruling A14), and a rival removed by a keyword stayed on the rival list. Rulings A12–A14 recorded. | 40 unit invariants, both guards watched failing | citr-v1 |

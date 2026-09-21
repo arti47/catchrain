@@ -33,7 +33,7 @@ export const TOGGLES = [
   { key: "career", name: "Career", text: "Keep one investigator across mysteries: XP, rivals, lingering questions (Ch.3)." },
   { key: "rivals", name: "Rivals", text: "Threats that survive a scene can come back in later ones (Ch.3)." },
   { key: "multiplayer", name: "Co-op mode", text: "Use the multiplayer consequences table: danger +3 and two discards (Ch.3)." },
-  { key: "manualDice", name: "Manual dice", text: "Type the dice you rolled on the table instead of rolling in the app." },
+  { key: "manualDice", name: "Manual dice", text: "Type the faces you rolled for every resolution roll: tests, the investigation roll, consequences, threats and rest. Table rolls stay digital." },
   { key: "autoOracle", name: "Oracle prompts", text: "Offer subject-oracle words whenever a scene asks you to invent a detail." },
   { key: "safetyFilter", name: "Content filter", text: "House aid: hide chosen table rows and re-roll past them." },
   { key: "wakeLock", name: "Keep screen awake", text: "Hold the screen on during a session. Uses battery." },

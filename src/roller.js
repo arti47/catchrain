@@ -11,6 +11,8 @@ import { Settings } from "./settings.js";
 
 /** Default prompts: used by tests and by any path with no player present. */
 export const autoPrompts = {
+  /** Manual-dice mode asks for every resolution die; digital mode never calls this. */
+  enterDie: null,
   pickFalseLead: (sets) => sets[0],
   pickStrike: (options) => options[0],
   describeClue: async () => "",
@@ -24,6 +26,19 @@ export const setPrompts = (p) => { prompts = { ...autoPrompts, ...p }; };
 export const getPrompts = () => prompts;
 
 const multi = () => Settings.get("multiplayer");
+
+/**
+ * One d6 of resolution. With manual dice on, the player types the face they
+ * rolled; table lookups (d66 oracles and genre tables) stay digital, since the
+ * app is rolling those on the player's behalf rather than resolving an action.
+ */
+export async function rollD6(label) {
+  if (Settings.get("manualDice") && prompts.enterDie) {
+    const n = await prompts.enterDie(label);
+    if (n >= 1 && n <= 6) return n;
+  }
+  return d6();
+}
 
 // --- Fatigue ------------------------------------------------------------------
 /** Mark fatigue one box at a time; a full track strikes an attribute and carries the excess. */
@@ -58,7 +73,7 @@ export async function introduceThreat(level, events = [], cause = "") {
   const c = Store.career, m = c.mystery;
   let threat = null;
   if (Settings.get("rivals") && c.rivals.length) {
-    const rollRival = d6();
+    const rollRival = await rollD6("Rival or new threat?");
     if (rollRival >= 4) {
       const slot = randInt(RIVAL_SLOTS) + 1;
       const rival = c.rivals[slot - 1];
@@ -80,7 +95,7 @@ export async function introduceThreat(level, events = [], cause = "") {
 
 /** A threat acts: 1d6 + its level on the consequences table. */
 export async function threatActs(threat, events = []) {
-  const die = d6();
+  const die = await rollD6(`${threat.name} acts`);
   const total = die + threat.level;
   const row = R.consequenceRow(total, multi());
   events.push({ t: "threat_acts", name: threat.name, die, level: threat.level, total, row: row.id, text: row.text });
@@ -106,7 +121,7 @@ export function clearJustIntroduced() {
 
 // --- Consequences -------------------------------------------------------------
 export async function rollConsequence(events = [], bonus = 0) {
-  const die = d6();
+  const die = await rollD6("Consequences");
   const total = die + bonus;
   const row = R.consequenceRow(total, multi());
   events.push({ t: "consequence", die, bonus, total, row: row.id, text: row.text });
@@ -129,7 +144,7 @@ export async function applyConsequence(row, events) {
   } else if (row.id === "discard") {
     const n = multi() ? 2 : 1;
     for (let i = 0; i < n; i++) {
-      const res = discardClue(m, prompts.pickFalseLead);
+      const res = await discardClue(m, prompts.pickFalseLead);
       events.push(...res.events);
     }
   } else if (row.id === "fatigue1") {
@@ -151,7 +166,7 @@ export async function applyConsequence(row, events) {
 // --- Clues --------------------------------------------------------------------
 export async function gainClue(reason, events = []) {
   const m = Store.career.mystery;
-  const res = drawClue(m, "gain", prompts.pickFalseLead);
+  const res = await drawClue(m, "gain", prompts.pickFalseLead);
   events.push(...res.events.map((e) => ({ ...e, reason })));
   if (res.set) {
     const words = R.rollSubject(true);

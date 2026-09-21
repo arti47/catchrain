@@ -102,43 +102,55 @@ function seed(mystery) {
 const card = (rank, suit = "S") => ({ id: core.uid(), rank, suit });
 
 // --- Clue draws ---------------------------------------------------------------
-await test("first card of a rank starts a set; a second strengthens it", () => {
+await test("first card of a rank starts a set; a second strengthens it", async () => {
   const m = freshMystery({ clueDeck: [card("7", "H"), card("7", "D")] });
-  const a = deck.drawClue(m, "gain");
+  const a = await deck.drawClue(m, "gain");
   eq(a.set.cards.length, 1); assert(a.events.some((e) => e.t === "new_clue"));
-  const b = deck.drawClue(m, "gain");
+  const b = await deck.drawClue(m, "gain");
   eq(b.set.cards.length, 2); assert(b.events.some((e) => e.t === "strengthen_clue"));
 });
 
-await test("a joker burns a clue set and the draw continues", () => {
+await test("a joker burns a clue set and the draw continues", async () => {
   const m = freshMystery({ clueDeck: [card("JOKER", null), card("5", "C")] });
   m.clueSets["7"] = { rank: "7", cards: [card("7", "H")], entries: [], truth: false, falseLead: false, truthCards: [] };
-  const r = deck.drawClue(m, "gain", (sets) => sets[0]);
+  const r = await deck.drawClue(m, "gain", (sets) => sets[0]);
   assert(m.clueSets["7"].falseLead, "set became a false lead");
   eq(m.clueSets["7"].cards.length, 0, "its cards are discarded");
   eq(r.card.rank, "5", "a replacement card was drawn");
 });
 
-await test("a joker with no eligible set doubles danger instead", () => {
+await test("a joker with no eligible set doubles danger instead", async () => {
   const m = freshMystery({ clueDeck: [card("JOKER", null), card("3", "S")], danger: 4 });
-  deck.drawClue(m, "gain");
+  await deck.drawClue(m, "gain");
   eq(m.danger, 8);
 });
 
-await test("a false-lead rank is discarded with no replacement", () => {
+await test("a false-lead rank is discarded with no replacement", async () => {
   const m = freshMystery({ clueDeck: [card("7", "H"), card("9", "S")] });
   m.clueSets["7"] = { rank: "7", cards: [], entries: [], truth: false, falseLead: true, truthCards: [] };
-  const r = deck.drawClue(m, "gain");
+  const r = await deck.drawClue(m, "gain");
   eq(r.card, null, "nothing gained");
   eq(m.clueDeck.length, 1, "the next card stays in the deck");
 });
 
-await test("a rank already established as truth is discarded AND replaced", () => {
+await test("a rank already established as truth is discarded AND replaced", async () => {
   const m = freshMystery({ clueDeck: [card("7", "H"), card("9", "S")] });
   m.clueSets["7"] = { rank: "7", cards: [card("7", "C")], entries: [], truth: true, falseLead: false, truthCards: [] };
-  const r = deck.drawClue(m, "gain");
+  const r = await deck.drawClue(m, "gain");
   eq(r.card.rank, "9", "replacement drawn");
   eq(m.clueDeck.length, 0);
+});
+
+await test("the joker's false-lead choice is awaited, not assumed", async () => {
+  // The picker is a dialog in the app, so it returns a promise. Taking its
+  // result without awaiting burns the wrong lead and throws on the spread.
+  const m = freshMystery({ clueDeck: [card("JOKER", null), card("5", "C")] });
+  m.clueSets["7"] = { rank: "7", cards: [card("7", "H")], entries: [], truth: false, falseLead: false, truthCards: [] };
+  m.clueSets["8"] = { rank: "8", cards: [card("8", "H")], entries: [], truth: false, falseLead: false, truthCards: [] };
+  const r = await deck.drawClue(m, "gain", async (sets) => sets.find((s) => s.rank === "8"));
+  assert(m.clueSets["8"].falseLead, "the set the player chose is the one that burned");
+  assert(!m.clueSets["7"].falseLead, "and the other survives");
+  eq(r.card.rank, "5", "the draw continued");
 });
 
 await test("establishing a truth removes that many cards from the truth deck", () => {

@@ -40,10 +40,11 @@ export const isTruthRank = (m, rank) => !!(m.clueSets[rank] && m.clueSets[rank].
 /**
  * Draw one card for a clue (acquisition, or a 10+ bonus).
  * mode "gain" adds the card to a set; mode "discard" only discards it.
- * falseLeadPick(sets) chooses which set a joker burns.
+ * falseLeadPick(sets) chooses which set a joker burns, and may be async: the
+ * player is being asked which lead to lose.
  * Returns { events:[], card, set } — card is null when nothing was gained.
  */
-export function drawClue(m, mode, falseLeadPick) {
+export async function drawClue(m, mode, falseLeadPick) {
   const events = [];
   let guard = 0;
   while (true) {
@@ -58,7 +59,7 @@ export function drawClue(m, mode, falseLeadPick) {
         m.danger = m.danger * 2;
         events.push({ t: "joker_no_sets", danger: m.danger });
       } else {
-        const chosen = falseLeadPick ? falseLeadPick(options) : options[0];
+        const chosen = (falseLeadPick ? await falseLeadPick(options) : null) || options[0];
         chosen.falseLead = true;
         m.clueDiscard.push(...chosen.cards);
         events.push({ t: "false_lead", rank: chosen.rank, cards: chosen.cards.length });

@@ -8,6 +8,16 @@ import { Settings } from "./settings.js";
 
 export function installPrompts() {
   setPrompts({
+    async enterDie(label) {
+      const text = await promptModal({
+        title: "Enter your die",
+        message: `${label}: type the d6 face you rolled.`,
+        placeholder: "4",
+      });
+      const n = Number((text || "").trim());
+      return n >= 1 && n <= 6 ? n : 0; // anything else falls back to the app's dice
+    },
+
     async pickFalseLead(sets) {
       const choice = await chooseModal({
         title: "A joker — one lead was never real",

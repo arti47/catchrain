@@ -1,7 +1,7 @@
 // Scene and day boundaries. The app owns these events; each one reports what it
 // changed and is covered by the single-step undo in the store.
 
-import { d6, uid } from "./core.js";
+import { uid } from "./core.js";
 import { RIVAL_SLOTS } from "../data.js";
 import * as R from "./rules.js";
 import * as D from "./derived.js";
@@ -77,7 +77,7 @@ export async function completeStage() {
 export async function restScene(prompts) {
   const c = Store.career, inv = c.investigator, m = c.mystery;
   const events = [];
-  const die = d6();
+  const die = await Roller.rollD6("Rest");
   const before = inv.fatigue;
   inv.fatigue = Math.max(0, inv.fatigue - die);
   events.push({ t: "rest", die, cleared: before - inv.fatigue, fatigue: inv.fatigue });
@@ -87,7 +87,7 @@ export async function restScene(prompts) {
   let sig = 0;
   for (const k of inv.keywords) if (k.signature && k.struck) { k.struck = false; sig++; }
   if (sig) events.push({ t: "signature_cleared", count: sig });
-  const res = discardClue(m, (prompts && prompts.pickFalseLead) || Roller.getPrompts().pickFalseLead);
+  const res = await discardClue(m, (prompts && prompts.pickFalseLead) || Roller.getPrompts().pickFalseLead);
   events.push(...res.events);
   Store.log({ kind: "rest", dice: [die], total: die });
   return events;
@@ -102,7 +102,7 @@ export async function obligationScene(obligationId) {
   events.push({ t: "obligation_attended", text: ob.text });
   const subject = R.rollSubject(true);
   events.push({ t: "random_event", words: R.subjectWords(subject) });
-  const res = discardClue(m, Roller.getPrompts().pickFalseLead);
+  const res = await discardClue(m, Roller.getPrompts().pickFalseLead);
   events.push(...res.events);
   return { events, words: R.subjectWords(subject), obligation: ob };
 }

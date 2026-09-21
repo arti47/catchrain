@@ -32,9 +32,13 @@ import { readFileSync } from "node:fs";
 /** The three shared seed states (§11.1 D). */
 export const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
 /** Boot the app against a fixture: a hash change is not a load, so reload. */
-export async function seed(page, base, name) {
+export async function seed(page, base, name, settings) {
   await page.goto(base);
   const state = fixture(name);
-  await page.evaluate((s) => { localStorage.clear(); if (s.activeId) localStorage.setItem("citr:v1", JSON.stringify(s)); }, state);
+  await page.evaluate(({ s, cfg }) => {
+    localStorage.clear();
+    if (s.activeId) localStorage.setItem("citr:v1", JSON.stringify(s));
+    if (cfg) localStorage.setItem("citr:v1:settings", JSON.stringify(cfg));
+  }, { s: state, cfg: settings || null });
   await page.reload();
 }

@@ -165,11 +165,14 @@ for (const width of WIDTHS) {
   await page.locator(".modal-actions .btn").first().click();
   let clueSeen = false;
   let rerollOffered = false;
-  for (let i = 0; i < 12; i++) {
+  // A run of failures does not advance a stage, so allow for a bad night: the
+  // cap is a stall detector, not a step budget.
+  for (let i = 0; i < 30; i++) {
     const bar = page.locator(".action-bar .btn");
     if (!(await bar.count())) break;
     const label = await bar.innerText();
-    if (/Investigation scene|End the scene/.test(label)) { clueSeen = true; break; }
+    // Either the scene ended, or a consequence ended the whole mystery.
+    if (/Investigation scene|End the scene|Resolve the mystery/.test(label)) { clueSeen = true; break; }
     await bar.click();
     // Poll for each dialog rather than waiting a fixed interval, and always
     // prefer a choice over the dialog's own Cancel.
@@ -192,6 +195,43 @@ for (const width of WIDTHS) {
   const logged = await page.evaluate(() => JSON.parse(localStorage.getItem("citr:v1")).careers[Object.keys(JSON.parse(localStorage.getItem("citr:v1")).careers)[0]].rollLog.length);
   if (!logged) fail("no rolls reached the roll log");
   ok("wizard → mystery → investigation scene → roll log");
+  await ctx.close();
+}
+
+// 7. the joker path, on demand rather than one draw in twenty-one
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "joker", { manualDice: true, autoOracle: true, career: true });
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(150);
+  await page.locator(".action-bar .btn").click();            // take the clue
+  await page.locator(".modal-overlay .choice").first().click(); // which attribute
+  const dice = page.locator(".modal-overlay .input").first();
+  await dice.waitFor({ timeout: 2000 });
+  await dice.fill("6 6");                                     // a certain success
+  await page.locator(".modal-actions .btn").first().click();
+  const title = page.locator(".modal-title");
+  await title.filter({ hasText: "joker" }).waitFor({ timeout: 4000 }).catch(() => {});
+  const sawJoker = await page.locator(".modal-title", { hasText: "joker" }).count();
+  if (!sawJoker) fail("drawing a joker never asked which lead was false");
+  else {
+    await page.locator(".modal-overlay .choice").first().click();
+    await page.waitForTimeout(200);
+    for (let i = 0; i < 6; i++) {
+      const act = page.locator(".modal-actions .btn").first();
+      if (!(await act.count())) break;
+      await act.click();
+      await page.waitForTimeout(90);
+    }
+    const state = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("citr:v1"));
+      const sets = s.careers[s.activeId].mystery.clueSets;
+      return Object.values(sets).filter((x) => x.falseLead).length;
+    });
+    if (state !== 1) fail(`the joker burned ${state} leads, expected 1`);
+    if (errors.length) fail(`console error on the joker path: ${errors[0].slice(0, 120)}`);
+    ok("a joker burns the lead the player picks, with no error");
+  }
   await ctx.close();
 }
 

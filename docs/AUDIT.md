@@ -129,6 +129,39 @@ The game has exactly three `rule`-kind abilities, all keyword actions. After
 F13: re-roll is `play.rerollFlow`, strengthen is `deck.strengthenFromDeck`,
 eliminate is `roller.useKeyword`. None is displayed-only.
 
+## Cycle 5 — optional rules read-through, and a flake worth chasing
+
+### F14 — Drawing a joker threw, and burned the wrong lead
+*Rule:* "choose a clue set that has not been established as a truth and make it
+a false lead" (Ch.1, Jokers).
+*Target:* `deck.drawClue`. *Fix:* the draw is async and awaits the choice.
+*Why it mattered:* the picker is a dialog, so it returns a promise. Taking its
+result without awaiting spread a promise and threw inside the draw — the
+player's choice was never read, and the clue they had just earned was lost. It
+reproduced in about one smoke run in six, because a joker is two cards in
+forty-two.
+*Guards:* `the joker's false-lead choice is awaited, not assumed` (unit) and a
+`joker` fixture whose next card is a joker, driven through the UI in the smoke
+run. Both watched failing against the unfixed code.
+*Also:* the smoke walk's step cap was a step budget rather than a stall
+detector, so a run of failed tests reported a stall that was not one (D-15).
+
+### F15 — Manual dice only covered the rolls the player starts
+*Target:* `roller.rollD6`, `prompts.enterDie`, `lifecycle.restScene`.
+*Fix:* with manual dice on, consequences, threat actions, the rival check and
+the rest roll all ask for the face you rolled. Table rolls stay digital, and
+the toggle says so.
+*Why it mattered:* manual entry is a trust feature, not a degraded mode. Half
+of a physical-dice session being rolled by the app is worse than either choice
+made cleanly.
+
+### F16 — Two career benefits were vaguer than the book
+*Target:* `screens.spendXP`. *Fix:* "reduce a rival's level" asks which rival;
+"reduce the danger" refuses, with the reason, when no danger is carrying over,
+instead of silently eating the point.
+*Also:* difficulty is Chapter 3's own rule, so it no longer hides behind the
+career toggle; only its experience line does.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -148,6 +181,8 @@ Settled ground; later passes need not re-litigate these without new evidence.
   `null`/`undefined`/`NaN`, no console errors, nothing under the tab bar.
 - Every visible control does something (interaction audit clean).
 - All three keyword actions fire in the engine, not in prose.
+- The joker path: the chosen lead burns, exactly one set per joker, no error.
+- Manual-dice mode covers every resolution roll.
 - A whole session runs end to end: creation → scenes → day boundaries → the
   solve → closing the case → the career history picking it up.
 - No export unread, no import unused (dead-data scan clean).
