@@ -53,4 +53,11 @@ properly — look at a dialog, think, then answer it — hold the session open:
 The browser is never reloaded, each line prints its result and ends with
 `--- END ---`, and `quit` closes the session and saves.
 
+- `transcript.mjs` — a played session as something you would read: the fiction
+  in a serif, the machinery in a sans, oldest first, a day to a heading, every
+  roll in a table at the back. `npm run transcript [session.json] [out.pdf]`.
+  It renders through the same headless Chromium the harnesses use, so it needs
+  no network and no new dependency, and it reads a driver session file or a
+  plain export of the app's own storage.
+
 Session files (`session.json`, `audit-*.json`) are working state, not fixtures.

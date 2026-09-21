@@ -247,7 +247,7 @@ in the README rather than hidden behind an encoding.
 | `data.js` | The whole rules library: 34 d66 tables, 6 resolution tables, every constant |
 | `manifest.json`, `service-worker.js`, `icon.svg` | PWA |
 | `tests/` | Harnesses, probes (layout, flow, screenshots) and the seed fixtures (dev only) |
-| `.playtest/` | The playtest driver and the seeded session runner: controls pressed by their printed labels, whole sessions from creation to a closed case, solo and co-op, app dice and typed (dev only) |
+| `.playtest/` | The playtest driver, the seeded session runner and the transcript renderer: controls pressed by their printed labels, whole sessions from creation to a closed case, solo and co-op, app dice and typed, and the record laid out as a PDF to read (dev only) |
 | `docs/rules/` | The distilled rules, one file per subsystem — what the audit reads against the engine |
 | `docs/AUDIT.md` | Numbered findings, pass by pass, plus the verified-clean list |
 
