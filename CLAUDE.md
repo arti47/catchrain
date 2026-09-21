@@ -325,7 +325,9 @@ this whole document exists to prevent.
 | An established-truth rank is discarded and replaced | Exception | — | `deck.drawClue` | Event list | `a rank already established as truth is discarded AND replaced` |
 | A truth scene reveals cards equal to the set size | Cost | — | `deck.establishTruth` | Clues screen | `establishing a truth removes that many cards…` |
 | …taking what remains when the deck is short | Exception | — | `deck.establishTruth` | Clues screen | `a truth scene takes what remains when the deck is short (A7)` |
-| Keyword: re-roll / strengthen / eliminate | Permission | `KEYWORD_ACTIONS` | `roller.useKeyword` | Sheet and play chips | `keyword use strikes the keyword and does what it says` |
+| Keyword: strengthen / eliminate | Permission | `KEYWORD_ACTIONS` | `roller.useKeyword` | Sheet and play chips | `keyword use strikes the keyword and does what it says` |
+| Keyword: re-roll a test after seeing its outcome, keep either | Permission | `KEYWORD_ACTIONS` | `play.rerollFlow` + `roller.previewTest` | Result dialog action | `previewTest reports an outcome without applying anything`, `a re-rolled test can be undone back to before the first roll` |
+| A rival removed by a keyword is still a rival beaten | Exception | — | `roller.useKeyword` | Result dialog | `a rival eliminated by a keyword still leaves the rival list` |
 | A keyword is struck when used | Cost | — | `roller.useKeyword` | Struck chip | (same row) |
 | Signature keywords recharge on a rest | Once-per-X | — | `lifecycle.restScene` | Sheet | `rest clears 1d6 fatigue, attribute strikes and signature keyword strikes` |
 | Rest clears 1d6 fatigue and all attribute strikes | Cost | — | `lifecycle.restScene` | Rest dialog | (same row) |
@@ -384,6 +386,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-21 | Ability sweep: the re-roll keyword was prose, not an engine path. It now undoes the test, re-rolls, and applies whichever outcome the player keeps. Journal and roll log save themselves. | 43 unit invariants; smoke asserts the offer; interaction, scan and walk clean | citr-v1 |
 | 2026-09-21 | Flow walk: journal and roll-log entries written outside a transaction never reached storage. Both records now save themselves. `npm run walk` added. | 41 unit invariants, guard watched failing; flow walk clean | citr-v1 |
 | 2026-09-21 | Rules read-through: danger was charged for ending a scene as well as for moving between stages (ruling A14), and a rival removed by a keyword stayed on the rival list. Rulings A12–A14 recorded. | 40 unit invariants, both guards watched failing | citr-v1 |
 | 2026-09-21 | Audit tooling and what it found: keyword actions, end triggers, rival slots, rival replacement and the new-obligation experience were all data with no engine. Wizard drafts no longer leak between careers. Tap targets raised to 44px, the roll log folds, the sheet leads back to the scene, keywords are reachable mid-scene. | unit + smoke + interaction + dead-data clean; probes re-read | citr-v1 |

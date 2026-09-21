@@ -164,6 +164,7 @@ for (const width of WIDTHS) {
   await page.locator(".action-bar .btn").click(); // investigation scene
   await page.locator(".modal-actions .btn").first().click();
   let clueSeen = false;
+  let rerollOffered = false;
   for (let i = 0; i < 12; i++) {
     const bar = page.locator(".action-bar .btn");
     if (!(await bar.count())) break;
@@ -176,6 +177,7 @@ for (const width of WIDTHS) {
       await page.waitForSelector(".modal-overlay", { timeout: 1500 }).catch(() => {});
       const ch = page.locator(".modal-overlay .choice").first();
       const act = page.locator(".modal-actions .btn").first();
+      if (await page.locator(".modal-actions .btn", { hasText: "Re-roll with a keyword" }).count()) rerollOffered = true;
       if (await ch.count()) { await ch.click(); }
       else if (await act.count()) { await act.click(); }
       else break;
@@ -183,6 +185,7 @@ for (const width of WIDTHS) {
     }
   }
   if (!clueSeen) fail("the investigation scene never reached its end");
+  if (!rerollOffered) fail("no test result offered the re-roll keyword");
   const header = await page.locator("#resource-header").innerText();
   if (!/danger/i.test(header)) fail("the resource header is missing in play");
   if (errors.length) fail("console error during the walk: " + errors[0]);

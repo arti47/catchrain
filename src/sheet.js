@@ -5,7 +5,7 @@ import { FATIGUE_BOXES, CLOCK_SEGMENTS, ATTRIBUTES, KEYWORD_ACTIONS } from "../d
 import * as D from "./derived.js";
 import { Store } from "./store.js";
 import { Settings } from "./settings.js";
-import { section, row, defRow, btn, explain, promptModal, confirmModal, showToast, chooseModal, modal, actionBar } from "./ui.js";
+import { section, row, defRow, btn, explain, promptModal, showToast, chooseModal, modal, actionBar } from "./ui.js";
 import * as Roller from "./roller.js";
 import { eventList } from "./prompts.js";
 import { go } from "./router.js";
@@ -81,9 +81,14 @@ export async function useKeywordFlow(keyword) {
     if (!rank) return;
     payload = { rank };
   } else if (action === "reroll") {
-    await confirmModal({ title: "Re-roll", message: "Strike this keyword now, then roll the test again from the play screen and keep whichever outcome you prefer.", confirmLabel: "Strike it" })
-      .then((ok) => { if (!ok) throw new Error("cancelled"); }).catch(() => { payload = null; });
-    if (payload === null) return;
+    // The rule re-rolls a test after its outcome is known, so it is spent from
+    // the result dialog, where both outcomes can be compared.
+    modal({
+      title: "Spend it on a result",
+      body: el("p", { text: "A re-roll is taken after you have seen an outcome. Make the test, then choose “Re-roll with a keyword” on the result — you will see both outcomes and keep whichever you prefer." }),
+      actions: [{ label: "Back" }],
+    });
+    return;
   }
   Store.begin("use keyword");
   const events = await Roller.useKeyword(keyword, action, payload);

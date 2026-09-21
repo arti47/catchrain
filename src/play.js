@@ -24,13 +24,15 @@ function diceRow(dice, attrValue, total, doubles) {
   return wrap;
 }
 
-function showResult(title, res, extraEvents = []) {
+function showResult(title, res, extraEvents = [], onReroll) {
   const body = el("div", {});
   add(body,
     diceRow(res.dice, res.attrValue || 0, res.total, res.doubles),
     el("p", { class: `outcome ${res.outcome.id}`, text: `${res.outcome.name} — ${res.outcome.text}` }),
     eventList([...(res.events || []), ...extraEvents]));
-  modal({ title, body, actions: [{ label: "Continue" }] });
+  const actions = [{ label: "Continue" }];
+  if (onReroll) actions.push({ label: "Re-roll with a keyword", kind: "ghost", onClick: () => { setTimeout(onReroll, 40); } });
+  modal({ title, body, actions });
 }
 
 // --- Dice input ---------------------------------------------------------------
@@ -69,7 +71,6 @@ async function chooseAttribute(purpose) {
 
 // --- Running a test -----------------------------------------------------------
 async function runTest({ label, purpose, againstThreatId, stageTest }) {
-  const m = Store.mystery;
   const attrId = await chooseAttribute(purpose || label);
   if (!attrId) return;
   let manual = null;
@@ -77,7 +78,13 @@ async function runTest({ label, purpose, againstThreatId, stageTest }) {
     manual = await manualDicePair(label);
     if (!manual) return;
   }
-  Store.begin(label);
+  await applyTest({ attrId, label, manual, againstThreatId, stageTest, undoLabel: label });
+}
+
+/** Rolls (or replays) one test, applies it, and offers the re-roll keyword. */
+async function applyTest({ attrId, label, manual, againstThreatId, stageTest, undoLabel }) {
+  const m = Store.mystery;
+  Store.begin(undoLabel);
   const res = await Roller.attributeTest({
     attrId, label, manualDice: manual, againstThreatId,
     inInvestigation: !!(m.scene && m.scene.type === "investigation" && !m.scene.done),
@@ -89,8 +96,50 @@ async function runTest({ label, purpose, againstThreatId, stageTest }) {
   }
   Store.journal("test", `${label}: ${res.dice.join("+")}${res.attrValue ? `+${res.attrValue}` : ""} = ${res.total} (${res.outcome.name}).`, { outcome: res.outcome.id });
   Store.commit();
-  showResult(label, { ...res, attrValue: D.attrValue(Store.investigator, attrId) }, extra);
+  const spare = D.usableKeywords(Store.investigator);
+  const onReroll = spare.length && !Store.mystery.ended
+    ? () => rerollFlow({ attrId, label, againstThreatId, stageTest, first: { dice: res.dice, total: res.total, outcome: res.outcome, attrValue: res.attrValue } })
+    : null;
+  showResult(label, { ...res, attrValue: D.attrValue(Store.investigator, attrId) }, extra, onReroll);
   await rerender();
+}
+
+/**
+ * The re-roll keyword: the test un-happens, the keyword is struck, the dice are
+ * thrown again, and whichever of the two outcomes the player keeps is applied.
+ */
+async function rerollFlow({ attrId, label, againstThreatId, stageTest, first }) {
+  const spare = D.usableKeywords(Store.investigator);
+  if (!spare.length) { showToast("No keyword left to spend."); return; }
+  const id = await chooseModal({
+    title: "Spend which keyword?",
+    message: "Striking it buys one re-roll of this test. You will see both outcomes and keep either.",
+    options: spare.map((k) => ({ value: k.id, label: k.text, note: k.signature ? "Signature — comes back when you rest" : "One use" })),
+  });
+  if (!id) return;
+
+  Store.undo();
+  const keyword = Store.investigator.keywords.find((k) => k.id === id);
+  let manual = null;
+  if (Settings.get("manualDice")) {
+    manual = await manualDicePair(`${label} (re-roll)`);
+    if (!manual) { await rerender(); return; }
+  }
+  const second = Roller.previewTest(attrId, manual);
+  const keep = await chooseModal({
+    title: "Which outcome stands?",
+    allowCancel: false,
+    options: [
+      { value: "second", label: `New: ${second.dice.join(" + ")}${second.attrValue ? ` + ${second.attrValue}` : ""} = ${second.total}`, note: second.outcome.name },
+      { value: "first", label: `First: ${first.dice.join(" + ")}${first.attrValue ? ` + ${first.attrValue}` : ""} = ${first.total}`, note: first.outcome.name },
+    ],
+  });
+  const dice = keep === "first" ? first.dice : second.dice;
+  Store.begin("spend a keyword on a re-roll");
+  await Roller.useKeyword(keyword, "reroll");
+  Store.journal("keyword", `Spent "${keyword.text}" to re-roll ${label}; kept the ${keep === "first" ? "first" : "new"} outcome.`);
+  Store.commit();
+  await applyTest({ attrId, label, manual: dice, againstThreatId, stageTest, undoLabel: `${label} (re-rolled)` });
 }
 
 // --- Scene starters -----------------------------------------------------------

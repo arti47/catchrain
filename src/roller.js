@@ -179,6 +179,15 @@ export async function gainKeyword(events = []) {
   return value;
 }
 
+/** Dice and outcome only — no effects. The re-roll keyword compares two of these. */
+export function previewTest(attrId, manualDice) {
+  const inv = Store.career.investigator;
+  const dice = manualDice && manualDice.length === 2 ? manualDice.slice() : roll2d6();
+  const attrValue = attrId ? D.attrValue(inv, attrId) : 0;
+  const total = dice[0] + dice[1] + attrValue;
+  return { dice, attrValue, total, outcome: R.testOutcome(total), doubles: dice[0] === dice[1] };
+}
+
 // --- The attribute test -------------------------------------------------------
 /**
  * opts: { attrId, label, manualDice:[a,b], againstThreatId, inInvestigation }

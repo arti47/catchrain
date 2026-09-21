@@ -397,6 +397,31 @@ await test("a rival eliminated by a keyword still leaves the rival list", async 
   Settings.set("rivals", false);
 });
 
+await test("previewTest reports an outcome without applying anything", () => {
+  const c = seed();
+  const before = JSON.stringify({ d: c.mystery.danger, f: c.investigator.fatigue, k: c.investigator.keywords.length, deck: c.mystery.clueDeck.length, log: c.rollLog.length });
+  for (let i = 0; i < 20; i++) {
+    const p = Roller.previewTest("power");
+    assert(p.total === p.dice[0] + p.dice[1] + 2, "total includes the attribute");
+    assert(["failure", "cost", "success"].includes(p.outcome.id), "an outcome is named");
+  }
+  const after = JSON.stringify({ d: c.mystery.danger, f: c.investigator.fatigue, k: c.investigator.keywords.length, deck: c.mystery.clueDeck.length, log: c.rollLog.length });
+  eq(after, before, "nothing was charged for a preview");
+});
+
+await test("a re-rolled test can be undone back to before the first roll", async () => {
+  const c = seed();
+  const danger0 = c.mystery.danger;
+  Store.begin("first test");
+  await Roller.attributeTest({ attrId: "power", manualDice: [1, 2], inInvestigation: false });
+  Store.commit();
+  const keywordsAfterFail = Store.investigator.keywords.length;
+  assert(keywordsAfterFail > 1, "the failure handed out a keyword");
+  Store.undo();
+  eq(Store.investigator.keywords.length, 1, "the first test un-happened");
+  eq(Store.mystery.danger, danger0, "and took its danger with it");
+});
+
 await test("co-op consequences raise danger by 3 when no threat is present", async () => {
   const c = seed();
   Settings.set("multiplayer", true);

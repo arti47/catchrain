@@ -107,6 +107,28 @@ watched failing (0 ≠ 1).
 - Rest, obligation and truth scenes are each exercised from the shared
   mid-session fixture, since a random session may never reach one.
 
+## Cycle 4 — ability sweep
+
+### F13 — The re-roll keyword was an instruction, not a re-roll
+*Rule:* "Reroll an attribute test after determining the outcome. You can choose
+to use the new outcome or the previous outcome" (Ch.2, Keywords).
+*Target:* `src/sheet.js` → `src/play.js` `rerollFlow`, `roller.previewTest`.
+*Fix:* the result dialog offers the re-roll. Spending a keyword undoes the test
+that just happened, rolls again, shows both outcomes, and applies whichever the
+player keeps.
+*Why it mattered:* the classic `rule`-kind ability shipped inert (D-3). The app
+struck the keyword and then told the player to roll again themselves, so the one
+keyword action a player reaches for most often charged them for nothing and left
+the comparison — the actual rule — to memory.
+*Guards:* `previewTest reports an outcome without applying anything`,
+`a re-rolled test can be undone back to before the first roll`, and a smoke
+assertion that a test result offers the re-roll.
+
+### Sweep result
+The game has exactly three `rule`-kind abilities, all keyword actions. After
+F13: re-roll is `play.rerollFlow`, strengthen is `deck.strengthenFromDeck`,
+eliminate is `roller.useKeyword`. None is displayed-only.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -125,6 +147,7 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - Every route: a heading, an `explain()` note collapsed by default, no stray
   `null`/`undefined`/`NaN`, no console errors, nothing under the tab bar.
 - Every visible control does something (interaction audit clean).
+- All three keyword actions fire in the engine, not in prose.
 - A whole session runs end to end: creation → scenes → day boundaries → the
   solve → closing the case → the career history picking it up.
 - No export unread, no import unused (dead-data scan clean).
