@@ -207,6 +207,18 @@ re-renders the screen you are on; the router restores the scroll position when
 the route has not changed, so a roll never throws you back to the top. A screen
 that got shorter clamps to its new bottom.
 
+**The app has to be playable by someone who has not read the book.** That is a
+requirement, not a courtesy: this is a personal aid built from one copy of a
+rulebook, and the person using it will not reread it. So the sequence of play is
+not left in a tutorial — `src/coach.js` derives the next step from live state
+and puts it above every screen in one sentence, with what it costs and a **Why?**
+that explains the moment you are actually in. It names the real control rather
+than growing a duplicate of it, so one button still does one thing. A blank app
+offers **Start playing**, which rolls an investigator and a case through the same
+paths the wizards use and drops you into the first scene. The claim is checked
+the only way it can be: `npm run playtest -- --guided` plays a whole session from
+a blank app to a closed case pressing nothing but what the guide names.
+
 **The look is part of the rules.** Headings, the premise sentence, clue
 descriptions and card faces are set in a serif; labels, numbers and controls in
 sans, with tabular figures. Colour is spent only on meaning. The screens carry
@@ -264,6 +276,7 @@ in the README rather than hidden behind an encoding.
 | `src/lifecycle.js` | Scenes, stages, the clock, the day boundary, rest, obligations, truths, rivals. |
 | `src/prompts.js` | The engine's player decisions wired to real dialogs; one event → one sentence. |
 | `src/framing.js` | Setting the scene: the book's two questions, an oracle to hand, and the answer kept in the journal. |
+| `src/coach.js` | The guide: what to do next and what it costs, derived from live state, on every screen. Holds no rules of its own. |
 | `src/wizard.js` | The investigator wizard and the mystery wizard. |
 | `src/sheet.js` | The investigator sheet and the persistent resource header. |
 | `src/play.js` | The scene loop: choosing, running stages, threats, boundaries. |
@@ -304,7 +317,7 @@ citr:v1
                round{mode:"shared"|"individual", scenes{invId:{type,done}}},
                jokersDrawn, ended, endTrigger, guesses[], results[], solved, correct, answers[], xpGained }
 citr:v1:settings  { theme, textScale, manualDice, multiplayer, rivals, career,
-                    safetyFilter, blocked[], wakeLock, autoOracle, sceneFraming }
+                    safetyFilter, blocked[], wakeLock, autoOracle, sceneFraming, coach }
 ```
 
 Every schema addition ships a back-fill in `derived.normalize*` and is recorded
@@ -435,6 +448,8 @@ this whole document exists to prevent.
 | Solo: open a scene by saying where it is and who is there | Permission | `SCENE_FRAMING` | `framing.framingCard`, `framingLines`, `framingAction` | Top of every scene; rest and obligation dialogs | smoke: setting the scene, `a rest or obligation scene can be set, asked about, and written down` |
 | Solo: ask the game when you do not know | Permission | oracles | `framing.framingCard` buttons | Oracle and yes/no on the framing card | smoke: the oracle button produces words |
 | Solo: keep the record however you like | Permission | `RECORDING_METHODS` | `screens.renderJournal` | Journal screen, rules library | guidance only |
+| The sequence of play, said out loud at every step | Permission | `STAGES[].action`, `SCENE_TYPES` | `coach.nextStep` | The guide, above every screen | `the guide deals you in, names the real button, and changes with the state`, and a guided session end to end |
+| How near each of the four endings is | Threshold | `END_TRIGGERS`, `DECK` | `coach.readiness` | Why? sheet | (same row) |
 | Content filter (house aid) | Gate | `Settings.blocked` | `rules.rollTable` | Settings, and a note on any redirected roll | `the content filter skips the rows a player blocked` |
 
 ## 7. Roadmap
@@ -460,9 +475,10 @@ this whole document exists to prevent.
 4. `npm test` (parse gate + invariants) before every change; `npm run smoke`
    before every commit; `npm run interact` and `npm run scan` at the end of
    every feature; `npm run walk` and the probes at the end of every phase;
-   `npm run playtest` — seeded sessions played to a closed case, and
-   `--coop` / `--manual` for the other three configurations — after any change
-   to the scene loop, the lifecycle or an oracle surface.
+   `npm run playtest` — seeded sessions played to a closed case, with
+   `--coop` / `--manual` for the other configurations and `--guided` for a
+   session played on the guide's word alone — after any change to the scene
+   loop, the lifecycle, an oracle surface or the guide.
 5. Every bug fix adds the check that would catch its return, and the check is
    watched failing first.
 6. Copy that states a mechanic is either enforced in the same change or marked
@@ -474,6 +490,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-22 | The app could be played correctly and could not be learned: the sequence of play lived in a tutorial you had to go and read. New `src/coach.js` — a guide above every screen that says what to do next and what it costs, derived from state so it cannot go stale, naming the real control instead of duplicating it, with a **Why?** that lays out your other options, how near each of the four endings is, and what a guess is worth if you stop now. A blank app now offers **Start playing**: one tap rolls an investigator and a case through the wizards' own paths and deals you into the first scene. Stage button labels moved into `data.js` so the guide and the play screen name one control, not two. | one smoke block watched failing; `--guided` plays a whole session from a blank app to a closed case pressing only what the guide names | citr-v10 |
 | 2026-09-21 | Played one session properly — reading the fiction, choosing from it, writing after every beat — and read the record back. Every test line in the journal was arithmetic that does not work (`4+5 = 11`), because `attributeTest` never returned the attribute it had just added; the re-roll comparison, whose whole job is to let you choose between two outcomes, printed the same broken sums. And a rest or obligation scene asked the book's two questions above a single "Done": no field, no oracle, nothing reaching the journal. Also played the two configurations the first pass skipped — co-op and typed dice — across twelve sessions, with no findings. | two smoke blocks, both watched failing; twelve seeded sessions in four configurations | citr-v9 |
 | 2026-09-21 | Played a session rather than pressed one, on five seeds: three stalls. A scene you had ended could only be ended again, so from the first scene onwards the picker never came back and the clock ran on for fifty days. The re-roll keyword could be paid for with the keyword the failed test had just handed over, which the re-roll's own undo took back — it threw and swallowed the test. And an investigator with every attribute struck was told to rest and given no way to reach a rest scene (ruling A22). New `.playtest/` driver and seeded session runner; `npm run playtest`. | three smoke blocks, each watched failing; five seeded sessions from creation to a closed case | citr-v8 |
 | 2026-09-21 | Control sweep against the sequence of play: the premise folds mid-scene, the Clues tab plays the truth scene instead of pointing at Play, scenes the rules forbid are dimmed with the reason, Careers offers the next mystery, Settings ends on the destructive section, and the tables run in play order. | one smoke block covers all six; two watched failing | citr-v6 |

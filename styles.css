@@ -631,3 +631,40 @@ details.framing .ask li { font-size: .89rem; margin-bottom: .15rem; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* --- The guide ------------------------------------------------------------ */
+/* Loud enough to be read first and quiet enough to live on every screen: a
+   hairline panel in the truth blue, the sentence in the serif the fiction uses,
+   the costs in the sans everything mechanical uses. */
+.coach {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r);
+  background: var(--panel);
+  padding: 12px 14px;
+  margin: 0 0 14px;
+}
+.coach.warn { border-left-color: var(--danger); }
+.coach-say {
+  font-family: var(--serif);
+  font-size: 1.06rem;
+  line-height: 1.4;
+  margin: 0;
+  display: flex;
+  gap: 8px;
+}
+.coach-mark { color: var(--accent); font-weight: 700; }
+.coach.warn .coach-mark { color: var(--danger); }
+.coach-warn {
+  margin: 8px 0 0;
+  font-size: .82rem;
+  color: var(--danger);
+}
+.coach-here {
+  margin: 8px 0 0;
+  font-size: .82rem;
+  color: var(--ink-2);
+}
+.coach-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.coach-row .btn { min-height: 44px; }
+.coach-row .btn.primary { flex: 1 1 auto; }

@@ -540,6 +540,53 @@ four combinations, no findings. And the driver gained a held-open mode, because
 a beat cannot be read, thought about and answered when the page reloads between
 two invocations — the first attempt at playing silently lost a test that way.
 
+## Cycle 21 — the app was correct and could not be learned
+
+Not a defect hunt. The owner's report, in their words: *"I still don't know how
+to start playing, and sustaining play and ending the game well."* Every audit
+before this one asked whether the app does the right thing. None asked whether
+the person holding it knows what to press — and the answer was that they knew
+only if they had read the book, which is the one thing this app exists to spare
+them.
+
+### F40 — The sequence of play was in a tutorial, not in the game
+Everything needed to play was present and none of it was *said* at the moment it
+was needed. The tutorial screen is ten accordions of prose you have to go and
+open; `explain()` on each screen is collapsed and describes the screen rather
+than the step. Between them they answer "what is this?" and never "what now?".
+Three specific holes, matching the three the owner named:
+
+- **Starting.** A blank app offered "Create an investigator" — a four-step
+  wizard — to somebody who had not yet decided to play. It now offers **Start
+  playing**: one tap rolls an investigator and a case through the same paths the
+  two wizards use (`wizard.expressStart`, so there is no second definition of a
+  legal investigator anywhere) and deals you into the first scene.
+- **Sustaining.** Nothing ever said what to do next. `coach.nextStep` derives it
+  from live state — which scene to take and why, that a two-card set is worth
+  more than a one-card set, that four fatigue means rest before anything else,
+  that the day turning with an obligation unattended costs a fatigue — and the
+  guide bar puts it above every screen, in one sentence, with what it costs.
+- **Ending well.** The book gives four ways out and no sense of which is coming.
+  `coach.readiness` says how near each is, and what a guess is actually worth if
+  you stop now: *"Nothing is ruled out yet and 12 you have never seen, three of
+  which are the answer. Guessing now, expect about 0.8 of 3 right."*
+
+The guide names the real control rather than growing a second one — on the
+screen the step lives on it says *press "Take the clue"*, and only offers to
+navigate from elsewhere. One button still does one thing, which is also the only
+way the interaction audit stays meaningful.
+
+*Guards:* one smoke block, watched failing — a blank app speaks to a beginner
+and deals them in with everything legal; the guide names the button that is
+actually on the screen and grows no duplicate; Why? says how the case can end;
+the line changes with the state (four fatigue turns it amber and says rest); and
+the whole thing can be switched off.
+
+And the claim itself is now checked the only way it can be: `npm run playtest --
+--guided` starts from a blank app and presses **nothing but what the guide
+names**, beat after beat, to a closed case. If that ever stalls, the app has
+stopped being playable by someone who has not read the book.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -593,6 +640,8 @@ Settled ground; later passes need not re-litigate these without new evidence.
   player decides a re-roll on.
 - All four scene types can be set with the book's two questions, with an oracle
   to hand, and what is written reaches the journal.
+- A whole session played from a blank app to a closed case pressing only what
+  the guide says to press.
 - No export unread, no import unused (dead-data scan clean).
 
 ## Known gaps, stated rather than hidden

@@ -822,6 +822,105 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8i. the guide: a first-timer is never left wondering what to press
+// The app was correct and said almost nothing: the sequence of play lived in a
+// tutorial you had to go and read. The guide sits above every screen, names the
+// real control rather than growing a duplicate of it, and changes with state.
+{
+  const { ctx, page, errors } = await newPage();
+  await withSeed(page, false);
+
+  // A blank app: one button that deals you in, and nothing to decide first.
+  const home = await page.locator("#screen").innerText();
+  if (!/never played this before/i.test(home)) fail("a blank app does not speak to someone who has never played");
+  const first = await page.locator(".action-bar .btn").innerText();
+  if (!/start playing/i.test(first)) fail(`a blank app offers "${first.split("\n")[0]}" instead of a way straight in`);
+  if (!(await page.locator(".coach").count())) fail("the guide is missing on the first screen of all");
+  const opening = await page.locator(".coach-say").innerText();
+  if (!/start playing/i.test(opening)) fail(`the guide opens with "${opening.replace(/\s+/g, " ").trim()}" instead of pointing at the way in`);
+
+  await page.locator(".action-bar .btn").click();
+  await page.waitForTimeout(400);
+  const dealt = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1") || "{}");
+    const c = s.careers && s.activeId ? s.careers[s.activeId] : null;
+    if (!c) return null;
+    const inv = c.investigators[0], m = c.mystery;
+    return {
+      name: inv.name, trait: inv.trait, attrs: Object.values(inv.attributes).sort(),
+      obligations: inv.obligations.length, signature: inv.keywords.filter((k) => k.signature).length,
+      deck: m ? m.clueDeck.length : 0, truth: m ? m.truthDeck.length : 0, aside: m ? m.setAside.length : 0,
+      problem: m ? [m.location, m.object, m.treachery].every(Boolean) : false,
+    };
+  });
+  if (!dealt) fail("Start playing left no career behind");
+  else {
+    if (!dealt.name || !dealt.trait) fail("Start playing dealt an investigator with no name or trait");
+    if (String(dealt.attrs) !== "0,1,2") fail(`Start playing spread the attributes as ${dealt.attrs} instead of 2/1/0`);
+    if (dealt.obligations !== 1 || dealt.signature !== 1) fail("Start playing skipped the obligation or the signature keyword");
+    if (!dealt.problem) fail("Start playing dealt no problem");
+    if (dealt.deck !== 42 || dealt.aside !== 3) fail(`Start playing built a ${dealt.deck}-card clue deck and set ${dealt.aside} aside`);
+  }
+  await page.locator(".modal-actions .btn").first().click();   // play the first scene
+  await page.waitForTimeout(300);
+
+  // In play, the guide names the button that is actually on the screen.
+  const sayHere = await page.locator(".coach-say").innerText();
+  const here = await page.locator(".coach-here").count();
+  const bar = (await page.locator(".action-bar .btn").innerText()).split("\n")[0].trim();
+  if (!here) fail(`on the screen the guide points at, it still offers to navigate: "${sayHere}"`);
+  else {
+    const named = await page.locator(".coach-here").innerText();
+    const quoted = (named.match(/\u201c([^\u201d]+)\u201d/) || [])[1];
+    if (!quoted) fail(`the guide does not name a control: "${named}"`);
+    else if (!bar.startsWith(quoted)) fail(`the guide says press "${quoted}" but the button reads "${bar}"`);
+  }
+  if (await page.locator(".coach .btn", { hasText: /^Go:/ }).count()) fail("the guide grew a second button for a control already on the screen");
+
+  // Why? answers for the moment you are in, and names the ways the case ends.
+  await page.locator(".coach .btn", { hasText: "Why?" }).click();
+  await page.waitForTimeout(250);
+  const sheet = await page.locator(".modal-body").innerText();
+  if (!/how this ends/i.test(sheet)) fail("the guide never says how the case can end");
+  if (!/clue cards left|never seen/i.test(sheet)) fail("the guide never says how close the ending is");
+  await page.locator(".modal-actions .btn").first().click();
+  await page.waitForTimeout(150);
+
+  // It tracks state: a spent investigator is told to rest, in the guide's own voice.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId];
+    const inv = c.investigators[0];
+    inv.fatigue = 4;
+    c.mystery.scene = null;
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(300);
+  const tired = await page.locator(".coach-say").innerText();
+  if (!/rest/i.test(tired)) fail(`at 4 of 5 fatigue the guide says "${tired}" instead of telling you to rest`);
+  if (!(await page.locator(".coach.warn").count())) fail("the guide does not mark an urgent step as urgent");
+
+  // And it can be turned off.
+  await page.goto(`${base}#/settings`);
+  await page.waitForTimeout(200);
+  const toggle = page.locator("#screen .opt", { hasText: "Guide me" }).first();
+  if (!(await toggle.count())) fail("the guide has no setting");
+  else {
+    await toggle.locator("input").uncheck();
+    await page.goto(`${base}#/play`);
+    await page.waitForTimeout(250);
+    if (await page.locator(".coach").count()) fail("turning the guide off leaves it on the screen");
+    await page.goto(`${base}#/settings`);
+    await page.waitForTimeout(200);
+    await page.locator("#screen .opt", { hasText: "Guide me" }).first().locator("input").check();
+  }
+  if (errors.length) fail(`console error around the guide: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("the guide deals you in, names the real button, and changes with the state");
+  await ctx.close();
+}
+
 // 9. a roll keeps your place on the screen
 {
   const { ctx, page, errors } = await newPage();
@@ -894,7 +993,7 @@ for (const width of WIDTHS) {
   if (gone.careers) fail(`erasing everything left ${gone.careers} career(s)`);
   if (gone.multiplayer) fail("erasing everything left the settings as they were");
   const text = await page.locator("#screen").innerText();
-  if (!/create an investigator/i.test(text)) fail("after erasing, the app does not offer a fresh start");
+  if (!/start playing|make an investigator/i.test(text)) fail("after erasing, the app does not offer a fresh start");
   if (errors.length) fail(`console error while clearing data: ${errors[0].slice(0, 120)}`);
   if (!gone.careers && !gone.multiplayer) ok("put down the case keeps the people; erase everything keeps nothing");
   await ctx.close();

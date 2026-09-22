@@ -1,6 +1,7 @@
 // Bottom-nav routing plus the section nav every multi-route tab carries.
 
 import { el, add, clear } from "./core.js";
+import { coachBar } from "./coach.js";
 
 const routes = new Map();
 /**
@@ -84,6 +85,9 @@ export async function render() {
   host.classList.remove("has-action");
   const nav = sectionNav(name);
   if (nav) add(host, nav);
+  // The guide sits above every screen rather than inside each one, so a screen
+  // added later cannot quietly ship without it.
+  add(host, coachBar(name));
   const out = await def.render(host);
   if (out && out.action) {
     host.classList.add("has-action");

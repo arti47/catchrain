@@ -23,11 +23,13 @@ export const INVESTIGATION_ROLL = [
     text: "Something or someone has noticed your investigator!" },
 ];
 
+// `action` is what the button for this stage says, so the guide and the play
+// screen name the same control rather than two descriptions of one thing.
 export const STAGES = [
-  { id: "infiltration", name: "Infiltration", note: "Getting where you need to go.", onlyIfRolled4Plus: true },
-  { id: "discovery", name: "Discovery", note: "Working out where the clue is." },
-  { id: "acquisition", name: "Acquisition", note: "Taking the clue.", grantsClue: true },
-  { id: "escape", name: "Escape", note: "Fleeing the location.", onlyIfThreat: true },
+  { id: "infiltration", name: "Infiltration", note: "Getting where you need to go.", action: "Find a way in", onlyIfRolled4Plus: true },
+  { id: "discovery", name: "Discovery", note: "Working out where the clue is.", action: "Find where the clue is" },
+  { id: "acquisition", name: "Acquisition", note: "Taking the clue.", action: "Take the clue", grantsClue: true },
+  { id: "escape", name: "Escape", note: "Fleeing the location.", action: "Get out", onlyIfThreat: true },
 ];
 
 // --- Attribute test: 2d6 + attribute (Ch.2, Attribute tests) ------------------

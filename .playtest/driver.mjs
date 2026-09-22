@@ -242,6 +242,19 @@ export async function readState(s) {
     } else {
       const heading = norm((document.querySelector("#screen h1") || {}).textContent);
       out.heading = heading;
+      const coach = document.querySelector(".coach");
+      if (coach) {
+        const here = coach.querySelector(".coach-here");
+        const nav = [...coach.querySelectorAll(".btn")].map((b) => norm(b.innerText)).find((t) => /^Go:/.test(t));
+        out.guide = {
+          say: norm((coach.querySelector(".coach-say") || {}).textContent),
+          warn: norm((coach.querySelector(".coach-warn") || {}).textContent) || null,
+          // What the guide tells you to press, and where: on this screen it
+          // names the control, elsewhere it offers to take you there.
+          press: here ? (norm(here.textContent).match(/\u201c([^\u201d]+)\u201d/) || [])[1] || null : null,
+          goto: nav || null,
+        };
+      }
       out.lede = [...document.querySelectorAll("#screen .card-title, #screen .premise, #screen .mono")]
         .slice(0, 6).map((n) => norm(n.innerText)).filter(Boolean);
       out.dropdowns = [...document.querySelectorAll("#screen select")].map((n) => {

@@ -81,6 +81,7 @@ npm run interact     # clicks every control in isolation, flags no-ops
 npm run walk         # a whole session: creation, scenes, the solve, the next case
 npm run sw           # ships a change and asserts the update reaches an installed app
 npm run playtest     # plays five seeded sessions to a closed case; fails on a stall
+npm run playtest -- --guided   # a session played pressing only what the guide says
 node tests/scan-dead.mjs           # exports nothing reads, imports nothing uses
 node tests/probe-layout.mjs stress # the measurement table, per route
 npm run shots        # screenshots of every screen, both themes, for eyes-on review

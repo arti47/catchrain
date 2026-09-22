@@ -1,6 +1,6 @@
 // Creation: the investigator wizard and the mystery wizard, in rule-legal order.
 
-import { el, add, uid } from "./core.js";
+import { el, add, uid, shuffle } from "./core.js";
 import { ATTRIBUTES, ATTRIBUTE_ARRAY, GENRES, GENRE_IDS, DIFFICULTIES } from "../data.js";
 import * as R from "./rules.js";
 import * as D from "./derived.js";
@@ -229,3 +229,53 @@ function startMystery() {
 }
 
 export const resetDrafts = () => { draft = null; mDraft = null; };
+
+/**
+ * Everything rolled, nothing asked: the shortest legal way from a blank app to
+ * the first scene. It takes the same paths the two wizards take — the same
+ * tables, the same deck build, the same normalisation — so there is no second
+ * definition of a legal investigator anywhere.
+ */
+export function expressStart(genreId = "noir", difficultyId = "standard") {
+  const spread = shuffle(ATTRIBUTE_ARRAY);
+  const attributes = {};
+  ATTRIBUTES.forEach((a, i) => { attributes[a.id] = spread[i]; });
+
+  const made = D.normalizeInvestigator({
+    name: R.rollName("tables").name,
+    trait: R.randomTrait().value,
+    attributes,
+    obligations: [{ id: uid(), text: R.rollGenre(genreId, "obligations").value, struck: false }],
+    keywords: [{ id: uid(), text: R.rollGenre(genreId, "keywords").value, signature: true, struck: false }],
+  });
+
+  let career = Store.career;
+  if (!career) career = Store.newCareer(made.name);
+  Store.update("start playing", () => {
+    const c = Store.career;
+    c.name = made.name;
+    c.defaultGenre = genreId;
+    made.id = Store.investigator.id;
+    c.investigators[c.investigators.findIndex((i) => i.id === made.id)] = made;
+  });
+  Store.journal("create", `${made.name} takes the case.`);
+
+  const problem = R.randomProblem(genreId);
+  const secondObject = problem.treachery.needsSecondObject ? R.rollGenre(genreId, "objects").value : null;
+  const truth = buildTruth(difficultyId);
+  Store.update("start mystery", () => {
+    Store.career.mystery = D.normalizeMystery({
+      id: uid(), genre: genreId, difficulty: difficultyId,
+      location: problem.location.value, object: problem.object.value,
+      treachery: problem.treachery.value, secondObject,
+      motivation: R.randomMotivation().value,
+      danger: Settings.get("career") ? (Store.career.carryDanger || 0) : 0,
+      clueDeck: buildClueDeck(), clueDiscard: [], clueSets: {}, threats: [],
+      ...truth, startedAt: Date.now(),
+    });
+    Store.career.carryDanger = 0;
+  });
+  Store.journal("mystery", R.problemText(Store.mystery));
+  draft = null; mDraft = null;
+  return { investigator: Store.investigator, mystery: Store.mystery };
+}

@@ -11,6 +11,7 @@
 //   node .playtest/audit.mjs --coop [seed ...]     a party of two sharing one case
 //   node .playtest/audit.mjs --manual [seed ...]   every resolution roll typed in
 //   node .playtest/audit.mjs --coop --manual ...   both
+//   node .playtest/audit.mjs --guided [seed ...]   press ONLY what the guide names
 //
 // Exits non-zero on a stall, a finding or a console error, so it works as a gate.
 
@@ -20,9 +21,12 @@ import { writeFileSync, mkdirSync } from "node:fs";
 const argv = process.argv.slice(2);
 const COOP = argv.includes("--coop");
 const MANUAL = argv.includes("--manual");
-const MODE = `${COOP ? "co-op" : "solo"}, ${MANUAL ? "dice typed in" : "digital dice"}`;
-const TAG = `${COOP ? "coop" : "solo"}-${MANUAL ? "manual" : "digital"}`;
-const SETTINGS = { career: true, rivals: true, multiplayer: COOP, manualDice: MANUAL };
+// The strongest claim the app can make: a whole session played by a person who
+// reads nothing but the line at the top of the screen and presses what it says.
+const GUIDED = argv.includes("--guided");
+const MODE = `${COOP ? "co-op" : "solo"}, ${MANUAL ? "dice typed in" : "digital dice"}${GUIDED ? ", guide only" : ""}`;
+const TAG = `${COOP ? "coop" : "solo"}-${MANUAL ? "manual" : "digital"}${GUIDED ? "-guided" : ""}`;
+const SETTINGS = { career: true, rivals: true, multiplayer: COOP, manualDice: MANUAL, coach: true };
 const SEEDS = argv.filter((a) => !a.startsWith("--")).map(Number).filter(Boolean);
 const seeds = SEEDS.length ? SEEDS : [1, 7, 11, 23, 42];
 const MAX_BEATS = 220;
@@ -84,7 +88,21 @@ async function playSeed(seed) {
   const trail = [];
   let beat = 0, closed = false, lastSig = "", sameFor = 0;
   try {
-    await startNew(s);
+    if (GUIDED) {
+      // No wizard walk-through: press what the guide names, from a blank app.
+      await goScreen(s, "home");
+      for (let i = 0; i < 6; i++) {
+        const st = await readState(s);
+        if (st.situation) break;
+        const g = st.guide || {};
+        const label = g.press || g.goto;
+        if (!label) { note(seed, 0, "STALL", `a blank app's guide names nothing to press: ${JSON.stringify(g)}`); break; }
+        const r = await doIt(s, label);
+        if (!r.ok) { note(seed, 0, "STALL", `the guide says press "${label}" on a blank app and nothing does: ${r.error}`); break; }
+        trail.push(`guide: ${label}`);
+        await settle(s, seed, 0, trail);
+      }
+    } else await startNew(s);
     if (COOP) {
       // A second investigator joins the case; the party shares one mystery,
       // one clock and one danger track (Ch.3).
@@ -125,6 +143,29 @@ async function playSeed(seed) {
         if (!rv.ok) { note(seed, beat, "STALL", `“Reveal the three cards” could not be pressed: ${rv.error}`); break; }
         await settle(s, seed, beat, trail);
         continue;
+      }
+
+      // Guided mode reads nothing else: whatever the line at the top says to
+      // press is what gets pressed. If that ever leaves play with nowhere to
+      // go, the app cannot be played by someone who has not read the book.
+      if (GUIDED && st.guide) {
+        const g = st.guide;
+        if (g.goto) {
+          const r = await doIt(s, g.goto);
+          if (!r.ok) { note(seed, beat, "STALL", `the guide offered "${g.goto}" and it could not be pressed: ${r.error}`); break; }
+          trail.push(`guide: ${g.goto}`);
+          await settle(s, seed, beat, trail);
+          continue;
+        }
+        if (g.press) {
+          const r = await doIt(s, g.press);
+          if (!r.ok) { note(seed, beat, "STALL", `the guide says press "${g.press}" and nothing on the screen does: ${r.error}`); break; }
+          trail.push(`guide: ${g.say} -> ${g.press}`);
+          await settle(s, seed, beat, trail);
+          continue;
+        }
+        note(seed, beat, "STALL", `the guide says "${g.say}" and names nothing to press`);
+        break;
       }
 
       // What to press is read off the screen, not out of the save: in co-op the

@@ -608,6 +608,6 @@ function renderInvestigation(host, m, scene) {
       el("p", { class: "small muted", text: "Spend one to re-roll a test, strengthen a clue, or remove a threat outright." })));
   }
 
-  const label = { infiltration: "Find a way in", discovery: "Find where the clue is", acquisition: "Take the clue", escape: "Get out" }[scene.stage];
+  const label = R.stage(scene.stage).action;
   return { action: actionBar(label, () => runTest({ label, purpose: `${label} — which approach?`, stageTest: true }), `${R.stage(scene.stage).name} stage · danger ${m.danger}`) };
 }

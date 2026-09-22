@@ -7,7 +7,7 @@ import * as D from "./derived.js";
 import { Store } from "./store.js";
 import { Settings, TOGGLES } from "./settings.js";
 import { RULES_LIBRARY } from "./library.js";
-import { resetDrafts } from "./wizard.js";
+import { resetDrafts, expressStart } from "./wizard.js";
 import { Updates } from "./updates.js";
 import { section, row, defRow, btn, optionBtn, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState } from "./ui.js";
 import { go } from "./router.js";
@@ -21,9 +21,14 @@ export function renderHome(host) {
     explain("Everything in one place: who is investigating, what the problem is, and what the rules say to do next. The bar at the bottom always offers that next step."));
 
   if (!c || !Store.investigator.name) {
-    add(host, emptyState("Nobody is looking into anything yet.", "Create an investigator", () => go("wizard")));
-    add(host, section("First time?", el("p", { class: "small muted", text: "The tutorial walks a whole first session, step by step." }), btn("Open the tutorial", () => go("tutorial"))));
-    return { action: null };
+    add(host, section("Never played this before?",
+      el("p", { text: "Press the button at the bottom. It rolls you an investigator and a case and puts you in the first scene — you do not have to decide anything, and nothing it rolls is permanent." }),
+      el("p", { class: "small muted", text: "From then on, the line at the top of every screen says what to do next and what it will cost you. Press Why? next to it whenever you want the longer answer." })));
+    add(host, section("Or take your time",
+      el("div", { class: "btn-row" },
+        btn("Make an investigator myself", () => go("wizard")),
+        btn("Read the walkthrough", () => go("tutorial")))));
+    return { action: actionBar("Start playing", startPlaying, "Rolls everything and deals you in") };
   }
   const inv = Store.investigator, m = c.mystery;
 
@@ -114,6 +119,23 @@ export function renderHome(host) {
 
   const label = m.ended ? "Resolve the mystery" : (m.scene && !m.scene.done) ? "Back to the scene" : "Play the next scene";
   return { action: actionBar(label, () => go(m.ended ? "solve" : "play"), m.ended ? "Name the three cards" : `Danger ${m.danger} · clock ${inv.clock}/4`) };
+}
+
+/** One tap from a blank app to the first scene (see wizard.expressStart). */
+async function startPlaying() {
+  const { investigator, mystery } = expressStart();
+  modal({
+    title: `${investigator.name} takes the case`,
+    body: el("div", {},
+      el("p", { class: "premise", text: R.problemText(mystery) }),
+      row("Trait", investigator.trait),
+      row("Attributes", DATA.ATTRIBUTES.map((a) => `${a.name} ${D.attrValue(investigator, a.id)}`).join(" \u00b7 ")),
+      row("Obligation", investigator.obligations[0].text),
+      row("Signature keyword", investigator.keywords[0].text),
+      el("p", { class: "small muted", text: "All of it is yours to rewrite on the sheet. You are not meant to know what the case means yet — working that out is the game." })),
+    actions: [{ label: "Play the first scene", onClick: () => go("play") }, { label: "Look around first", kind: "ghost" }],
+  });
+  await rerender();
 }
 
 // --- Tables -------------------------------------------------------------------

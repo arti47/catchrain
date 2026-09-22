@@ -62,6 +62,8 @@ const STEPS = [
 export function renderTutorial(host) {
   add(host, el("h1", { text: "Your first session" }),
     explain("A walkthrough of one whole session, in the order you will play it. It is a screen, not a pop-up — come back to it mid-game whenever you are unsure what the app wants next."));
+  add(host, section("You do not have to read this",
+    el("p", { text: "The line at the top of every screen already says what to do next and what it will cost you, and the Why? beside it explains the moment you are in. This page is here for when you want the whole shape of a session at once." })));
   const wrap = el("div", {});
   STEPS.forEach(([title, paras], i) => {
     const det = el("details", { class: "acc", open: i === 0 ? true : null });

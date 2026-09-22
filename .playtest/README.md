@@ -16,8 +16,10 @@ only what the app offers?**
 - `audit.mjs` — the session's spine, played mechanically on several seeds.
   `npm run playtest`, or `node .playtest/audit.mjs 3 9 17` for named seeds.
   `--coop` plays a party of two sharing one case; `--manual` types every
-  resolution roll in. Exits non-zero on a stall, a beat with nothing to press,
-  or a console error.
+  resolution roll in; `--guided` starts from a blank app and presses nothing but
+  what the guide at the top of the screen names, which is the only real test of
+  whether the app can be played without the book. Exits non-zero on a stall, a
+  beat with nothing to press, or a console error.
 
 Two modes, and they find different things. The runner above proves the
 machinery holds; it decides nothing for a reason and writes not a word, so its
