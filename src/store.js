@@ -114,6 +114,8 @@ export const Store = {
   peek(fn) { return fn(Store.state); },
 
   canUndo: () => undoStack.length > 0,
+  /** How many steps back are available: the button is not a single step. */
+  undoDepth: () => undoStack.length,
   lastLabel: () => (undoStack.length ? undoStack[undoStack.length - 1].label : null),
   /** What undo would restore, read-only: a flow that undoes a step first has to
    *  know what survives it, and must not pop the stack to find out. */

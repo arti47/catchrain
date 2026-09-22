@@ -55,7 +55,8 @@ setBadges(() => {
 const undoBtn = $("#undo-btn");
 undoBtn.addEventListener("click", () => {
   const label = Store.undo();
-  showToast(label ? `Undid: ${label}` : "Nothing to undo.");
+  const left = Store.undoDepth();
+  showToast(label ? `Undid: ${label}.${left ? ` ${left} more step${left === 1 ? "" : "s"} back if you need them.` : ""}` : "Nothing to undo.");
   render();
 });
 $("#theme-btn").addEventListener("click", () => {
@@ -69,7 +70,10 @@ $("#theme-btn").addEventListener("click", () => {
 function paintChrome() {
   renderResourceHeader(location.hash.replace(/^#\//, "").split("?")[0] || "home");
   undoBtn.disabled = !Store.canUndo();
-  undoBtn.title = Store.canUndo() ? `Undo: ${Store.lastLabel()}` : "Nothing to undo";
+  // The stack is twenty deep and the button looked like one step. Say so.
+  const depth = Store.undoDepth();
+  undoBtn.title = depth ? `Undo: ${Store.lastLabel()} (${depth} step${depth === 1 ? "" : "s"} back available)` : "Nothing to undo";
+  undoBtn.setAttribute("aria-label", depth ? `Undo ${Store.lastLabel()}, ${depth} steps available` : "Nothing to undo");
 }
 Store.subscribe(paintChrome);
 window.addEventListener("hashchange", paintChrome);

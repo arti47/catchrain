@@ -13,6 +13,7 @@ import { eventList } from "./prompts.js";
 import { useKeywordFlow } from "./sheet.js";
 import { rankName } from "./deck.js";
 import { framingCard, framingLines, framingAction } from "./framing.js";
+import { recapCard } from "./coach.js";
 import { SCENE_FRAMING } from "../data.js";
 const SCENE_FRAMING_NOTE = SCENE_FRAMING.note;
 import { go } from "./router.js";
@@ -400,6 +401,7 @@ async function endSceneFlow() {
     const applied = await Life.applyDayBoundary();
     events.push(...applied.events);
     Store.commit();
+    Store.journal("oracle", `The new day opens: ${applied.words.join(" · ")}`);
     modal({
       title: `Day ${Store.investigator.day - 1} is over`,
       body: el("div", {},
@@ -449,6 +451,7 @@ export function renderPlay(host) {
       : "Pick the scene that fits what your investigator needs: clues, certainty, recovery, or the rest of their life. Ending a scene marks the clock; four scenes make a day."));
 
   add(host, problemBlock(m, inScene));
+  if (!inScene) add(host, recapCard());
 
   if (inScene && scene.type === "investigation") return renderInvestigation(host, m, scene);
 

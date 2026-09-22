@@ -921,6 +921,130 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8j. the game's own half of the conversation is kept
+// Every oracle result was shown once in a dialog or a DOM node and then thrown
+// away: the framing card's words, the doubles event, the day's event, the clue
+// prompt behind a description you skipped. In a game that is a player asking
+// and the game answering, the record held only one side of it.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "mid-session", { sceneFraming: true, autoOracle: true });
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(250);
+
+  const oracles = () => page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    return (s.careers[s.activeId].journal || []).filter((e) => e.kind === "oracle").map((e) => e.text);
+  });
+  const before = (await oracles()).length;
+
+  const askBtn = page.locator("#screen .btn", { hasText: "Ask the oracle" }).first();
+  if (!(await askBtn.count())) fail("no oracle to hand inside a scene");
+  else {
+    await askBtn.click();
+    await page.waitForTimeout(200);
+    const after = await oracles();
+    if (after.length <= before) fail("the oracle answered and the record never heard it");
+    else {
+      const shown = await page.locator("#screen .framing .mono").first().innerText();
+      const words = shown.split("\u00b7").map((w) => w.trim()).filter(Boolean);
+      const kept = after[after.length - 1];
+      if (!words.every((w) => kept.includes(w))) fail(`the oracle said "${shown}" and the record kept "${kept}"`);
+    }
+  }
+
+  // The Oracles screen keeps what it rolls while a case is live.
+  await page.goto(`${base}#/oracle`);
+  await page.waitForTimeout(200);
+  const n1 = (await oracles()).length;
+  await page.locator("#screen .btn", { hasText: "Ask" }).first().click();
+  await page.waitForTimeout(200);
+  if ((await oracles()).length <= n1) fail("an oracle rolled during a case never reached the record");
+
+  // A clue prompt survives a description you did not write.
+  const prompted = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const m = s.careers[s.activeId].mystery;
+    const set = Object.values(m.clueSets)[0];
+    set.description = ""; set.entries = []; set.prompts = ["Incongruous object \u2014 Trick \u00b7 Sleepy"];
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+    return set.rank;
+  });
+  await page.goto(`${base}#/clues`);
+  await page.reload();
+  await page.waitForTimeout(300);
+  const cluesText = await page.locator("#screen").innerText();
+  if (!/the prompts were/i.test(cluesText)) fail(`a clue set with no description shows nothing of the prompt it was given (rank ${prompted})`);
+
+  if (errors.length) fail(`console error around the record: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("what the game says is kept, not just what you type");
+  await ctx.close();
+}
+
+// 8k. picking the case up again, and reading it back
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress");
+  // A case you have actually written in.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId];
+    c.journal.push({ id: "n1", ts: Date.now(), kind: "note", text: "She went back to the flat with the code.", day: 2 });
+    c.journal.push({ id: "n2", ts: Date.now(), kind: "oracle", text: "Asked the oracle: Support \u00b7 Redundant \u00b7 Risk", day: 2 });
+    c.journal.push({ id: "n3", ts: Date.now(), kind: "scene", text: "Scene ended.", day: 2 });
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.goto(`${base}#/home`);
+  await page.reload();
+  await page.waitForTimeout(300);
+  const home = await page.locator("#screen").innerText();
+  if (!/where you left off/i.test(home)) fail("coming back to a case in progress, nothing says where you left off");
+  await page.locator("#screen details.recap summary").click();
+  await page.waitForTimeout(150);
+  const recap = await page.locator("#screen details.recap").innerText();
+  if (!/went back to the flat/.test(recap)) fail("the recap does not carry what actually happened");
+  if (/Scene ended\./.test(recap)) fail("the recap is padded with machinery instead of the story");
+
+  // The journal reads as a story, oldest first, and saves as a file.
+  await page.goto(`${base}#/journal`);
+  await page.waitForTimeout(250);
+  const storyLines = await page.locator("#screen .story-line").allInnerTexts();
+  if (!storyLines.length) fail("the journal has no story view");
+  else {
+    const first = storyLines.findIndex((t) => /went back to the flat/.test(t));
+    const last = storyLines.length - 1;
+    if (first < 0) fail("the story view drops what was written");
+    else if (first !== last) fail("the story does not read oldest first");
+  }
+  const all = await page.locator("#screen").innerText();
+  if (/Scene ended\./.test(all)) fail("the story view shows the machinery it is meant to leave out");
+  if (!(await page.locator("#screen .btn", { hasText: "Save the story as text" }).count())) fail("the story cannot be taken out of the app");
+
+  // The cast: a labelled house aid, and it persists.
+  if (!/house aid/i.test(all)) fail("the cast list is not labelled as a house aid");
+  await page.locator("#screen .btn", { hasText: "Add someone" }).click();
+  await page.waitForTimeout(200);
+  await page.locator(".modal-overlay .input").fill("The night supervisor");
+  await page.locator(".modal-actions .btn").first().click();
+  await page.waitForTimeout(200);
+  await page.locator(".modal-overlay .input").fill("Let her walk out with the file.");
+  await page.locator(".modal-actions .btn").first().click();
+  await page.waitForTimeout(250);
+  const saved = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    return (s.careers[s.activeId].cast || []).map((p) => p.name);
+  });
+  if (!saved.includes("The night supervisor")) fail("somebody added to the cast is not remembered");
+
+  // Undo says how far back it goes.
+  const title = await page.locator("#undo-btn").getAttribute("title");
+  if (!/steps? back available/.test(title || "")) fail(`the undo button says "${title}" and never admits the stack is deeper than one`);
+
+  if (errors.length) fail(`console error picking the case up: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("you can pick the case up, read it back, keep a cast, and see how far undo goes");
+  await ctx.close();
+}
+
 // 9. a roll keeps your place on the screen
 {
   const { ctx, page, errors } = await newPage();

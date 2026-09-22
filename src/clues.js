@@ -8,6 +8,7 @@ import { startTruth, sceneBlocked } from "./play.js";
 import * as D from "./derived.js";
 import * as R from "./rules.js";
 import { Store } from "./store.js";
+import { readiness } from "./coach.js";
 import { section, row, btn, pill, explain, promptModal, emptyState, actionBar, cardFace, showToast } from "./ui.js";
 import { go } from "./router.js";
 
@@ -22,11 +23,23 @@ function setBlock(m, s) {
       s.truth ? pill("Truth", "truth") : s.falseLead ? pill("False lead", "loss") : pill(`${s.cards.length} card${s.cards.length === 1 ? "" : "s"}`)),
     s.cards.length ? hand : null,
     el("p", { class: "small", text: s.description || "No description yet." }),
+    // The words the game offered when each card was drawn. Without these a set
+    // left undescribed is a bare rank, and the prompt that would have told you
+    // what it was is gone for good.
+    !s.description && s.prompts && s.prompts.length
+      ? el("p", { class: "mono small", text: `The prompts were: ${s.prompts.join("  \u00b7  ")}` })
+      : null,
     s.falseLead ? el("p", { class: "small muted", text: "This rank is discarded on sight from now on, and can never become a truth." }) : null,
     s.truth ? el("p", { class: "small muted", text: "Established. Further cards of this rank are discarded and replaced." }) : null);
   if (!s.falseLead) {
     add(box, el("div", { class: "btn-row" }, btn(s.description ? "Add to this clue" : "Describe this clue", async () => {
-      const t = await promptModal({ title: `The ${rankName(s.rank)}`, message: "Add a word, a phrase, or a connection to another clue.", multiline: true });
+      const t = await promptModal({
+        title: `The ${rankName(s.rank)}`,
+        message: s.prompts && s.prompts.length
+          ? `The prompts were: ${s.prompts.join("  \u00b7  ")}. Add a word, a phrase, or a connection to another clue.`
+          : "Add a word, a phrase, or a connection to another clue.",
+        multiline: true,
+      });
       if (t) { Store.update("describe clue", () => { s.entries.push(t); s.description = s.entries.join(" — "); }); rerender(); }
     })));
   }
@@ -47,6 +60,18 @@ export function renderClues(host) {
 
   add(host, el("h1", { text: "Clues" }),
     explain("Each rank is one clue; drawing the same rank again makes it stronger. Establishing a set as a truth in a truth scene reveals that many face cards, which is how you narrow down the three cards set aside at the start."));
+
+  // The case board: what you know, what is ruled out, and what a guess is worth
+  // right now. The numbers existed; the read on them did not, and the read is
+  // what you need when deciding whether to stop.
+  const read = readiness(m);
+  add(host, section("Where the case stands",
+    el("div", { class: "hand" }, ...m.truthRevealed.map(cardFace)),
+    el("p", { class: "small", text: read.guess }),
+    ...read.pressure.map((t) => el("p", { class: "small", text: `${t[0].toUpperCase()}${t.slice(1)}.` })),
+    open.length
+      ? el("p", { class: "small muted", text: `${open.length} set${open.length === 1 ? "" : "s"} still open. A truth scene turns one over and rules out that many face cards \u2014 the biggest open set is worth the most.` })
+      : el("p", { class: "small muted", text: "Nothing left to turn over. More truth cards means another investigation first." })));
 
   add(host, section("The decks",
     row("Clue deck", `${m.clueDeck.length} left`),

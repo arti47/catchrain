@@ -8,6 +8,7 @@ import { Store } from "./store.js";
 import { Settings, TOGGLES } from "./settings.js";
 import { RULES_LIBRARY } from "./library.js";
 import { resetDrafts, expressStart } from "./wizard.js";
+import { recapCard } from "./coach.js";
 import { Updates } from "./updates.js";
 import { section, row, defRow, btn, optionBtn, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState } from "./ui.js";
 import { go } from "./router.js";
@@ -97,6 +98,8 @@ export function renderHome(host) {
       c.history.length ? el("p", { class: "small muted", text: `${c.history.length} case(s) closed. Danger carried into the next one: ${c.carryDanger || 0}.` }) : null));
     return { action: actionBar("Set up a mystery", () => go("mystery"), "Roll the problem") };
   }
+
+  add(host, recapCard());
 
   add(host, section("The problem",
     el("p", { class: "premise", text: R.problemText(m) }),
@@ -236,6 +239,10 @@ export function renderOracle(host) {
     const line = el("p", { class: "small", text });
     history.insertBefore(line, history.children[1] || null);
     while (history.children.length > 9) history.lastChild.remove();
+    // This list is DOM only and dies with the screen. An oracle asked during a
+    // case is part of that case, so it goes to the record as well — quietly,
+    // because the screen is already showing it back.
+    if (Store.mystery) Store.journal("oracle", text);
   };
 
   add(host, section("Yes or no",
@@ -299,6 +306,29 @@ export function renderRules(host) {
   return {};
 }
 
+/** The case as a file you can keep, open anywhere, and read without the app. */
+function saveStory(c) {
+  const MACHINE = /^(Scene ended|Investigation scene: rolled|Truth scene: established|.+ rests\.$|.+ attends:)/;
+  const keep = (e) => e.kind === "note" || e.kind === "oracle" || e.kind === "mystery" || e.kind === "solve"
+    || (e.kind === "scene" && !MACHINE.test(e.text));
+  const lines = [`${c.name} \u2014 Caught in the Rain`, ""];
+  let day = null;
+  for (const e of c.journal) {
+    if (!keep(e)) continue;
+    if ((e.day || 1) !== day) { day = e.day || 1; lines.push("", `Day ${day}`, "-".repeat(20)); }
+    lines.push(e.kind === "oracle" ? `    [${e.text}]` : e.text, "");
+  }
+  for (const h of c.history) {
+    lines.push("", `Closed: ${h.problem}`, `${h.correct} of 3 guesses correct.`, ...(h.answers || []));
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = el("a", { href: url, download: `${(c.name || "case").replace(/[^\w]+/g, "-").toLowerCase()}-case.txt` });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast("Saved.");
+}
+
 // --- Journal ------------------------------------------------------------------
 export function renderJournal(host) {
   const c = Store.career;
@@ -308,13 +338,39 @@ export function renderJournal(host) {
 
   let page = 0;
   const PAGE = 25;
+  let view = "story";
   const listHost = el("div", {});
-  const entries = () => c.journal.slice().reverse();
+  // Three readings of one record. "Story" is what you would hand someone: what
+  // you wrote and what the game answered, oldest first, with the machinery out
+  // of the way. The log was always there; it was never readable as a story.
+  const MACHINE_SCENE = /^(Scene ended|Investigation scene: rolled|Truth scene: established|.+ rests\.$|.+ attends:)/;
+  const isStory = (e) => e.kind === "note" || e.kind === "oracle" || e.kind === "mystery" || e.kind === "solve"
+    || (e.kind === "scene" && !MACHINE_SCENE.test(e.text));
+  const entries = () => (view === "story"
+    ? c.journal.filter(isStory)
+    : view === "rolls" ? c.journal.filter((e) => e.kind === "test" || e.kind === "keyword").slice().reverse()
+    : c.journal.slice().reverse());
 
   const paint = () => {
     listHost.replaceChildren();
     const all = entries();
-    const slice = all.slice(0, (page + 1) * PAGE);
+    const slice = view === "story" ? all : all.slice(0, (page + 1) * PAGE);
+    if (view === "story") {
+      // A diary is read from the end backwards, but each sitting reads forwards:
+      // show the most recent days in order, and offer the earlier ones.
+      const STORY_PAGE = 60;
+      const shown = all.slice(Math.max(0, all.length - (page + 1) * STORY_PAGE));
+      if (shown.length < all.length) {
+        add(listHost, btn(`Show ${Math.min(STORY_PAGE, all.length - shown.length)} earlier`, () => { page++; paint(); }));
+      }
+      let day = null;
+      for (const e of shown) {
+        if ((e.day || 1) !== day) { day = e.day || 1; add(listHost, el("h3", { class: "card-title", text: `Day ${day}` })); }
+        add(listHost, el("p", { class: e.kind === "oracle" ? "mono small" : "story-line", text: e.text }));
+      }
+      if (!all.length) add(listHost, el("p", { class: "muted small", text: "Nothing written yet. Whatever you write in a scene, and every answer the oracle gives, lands here." }));
+      return;
+    }
     for (const e of slice) {
       add(listHost, el("div", { class: "log-entry" },
         el("div", { class: "log-when", text: `Day ${e.day || 1} · ${fmtTime(e.ts)} · ${e.kind}` }),
@@ -325,12 +381,38 @@ export function renderJournal(host) {
   };
   paint();
 
+  const views = el("div", { class: "btn-row" }, ...[["story", "Story"], ["all", "Everything"], ["rolls", "Rolls"]].map(([id, label]) =>
+    optionBtn(label, () => { view = id; page = 0; paint(); }, view === id)));
+  add(host, section("How to read it", views,
+    el("p", { class: "small muted", text: "Story is the case as it happened, oldest first: what you wrote and what the game answered back. Everything adds the machinery; Rolls is the dice alone." }),
+    el("div", { class: "btn-row" }, btn("Save the story as text", () => saveStory(c), "primary"))));
+
+  // House aid (§4), not a rule: the book's oracles make words and you make
+  // the people out of them, and nothing in the game remembers who they were.
+  // Over a case that runs for days, that is the first thing you lose.
+  const cast = el("div", {});
+  const paintCast = () => {
+    cast.replaceChildren();
+    if (!c.cast.length) add(cast, el("p", { class: "muted small", text: "Nobody yet. Add the people and places you invent, so they are still here next week." }));
+    for (const person of c.cast) {
+      add(cast, el("div", { class: "row" },
+        el("span", { class: "row-label", text: person.name }),
+        el("span", { class: "row-value" },
+          el("span", { class: "small", text: person.note || "" }), " ",
+          btn("Forget", () => {
+            Store.update("forget someone", () => { c.cast = c.cast.filter((x) => x.id !== person.id); });
+            paintCast();
+          }))));
+    }
+  };
+  paintCast();
+
   const ways = el("details", { class: "acc" },
     el("summary", { text: "Ways to keep a record" }),
     el("div", { class: "acc-body" },
       el("p", { class: "small muted", text: "The book does not insist on writing. Any of these count, and you can mix them." }),
       el("ul", { class: "ask" }, ...DATA.RECORDING_METHODS.map((w) => el("li", { class: "small", text: w })))));
-  add(host, ways);
+
 
   add(host, section("Write",
     btn("Add a note", async () => {
@@ -338,7 +420,18 @@ export function renderJournal(host) {
       if (t) { Store.update("journal", () => Store.journal("note", t)); paint(); }
     }, "primary")));
 
-  add(host, section("Entries", listHost));
+  add(host, section("The case, as it happened", listHost));
+
+  add(host, section("People and places (house aid)", cast,
+    el("p", { class: "small muted", text: "The book does not ask you to keep a cast list. This is the app's own aid, so a name you invented on day one is still here on day four." }),
+    btn("Add someone", async () => {
+      const name = await promptModal({ title: "Who, or where?", placeholder: "e.g. the night supervisor at the care agency" });
+      if (!name) return;
+      const note = await promptModal({ title: name, message: "One line: what they are to the case.", multiline: true });
+      Store.update("remember someone", () => { c.cast.push({ id: uid(), name, note: note || "" }); });
+      paintCast();
+    }, "primary")));
+  add(host, ways);
 
   const log = c.rollLog.slice().reverse().slice(0, 40);
   const logBody = el("div", { class: "acc-body" },

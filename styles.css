@@ -668,3 +668,20 @@ details.framing .ask li { font-size: .89rem; margin-bottom: .15rem; }
 .coach-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .coach-row .btn { min-height: 44px; }
 .coach-row .btn.primary { flex: 1 1 auto; }
+
+/* --- Reading the case back ------------------------------------------------ */
+/* The story is fiction, so it is set like fiction: serif, generous measure, and
+   the oracle's answers held apart in mono so you can see which half of the
+   conversation was the game's. */
+.story-line {
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 0 0 12px;
+}
+.recap .recap-line {
+  font-family: var(--serif);
+  font-size: .95rem;
+  line-height: 1.5;
+  margin: 0 0 8px;
+}

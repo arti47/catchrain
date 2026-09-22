@@ -5,6 +5,7 @@ import { chooseModal, promptModal, modal, showToast } from "./ui.js";
 import { setPrompts } from "./roller.js";
 import { cardName, rankName } from "./deck.js";
 import { Settings } from "./settings.js";
+import { keepOracle } from "./framing.js";
 
 export function installPrompts() {
   setPrompts({
@@ -43,6 +44,10 @@ export function installPrompts() {
     },
 
     async describeClue({ set, card, oracle, clue, isNew }) {
+      // The prompt is the game's half of this clue. Keeping it on the set means
+      // a description left blank now can still be written from the words you
+      // were actually given, tomorrow or next week.
+      if (set) { set.prompts = set.prompts || []; set.prompts.push(`${clue} — ${oracle}`); }
       if (!Settings.get("autoOracle")) {
         return await promptModal({
           title: isNew ? `New clue — the ${rankName(set.rank)}` : `The ${rankName(set.rank)} get clearer`,
@@ -69,6 +74,7 @@ export function installPrompts() {
     },
 
     async randomEvent({ words }) {
+      keepOracle(`Doubles — a random event: ${words.join(" · ")}`);
       await new Promise((resolve) => {
         modal({
           title: "Doubles — something else happens",

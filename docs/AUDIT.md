@@ -587,6 +587,69 @@ And the claim itself is now checked the only way it can be: `npm run playtest --
 names**, beat after beat, to a closed case. If that ever stalls, the app has
 stopped being playable by someone who has not read the book.
 
+## Cycle 22 — the app kept losing what the player had made
+
+Asked what else would improve the experience. Reading the code back with the
+played session in mind, six gaps turned out to be one gap wearing different
+clothes: **the app generated fiction and then threw it away.**
+
+### F41 — The oracle spoke and nothing wrote it down
+A solo game is the player asking and the game answering. The answers were shown
+once and dropped, everywhere:
+
+- the framing card's subject words and yes/no result went into a DOM node wiped
+  by the next re-render;
+- the doubles random event and the day-boundary event appeared in a modal and
+  were gone when it closed;
+- the Oracles screen kept nine lines of history in the DOM and nothing beyond;
+- and the clue prompt (`Incongruous object — Trick · Sleepy · Obligation`) was
+  discarded the moment a description was skipped, leaving a set that read "No
+  description yet" for good.
+
+Only what the player typed was ever kept, so the record held one side of a
+two-sided conversation. All of it now goes to the journal under a new `oracle`
+kind, and a clue set carries the prompts it was offered (`clueSets[].prompts`,
+back-filled in `derived`), shown on the set and put in front of you when you go
+back to describe it.
+
+### F42 — Nothing helped you pick the case up again
+A case runs over days of real time. The guide says what to do next; nothing said
+what had happened. `coach.recapCard` — *Where you left off* — sits on Home and
+on the scene picker: the day and the clock, the last three things you actually
+wrote, and every open lead with its description or its prompts.
+
+### F43 — The record could not be read as a record
+The journal was one flat reverse-chronological list interleaving prose with
+`Willow Elsher — Take the clue: 4+5+2 = 11`. It now reads three ways — Story,
+Everything, Rolls — where Story is oldest first, day by day, prose in the serif
+and the oracle's answers held apart, with the machinery left out; and it saves
+as a text file you can keep and open anywhere.
+
+### F44 — The Clues tab counted but did not read
+It listed sets and deck sizes. It never said what they meant, which is the one
+thing needed to decide whether to stop. `coach.readiness` was already computing
+it for the guide; the Clues tab now shows it: the face cards ruled out as cards,
+what a guess is worth right now, what is pressing, and which set is worth
+turning.
+
+### F45 — The people you invent were not remembered (house aid)
+The oracles make words; the player makes the people out of them; nothing kept
+them. Over four days of play that is the first thing to go. **People and places**
+on the journal screen, on `career.cast`, labelled a house aid on the screen and
+in §4 — the book asks for no such list, and this is the app's second aid.
+
+### F46 — Undo was twenty steps deep and looked like one
+`UNDO_LIMIT` has been 20 since the first commit and the button said only
+"Undo: <label>". Nothing anywhere told a player they could keep pressing. The
+button now names the depth, the toast says how many steps remain, and the spec
+— which described "single-step undo" in three places — was wrong and is fixed.
+
+*Guards:* two smoke blocks, both watched failing — the oracle's answer reaches
+the record from the scene and from the Oracles screen, a skipped description
+still shows its prompt, the recap carries the story and not the machinery, the
+story view reads oldest first without the machinery and can be saved, the cast
+persists and is labelled, and undo admits its depth.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -642,6 +705,8 @@ Settled ground; later passes need not re-litigate these without new evidence.
   to hand, and what is written reaches the journal.
 - A whole session played from a blank app to a closed case pressing only what
   the guide says to press.
+- Everything the game says — every oracle, every prompt — is in the record, and
+  the record reads back as a story.
 - No export unread, no import unused (dead-data scan clean).
 
 ## Known gaps, stated rather than hidden

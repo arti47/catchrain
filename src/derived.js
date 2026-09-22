@@ -53,6 +53,8 @@ export function normalizeCareer(c) {
   c.rivals = Array.isArray(c.rivals) ? c.rivals : [];
   c.history = Array.isArray(c.history) ? c.history : [];
   c.questions = Array.isArray(c.questions) ? c.questions : [];
+  // House aid (§4): the people and places you invent are yours, not the book's.
+  c.cast = Array.isArray(c.cast) ? c.cast : [];
   c.journal = Array.isArray(c.journal) ? c.journal : [];
   c.rollLog = Array.isArray(c.rollLog) ? c.rollLog : [];
 
@@ -106,6 +108,7 @@ export function normalizeMystery(m) {
   for (const s of Object.values(m.clueSets)) {
     s.cards = s.cards || [];
     s.entries = s.entries || (s.description ? [s.description] : []);
+    s.prompts = Array.isArray(s.prompts) ? s.prompts : [];
     s.truthCards = s.truthCards || [];
     s.truth = !!s.truth;
     s.falseLead = !!s.falseLead;

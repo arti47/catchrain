@@ -303,6 +303,7 @@ citr:v1
     rivals[{id,name,level}]         // Ch.3 rivals, max RIVAL_SLOTS
     history[{problem,correct,difficulty,answers,closedAt,danger,clues}]
     questions[{id,text,from}]       // lingering questions
+    cast[{id,name,note}]            // house aid (§4): who and where you invented
     journal[{id,ts,kind,text,day,scene}]   // capped 500
     rollLog[{id,ts,kind,dice,attrValue,total,outcome,label,manual}]  // capped 200
       each: { id, name, trait, notes, xp, attributes{power,insight,method},
@@ -311,7 +312,7 @@ citr:v1
     mystery: { id, genre, difficulty, danger, motivation,
                location, object, treachery, secondObject,
                clueDeck[], clueDiscard[], truthDeck[], truthRevealed[], setAside[],
-               clueSets{rank:{rank,cards[],entries[],description,truth,falseLead,truthCards[]}},
+               clueSets{rank:{rank,cards[],entries[],description,prompts[],truth,falseLead,truthCards[]}},
                threats[{id,name,level,marks,removed,rivalId,justIntroduced,attachedTo}],
                scene{id,type,stage,order[],index,done,forceEscape,actorId,participants[],rolls{},framing},
                round{mode:"shared"|"individual", scenes{invId:{type,done}}},
@@ -325,10 +326,17 @@ here in the same change.
 
 ## 4. House aids
 
-One, labelled as such wherever it appears: the **content filter** in Settings.
+Two, each labelled as such wherever it appears.
+
+The **content filter** in Settings.
 The book supplies no safety tools, so the app lets a player list table rows to
 skip; `rules.rollTable` re-rolls past them. It lives behind `Settings.blocked`
 and is described in the UI as a house aid, not a rule.
+
+**People and places** on the journal screen: the oracles make words and the
+player makes the people, and nothing in the book remembers who they were. Over a
+case that runs for days of real time that is the first thing lost. It lives on
+`career.cast` and is titled "(house aid)" on the screen itself.
 
 ## 5. Data Extraction Ledger
 
@@ -448,6 +456,11 @@ this whole document exists to prevent.
 | Solo: open a scene by saying where it is and who is there | Permission | `SCENE_FRAMING` | `framing.framingCard`, `framingLines`, `framingAction` | Top of every scene; rest and obligation dialogs | smoke: setting the scene, `a rest or obligation scene can be set, asked about, and written down` |
 | Solo: ask the game when you do not know | Permission | oracles | `framing.framingCard` buttons | Oracle and yes/no on the framing card | smoke: the oracle button produces words |
 | Solo: keep the record however you like | Permission | `RECORDING_METHODS` | `screens.renderJournal` | Journal screen, rules library | guidance only |
+| …and the game's own half of it is kept too | Cost | oracles | `framing.keepOracle`, `prompts.randomEvent`, `play.endSceneFlow`, `screens.renderOracle` | Journal, story view | `what the game says is kept, not just what you type` |
+| A clue prompt outlives a description you skipped | Cost | genre clue tables | `prompts.describeClue` → `clueSets[].prompts` | Clues screen | (same row) |
+| Picking the case up days later | Permission | — | `coach.recapCard` | Home and the scene picker | `you can pick the case up, read it back, keep a cast, and see how far undo goes` |
+| Reading the case back as a story | Permission | `RECORDING_METHODS` | `screens.renderJournal` story view, `saveStory` | Journal screen | (same row) |
+| People and places (house aid) | Permission | `career.cast` | `screens.renderJournal` | Journal screen, labelled | (same row) |
 | The sequence of play, said out loud at every step | Permission | `STAGES[].action`, `SCENE_TYPES` | `coach.nextStep` | The guide, above every screen | `the guide deals you in, names the real button, and changes with the state`, and a guided session end to end |
 | How near each of the four endings is | Threshold | `END_TRIGGERS`, `DECK` | `coach.readiness` | Why? sheet | (same row) |
 | Content filter (house aid) | Gate | `Settings.blocked` | `rules.rollTable` | Settings, and a note on any redirected roll | `the content filter skips the rows a player blocked` |
@@ -459,13 +472,13 @@ this whole document exists to prevent.
 - [x] **Phase 2 — Tracker.** Sheet, fatigue and clock, keywords and obligations, persistent resource header, JSON export/import, normalization.
 - [x] **Phase 3 — Engine.** Attribute tests, consequences, threats, clue draws with every asymmetry, keyword actions, manual dice, roll log, rules citations.
 - [x] **Milestone — first session playable.** Wizard → sheet → scene → clue → truth → solve, end to end.
-- [x] **Phase 4 — In-play systems.** The guided solve with onward routes, rest, the lifecycle bundle with one-step undo, the stage tracker, career advancement, rivals.
+- [x] **Phase 4 — In-play systems.** The guided solve with onward routes, rest, the lifecycle bundle with undo, the stage tracker, career advancement, rivals.
 - [x] **Phase 6 — Conditional surfaces.** Career, rivals and co-op toggles; the tables browser; the rules library; the tutorial; the journal.
 - [x] **Hardening.** Unit, smoke, interaction and dead-data harnesses; the layout and flow probes; the audit cycles in `docs/AUDIT.md`.
 - [x] **Phase 7 — Co-op and the book's own guidance.** The party, the round
   structure, threat attachment, per-investigator boundaries and experience; the
   scene-framing questions, the oracle to hand, and the recording methods.
-- [ ] **Backlog** (deliberately not built): a general snapshot stack beyond the current single-step undo; a rendered HTML character sheet alongside the JSON export; a tablet two-column layout.
+- [ ] **Backlog** (deliberately not built): a redo stack; a rendered HTML character sheet alongside the JSON export; a tablet two-column layout.
 
 ## 8. Process rules
 
@@ -490,6 +503,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-22 | Six ways the app lost what the player had made. The game's own half of the conversation was thrown away everywhere it spoke — the framing card's oracle words, the doubles event, the day's event, the Oracles screen, and the clue prompt behind a description you skipped; all of it now reaches the journal, and an undescribed clue set shows the prompts it was given. A case that runs over days had nothing to come back to, so Home and the scene picker carry **Where you left off**. The journal could not be read as a story: it now has Story / Everything / Rolls, oldest first with the machinery out of the way, and saves as a text file. The Clues tab gained the case board — what is ruled out, what a guess is worth now, and what is worth doing. A cast list, labelled a house aid, remembers the people you invent. And the undo button, twenty steps deep all along, now says so. | two smoke blocks, both watched failing; the full playtest matrix | citr-v11 |
 | 2026-09-22 | The app could be played correctly and could not be learned: the sequence of play lived in a tutorial you had to go and read. New `src/coach.js` — a guide above every screen that says what to do next and what it costs, derived from state so it cannot go stale, naming the real control instead of duplicating it, with a **Why?** that lays out your other options, how near each of the four endings is, and what a guess is worth if you stop now. A blank app now offers **Start playing**: one tap rolls an investigator and a case through the wizards' own paths and deals you into the first scene. Stage button labels moved into `data.js` so the guide and the play screen name one control, not two. | one smoke block watched failing; `--guided` plays a whole session from a blank app to a closed case pressing only what the guide names | citr-v10 |
 | 2026-09-21 | Played one session properly — reading the fiction, choosing from it, writing after every beat — and read the record back. Every test line in the journal was arithmetic that does not work (`4+5 = 11`), because `attributeTest` never returned the attribute it had just added; the re-roll comparison, whose whole job is to let you choose between two outcomes, printed the same broken sums. And a rest or obligation scene asked the book's two questions above a single "Done": no field, no oracle, nothing reaching the journal. Also played the two configurations the first pass skipped — co-op and typed dice — across twelve sessions, with no findings. | two smoke blocks, both watched failing; twelve seeded sessions in four configurations | citr-v9 |
 | 2026-09-21 | Played a session rather than pressed one, on five seeds: three stalls. A scene you had ended could only be ended again, so from the first scene onwards the picker never came back and the clock ran on for fifty days. The re-roll keyword could be paid for with the keyword the failed test had just handed over, which the re-roll's own undo took back — it threw and swallowed the test. And an investigator with every attribute struck was told to rest and given no way to reach a rest scene (ruling A22). New `.playtest/` driver and seeded session runner; `npm run playtest`. | three smoke blocks, each watched failing; five seeded sessions from creation to a closed case | citr-v8 |

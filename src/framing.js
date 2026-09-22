@@ -42,15 +42,29 @@ export function framingCard(scene, opts = {}) {
     btn("Ask the oracle", () => {
       const words = R.subjectWords(R.rollSubject(true));
       oracle.textContent = words.join("  ·  ");
+      keepOracle(`Asked the oracle: ${words.join(" · ")}`);
     }),
     btn("Yes or no", () => {
       const r = R.rollYesNo();
       oracle.textContent = `d6 ${r.die} — ${r.row.name}`;
+      keepOracle(`Asked yes or no: d6 ${r.die} — ${r.row.name}`);
     })));
   add(body, el("p", { class: "small muted", text: SCENE_FRAMING.unsure }));
 
   add(wrap, el("summary", { text: written ? "The scene, as you set it" : "Set the scene" }), body);
   return wrap;
+}
+
+/**
+ * The oracle's half of the conversation. A solo game is the player asking and
+ * the game answering; an answer shown once and then dropped leaves the record
+ * with half of it missing, and leaves a player coming back next week reading
+ * their own notes about words they can no longer see.
+ */
+export function keepOracle(text) {
+  if (!Store.career) return;
+  Store.journal("oracle", text);
+  showToast("Kept in the journal.");
 }
 
 /**
@@ -67,8 +81,16 @@ export function framingLines(who) {
     el("p", { class: "small muted", text: who ? `${who} is at the centre of it. ${SCENE_FRAMING.note}` : SCENE_FRAMING.note }),
     oracle,
     el("div", { class: "btn-row" },
-      btn("Ask the oracle", () => { oracle.textContent = R.subjectWords(R.rollSubject(true)).join("  \u00b7  "); }),
-      btn("Yes or no", () => { const r = R.rollYesNo(); oracle.textContent = `d6 ${r.die} \u2014 ${r.row.name}`; })));
+      btn("Ask the oracle", () => {
+        const words = R.subjectWords(R.rollSubject(true));
+        oracle.textContent = words.join("  ·  ");
+        keepOracle(`Asked the oracle: ${words.join(" · ")}`);
+      }),
+      btn("Yes or no", () => {
+        const r = R.rollYesNo();
+        oracle.textContent = `d6 ${r.die} — ${r.row.name}`;
+        keepOracle(`Asked yes or no: d6 ${r.die} — ${r.row.name}`);
+      })));
 }
 
 /**

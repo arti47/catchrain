@@ -160,6 +160,36 @@ export function nextStep(currentRoute) {
     why: `An investigation rolls 1d6 plus your danger of ${m.danger}: 4 or more and something is already in your way. Then one test per stage, and clearing acquisition draws a card — a new rank starts a clue set, a repeat makes one stronger. ${read.pressure.length ? read.pressure.join("; ") + "." : "Danger rises by one every time you move between stages."}` };
 }
 
+// --- Picking it up again ------------------------------------------------------
+/**
+ * A case runs over days of real time. Coming back to it, the guide says what to
+ * do next and nothing says what happened last — so the first thing you do is
+ * scroll the journal trying to remember your own fiction. This is that, in one
+ * card: where you are, and the last few things that actually happened.
+ */
+export function recapCard() {
+  const c = Store.career, inv = Store.investigator, m = c && c.mystery;
+  if (!c || !m || !inv) return null;
+  // What the player wrote, not what the engine logged: a log is not a memory.
+  const story = (c.journal || []).filter((e) => e.kind === "note" || (e.kind === "scene" && !/^(Scene ended|Investigation scene: rolled|Truth scene: established|.+ rests\.$|.+ attends:)/.test(e.text)));
+  const last = story.slice(-3);
+  if (!last.length) return null;
+
+  const wrap = el("details", { class: "acc recap" });
+  const body = el("div", { class: "acc-body" });
+  add(body, el("p", { class: "small muted", text: `Day ${inv.day}, ${n(inv.clock, "scene", "scenes")} into it. Danger ${m.danger}, fatigue ${inv.fatigue}/${FATIGUE_BOXES}.` }));
+  for (const e of last) add(body, el("p", { class: "recap-line", text: e.text }));
+  const sets = D.openSets(m);
+  if (sets.length) {
+    add(body, el("p", { class: "small muted", text: "Open leads:" }));
+    for (const set of sets) {
+      add(body, el("p", { class: "small", text: `The ${set.rank}s \u2014 ${set.description || (set.prompts && set.prompts.length ? `no description yet; the prompts were ${set.prompts.join(" \u00b7 ")}` : "no description yet")}` }));
+    }
+  }
+  add(wrap, el("summary", { text: "Where you left off" }), body);
+  return wrap;
+}
+
 // --- The bar ------------------------------------------------------------------
 /**
  * Sits above every screen. When the control it names is on the screen you are
