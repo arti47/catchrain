@@ -536,6 +536,11 @@ function problemBlock(m, inScene) {
 export function sceneBlocked(type, mystery) {
   const m = mystery || Store.mystery;
   if (!m) return null;
+  // "Begin play with an investigation scene" (Ch.1, Game setup, step 6).
+  if (type !== "investigation" && !(m.scenesPlayed || 0)) {
+    return { why: "The first scene of a mystery is an investigation.",
+             rule: "Setup ends with \u201cBegin play with an investigation scene\u201d: you need a clue before resting, attending or turning anything over (Ch.1, Game setup)." };
+  }
   if (type === "truth") {
     if (!D.openSets(m).filter((s) => s.cards.length).length) {
       return { why: "No clue set to turn over yet.",

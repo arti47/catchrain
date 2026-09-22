@@ -159,6 +159,7 @@ export function endScene() {
   // done: a finished-but-not-cleared scene kept the play screen on "This scene
   // is finished" for good, and the only control on it marked the clock again.
   if (m.scene) { m.scene.done = true; events.push({ t: "scene_end", type: m.scene.type }); m.scene = null; }
+  m.scenesPlayed = (m.scenesPlayed || 0) + 1;
   m.round = null;
   for (const inv of c.investigators) inv.clock += 1;
   const lead = Store.investigator;

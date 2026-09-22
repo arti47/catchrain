@@ -119,6 +119,14 @@ export function normalizeMystery(m) {
     m.scene.participants = Array.isArray(m.scene.participants) ? m.scene.participants : [];
     m.scene.actorId = m.scene.actorId || null;
   }
+  // Setup step 6: play begins with an investigation scene, so the picker has to
+  // know whether anything has been played yet. A save from before this counter
+  // existed is read from what it has already done rather than assumed fresh.
+  if (typeof m.scenesPlayed !== "number") {
+    const started = (m.clueDiscard || []).length || Object.keys(m.clueSets || {}).length
+      || (m.truthRevealed || []).length || m.scene || m.ended;
+    m.scenesPlayed = started ? 1 : 0;
+  }
   m.round = m.round && typeof m.round === "object" ? { mode: m.round.mode === "shared" ? "shared" : "individual", scenes: m.round.scenes || {} } : null;
   m.jokersDrawn = m.jokersDrawn || 0;
   m.ended = !!m.ended;

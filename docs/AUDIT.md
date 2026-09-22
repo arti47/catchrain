@@ -704,6 +704,68 @@ that actually rolls. The retry assertion was watched failing (it caught a real
 timing bug in the check itself first: the roll commits only once the dialog
 chain the retry opens has cleared).
 
+## Cycle 24 — against the book itself, for the first time since extraction
+
+Every audit before this one read the app against `CLAUDE.md`, the build
+template, or itself. None had re-read the rulebook, because the rulebook was
+never a file — it was pasted into the session at project start and compacted out
+of context within a day. It was still on disk in the session transcript. It was
+recovered to a working file (uncommitted: template §12 keeps a transcription of
+a commercial book out of a repository), and the whole app read against it.
+
+**The engine came back clean.** Every mechanical rule checked matched the book:
+the outcome and consequence tables, the investigation roll and its stages, when
+danger is paid, fatigue and its overflow, threats and their marks, keyword
+actions, the joker's three branches, rest and obligation costs, truth scenes,
+the four end triggers, difficulty, red herrings, rivals, experience and its
+benefits, new obligations, and every co-op rule. Two places worth naming: a 10+
+success still lets threats act (the book puts "Any threats not acted against now
+act" on all three outcome rows, and the engine runs it unconditionally), and the
+sub-danger threat is correctly gated to investigation scenes, which the outcome
+table does not say and the Threats section does.
+
+**The extraction came back clean.** All 1,224 rows matched the book verbatim,
+checked by script rather than by eye. Three differ by a single character —
+`Creature's lair`, `Peasant's home`, `Servant's quarters` — where the book sets
+a typographic apostrophe and `data.js` uses a straight one, consistently, in all
+five places it has an apostrophe at all. Deliberate, and now recorded as such.
+
+Three findings, one of them code.
+
+### F54 — Four "ambiguity rulings" were not ambiguities
+A3 (the 10+ bonus clue outside investigation scenes), A8 (red herrings), and
+most of A19 (whose clock advances in co-op) are stated outright in the book —
+"any attribute test in any scene", "if there are two copies of a card, it's a
+red herring", "once all scenes are finished, all investigators mark a segment on
+their clock". A21's "not already in the middle of another mystery" is the book's
+words too; only copy-versus-move was ours. Listing published rules as judgement
+calls overstates how much the app invented, which is the opposite of what that
+table is for. They are struck rather than deleted, so the ids stay stable.
+
+### F55 — Two contradictions in the book had never been recorded
+The app had silently taken a side on both. The consequences table ends the game
+at 9+ and the Quick rules agree, but the solve chapter says "You roll **10+** on
+the consequences table" — the app uses 9+ (A23). The clock chapter clears "all
+marks on the clock and all strikes on any obligations" at a day boundary, while
+the Quick rules say "clear all marks and strikes other than fatigue" — the app
+follows the chapter, since the summary would otherwise hand back attribute and
+keyword strikes free every day and leave rest scenes with nothing to do (A24).
+Both readings were right and neither was written down, so nothing stopped a
+later pass from "fixing" them the other way.
+
+### F56 — One rule had no control: play begins with an investigation
+Setup's sixth and last step is "Begin play with an investigation scene." A fresh
+mystery let you open on a rest or an obligation — defect class D-22, a rule with
+no enforcement, and the only one the book turned out to have. The picker now
+bars the other three on the first scene of a mystery and says why. Saves from
+before the counter existed are read from what they have already done rather than
+assumed fresh.
+
+*Guards:* one smoke block, watched failing — a fresh mystery offers only the
+investigation and says why for the rest, the gate lifts the moment a scene has
+been played, and a save with no counter but a clue set in hand is not gated.
+The table cross-check is a script and re-runnable against the source.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -762,6 +824,7 @@ Settled ground; later passes need not re-litigate these without new evidence.
 - Everything the game says — every oracle, every prompt — is in the record, and
   the record reads back as a story.
 - Every house aid carries the template's flag and labels itself from it.
+- Every extracted table row matches the rulebook verbatim (1,224 of 1,224).
 - No export unread, no import unused (dead-data scan clean).
 
 ## Known gaps, stated rather than hidden

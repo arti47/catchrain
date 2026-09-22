@@ -1129,6 +1129,68 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8m. play begins with an investigation scene (Ch.1, Game setup, step 6)
+// Setup's last step is a rule, and it was the one rule in the book with no
+// control behind it: a fresh mystery let you open on a rest.
+{
+  const { ctx, page, errors } = await newPage();
+  await withSeed(page, false);
+  await page.locator(".action-bar .btn").click();   // Start playing
+  await page.waitForTimeout(450);
+  await page.locator(".modal-actions .btn").first().click();
+  await page.waitForTimeout(350);
+
+  const first = await page.locator("#screen .choice").allInnerTexts();
+  const dimmed = await page.evaluate(() => [...document.querySelectorAll("#screen .choice")]
+    .map((n) => ({ label: n.innerText.split("\n")[0].trim(), barred: n.getAttribute("aria-disabled") === "true" })));
+  const investigation = dimmed.find((d) => /^Investigation/.test(d.label));
+  if (!investigation || investigation.barred) fail("the first scene of a mystery cannot be an investigation");
+  for (const d of dimmed.filter((x) => !/^Investigation/.test(x.label))) {
+    if (!d.barred) fail(`a fresh mystery offers "${d.label}" as its first scene; the book begins play with an investigation`);
+  }
+  if (first.length !== 4) fail(`the picker shows ${first.length} scene types`);
+
+  // And it stops being a gate the moment a scene has been played.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    s.careers[s.activeId].mystery.scenesPlayed = 1;
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(300);
+  const later = await page.evaluate(() => [...document.querySelectorAll("#screen .choice")]
+    .map((n) => ({ label: n.innerText.split("\n")[0].trim(), barred: n.getAttribute("aria-disabled") === "true" })));
+  const rest = later.find((d) => /^Rest/.test(d.label));
+  if (!rest || rest.barred) fail("after the first scene, a rest is still refused");
+
+  // A save from before the counter existed is read from what it has done.
+  const migrated = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const m = s.careers[s.activeId].mystery;
+    delete m.scenesPlayed;
+    m.clueSets = { "7": { rank: "7", cards: [{ id: "7S", rank: "7", suit: "S" }], entries: [], description: "", truth: false, falseLead: false, truthCards: [] } };
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+    return true;
+  });
+  void migrated;
+  await page.reload();
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(350);
+  // Asserted through the picker, not through storage: a back-fill lands in
+  // memory at load and only reaches localStorage on the next write, so reading
+  // the key back would test when the app saves rather than what it decided.
+  const afterMigration = await page.evaluate(() => [...document.querySelectorAll("#screen .choice")]
+    .map((n) => ({ label: n.innerText.split("\n")[0].trim(), barred: n.getAttribute("aria-disabled") === "true" })));
+  const restAgain = afterMigration.find((d) => /^Rest/.test(d.label));
+  if (!restAgain) fail("the picker vanished after migrating a save with no scene counter");
+  else if (restAgain.barred) fail("a save that already holds a clue set was migrated as if the mystery had not started, and is gated to an investigation");
+
+  if (errors.length) fail(`console error around the first scene: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("play begins with an investigation, and only the first one");
+  await ctx.close();
+}
+
 // 9. a roll keeps your place on the screen
 {
   const { ctx, page, errors } = await newPage();
