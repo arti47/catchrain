@@ -10,6 +10,7 @@ import { section, row, defRow, btn, explain, promptModal, showToast, chooseModal
 import * as Roller from "./roller.js";
 import { eventList } from "./prompts.js";
 import { go } from "./router.js";
+import { saveSheets } from "./paper.js";
 
 const IN_PLAY = new Set(["home", "play", "sheet", "clues", "solve", "journal"]);
 
@@ -199,7 +200,10 @@ export function renderSheet(host) {
       btn("Edit notes", async () => {
         const t = await promptModal({ title: "Notes", value: inv.notes, multiline: true });
         if (t !== null) Store.update("edit notes", () => { inv.notes = t; });
-      }))));
+      }),
+      // JSON keeps the data safe and cannot be handed to anyone, printed, or
+      // read on a device without the app. This is the sheet as a sheet.
+      btn("Save this sheet", () => saveSheets()))));
 
   if (!m) return { action: actionBar("Set up a mystery", () => go("mystery"), "Roll the problem") };
   const inScene = m.scene && !m.scene.done;

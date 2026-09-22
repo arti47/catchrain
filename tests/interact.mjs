@@ -4,7 +4,7 @@
 import { chromium } from "playwright-core";
 import { serve, launch, seed } from "./server.mjs";
 
-const ROUTES = ["home", "sheet", "journal", "play", "clues", "solve", "tables", "oracle", "rules", "tutorial", "careers", "settings", "wizard", "mystery"];
+import { ROUTES } from "./routes.mjs";
 // Buttons, not decorations: a chip that is a <span> is a label by design, a
 // link to the route you are already on has nowhere to go, and a disabled
 // control refusing the click is the rule working.

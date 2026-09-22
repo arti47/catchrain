@@ -6,7 +6,7 @@ import { serve, launch, seed } from "./server.mjs";
 
 const FIXTURE = process.argv[2] || "stress";
 const WIDTH = Number(process.argv[3] || 390);
-const ROUTES = ["home", "sheet", "journal", "play", "clues", "solve", "tables", "oracle", "rules", "tutorial", "careers", "settings", "wizard", "mystery"];
+import { ROUTES } from "./routes.mjs";
 
 const { server, port } = await serve();
 const browser = await launch(chromium);

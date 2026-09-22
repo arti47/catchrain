@@ -791,6 +791,47 @@ precedent decides it: the table and its instruction win over the example.
 *Guard:* one smoke block, watched failing — two words come from action and
 descriptor, three add focus, and the counts are right.
 
+## Cycle 26 — the book's two sheets
+
+The book prints an investigator sheet and a mystery sheet. Every field of both
+was already in the app; the investigator's were on one screen and the mystery's
+were spread across Case, Clues and Play, and neither could be printed, handed
+over, or read on a device without the app.
+
+### F58 — The mystery had no sheet
+Added as a screen in the Case group, between the investigator sheet and the
+journal: the problem, danger and the live scene, every clue set with its cards
+and description, what is ruled out and what a guess is worth, the threats in the
+scene, the rivals behind it, and both decks. It is **read-only on purpose** —
+the guard asserts it carries no control but its own export, because a fourth
+surface that could also change this state is defect D-19 waiting to happen.
+
+### F59 — Neither sheet could leave the app
+Template §14.1 #7, the last item left on that backlog: JSON protects the data
+and cannot be printed, handed over, or read anywhere else. Both sheets now
+render as one self-contained HTML document — no script, no network, an A4 print
+stylesheet, fatigue and clock drawn as boxes, cards as cards, struck keywords
+and attended obligations struck through. The three set-aside truth cards are
+deliberately absent: a sheet you hand to someone should not spoil the mystery it
+describes, and the footer says so.
+
+### F60 — A crash nobody could reach, and the reason nobody had
+The mystery sheet called `R.endTrigger`, which does not exist. Only an ended
+mystery reaches that line, and the fixture the check used had a running one. The
+dead-data scan found it sideways — an imported `END_TRIGGERS` that nothing
+used. Fixed, and the check now ends the mystery and renders the sheet again.
+
+The reason it was so easy to miss is worse than the bug: **three harnesses each
+kept their own hand-written copy of the route list**, so a newly added screen
+was measured by none of them. Exactly F53's failure in a second place. All three
+now read `tests/routes.mjs`, which reads the registrations out of `main.js`;
+the layout probe went from 14 routes to 15 and measured the new one immediately.
+
+*Guards:* one smoke block, watched failing — the mystery sheet carries every
+section and no acting control, the Case nav reaches it, it survives an ended
+mystery and names the trigger, the document is standalone and script-free, and
+the investigator sheet offers the same export.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -850,6 +891,7 @@ Settled ground; later passes need not re-litigate these without new evidence.
   the record reads back as a story.
 - Every house aid carries the template's flag and labels itself from it.
 - Every extracted table row matches the rulebook verbatim (1,224 of 1,224).
+- Every route the app registers is measured by every harness that measures routes.
 - No export unread, no import unused (dead-data scan clean).
 
 ## Known gaps, stated rather than hidden

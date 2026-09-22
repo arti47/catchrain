@@ -9,6 +9,7 @@ import { register, start, render, setBadges } from "./router.js";
 import { installPrompts } from "./prompts.js";
 import { renderHome, renderTables, renderOracle, renderRules, renderJournal, renderSettings, renderCareers, applyTheme, applyTextScale, applyWakeLock } from "./screens.js";
 import { renderSheet, renderResourceHeader } from "./sheet.js";
+import { renderMysterySheet } from "./paper.js";
 import { renderPlay } from "./play.js";
 import { renderClues } from "./clues.js";
 import { renderSolve } from "./solve.js";
@@ -26,6 +27,7 @@ applyWakeLock();
 
 register("home", { title: "Case", group: "case", render: renderHome });
 register("sheet", { title: "Investigator", group: "case", render: renderSheet });
+register("case-sheet", { title: "Mystery", group: "case", render: renderMysterySheet });
 register("journal", { title: "Journal", group: "case", render: renderJournal });
 register("play", { title: "Play", group: "play", render: renderPlay });
 register("clues", { title: "Clues", group: "clues", render: renderClues });

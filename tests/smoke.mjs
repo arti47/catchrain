@@ -3,7 +3,7 @@
 import { chromium } from "playwright-core";
 import { serve, launch, seed } from "./server.mjs";
 
-const ROUTES = ["home", "sheet", "journal", "play", "clues", "solve", "tables", "oracle", "rules", "tutorial", "careers", "settings", "wizard", "mystery"];
+import { ROUTES } from "./routes.mjs";
 const WIDTHS = [320, 360, 390];
 let failures = [];
 const fail = (m) => { failures.push(m); console.log("  FAIL " + m); };
@@ -1213,6 +1213,76 @@ for (const width of WIDTHS) {
   if (shape.twoWords !== 2 || shape.threeWords !== 3) fail(`the oracle returned ${shape.twoWords} and ${shape.threeWords} words`);
   if (errors.length) fail(`console error in the oracle: ${errors[0].slice(0, 120)}`);
   if (!failures.length) ok("the subject oracle pairs action with descriptor, and focus is the third");
+  await ctx.close();
+}
+
+// 8o. the two sheets: one screen for the mystery, one document for both
+// The book prints an investigator sheet and a mystery sheet. Every field of
+// both was in the app and the mystery's were spread over three tabs, and
+// neither could be printed, handed over, or read on a device without the app.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress", { rivals: true });
+  await page.goto(`${base}#/case-sheet`);
+  await page.waitForTimeout(350);
+
+  const screen = await page.locator("#screen").innerText();
+  for (const want of ["The problem", "Clue sets", "The truth", "Threats", "Rivals", "The decks", "Danger and the scene"]) {
+    if (!new RegExp(want, "i").test(screen)) fail(`the mystery sheet is missing "${want}"`);
+  }
+  // It shows and does not act: every control on it must be navigation or the export.
+  // The guide bar belongs to every screen, not to this one, so it is not part
+  // of what the mystery sheet offers.
+  const acting = await page.evaluate(() => [...document.querySelectorAll("#screen button")]
+    .filter((b) => !b.closest(".coach"))
+    .map((b) => b.innerText.replace(/\s+/g, " ").trim())
+    .filter((t) => t && !/^(What this screen does|Save both sheets)$/.test(t)));
+  if (acting.length) fail(`the mystery sheet carries controls that are not a view: ${acting.join(", ")}`);
+
+  // The section nav reaches it, and it is in the Case group.
+  const nav = await page.locator("#screen .section-nav a").allInnerTexts();
+  if (!nav.some((t) => /mystery/i.test(t))) fail(`the Case group's nav reads ${nav.join(" / ")} and does not reach the mystery sheet`);
+
+  // The export produces a real document, with both sheets and no spoilers.
+  const html = await page.evaluate(async () => {
+    const paper = await import("../src/paper.js");
+    const store = (await import("../src/store.js")).Store;
+    return paper.sheetsHtml(store.career, store.investigator, store.mystery);
+  });
+  for (const want of ["investigator", "mystery", "Attributes", "Keywords", "Obligations", "Clue sets", "Threats"]) {
+    if (!new RegExp(want, "i").test(html)) fail(`the saved sheets have no "${want}" section`);
+  }
+  if (!/<!doctype html>/i.test(html)) fail("the saved sheets are not a standalone document");
+  if (/<script/i.test(html)) fail("the saved sheets carry script");
+  const setAside = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    return s.careers[s.activeId].mystery.setAside.map((c) => `${c.rank}${c.suit}`);
+  });
+  const leaked = setAside.filter((id) => html.includes(`>${id[0]}`) && html.includes(id));
+  if (leaked.length && /set aside/i.test(html.replace(/deliberately not on this sheet/i, "")))
+    fail(`the saved sheets name a set-aside card: ${leaked.join(", ")}`);
+
+  // An ended mystery reaches a branch the running one never does.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const m = s.careers[s.activeId].mystery;
+    m.ended = true; m.endTrigger = "deck_empty";
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/case-sheet`);
+  await page.waitForTimeout(350);
+  const ended = await page.locator("#screen").innerText();
+  if (!/ends when/i.test(ended)) fail("the mystery sheet does not render once the mystery has ended");
+  if (!/clue deck is empty/i.test(ended)) fail("the mystery sheet does not name the trigger that ended it");
+
+  // And the investigator sheet offers it too.
+  await page.goto(`${base}#/sheet`);
+  await page.waitForTimeout(300);
+  if (!(await page.locator("#screen .btn", { hasText: "Save this sheet" }).count())) fail("the investigator sheet cannot be saved from the investigator sheet");
+
+  if (errors.length) fail(`console error around the sheets: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("the mystery sheet is one page that only shows, and both sheets save as a document");
   await ctx.close();
 }
 

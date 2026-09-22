@@ -275,7 +275,7 @@ in the README rather than hidden behind an encoding.
 | `data.js` | The whole rules library: 34 d66 tables, 6 resolution tables, every constant. Extracted content only |
 | `data-house.js` | The two house aids and the `HOUSE_AID` flag — everything the app invented, kept out of `data.js` (§4) |
 | `manifest.json`, `service-worker.js`, `icon.svg` | PWA |
-| `tests/` | Harnesses, probes (layout, flow, screenshots) and the seed fixtures (dev only) |
+| `tests/` | Harnesses, probes (layout, flow, screenshots), the seed fixtures, and `routes.mjs` — the route list read out of `main.js` so no harness keeps its own copy (dev only) |
 | `.playtest/` | The playtest driver, the seeded session runner and the transcript renderer: controls pressed by their printed labels, whole sessions from creation to a closed case, solo and co-op, app dice and typed, and the record laid out as a PDF to read (dev only) |
 | `docs/rules/` | The distilled rules, one file per subsystem — what the audit reads against the engine |
 | `docs/AUDIT.md` | Numbered findings, pass by pass, plus the verified-clean list |
@@ -294,6 +294,7 @@ in the README rather than hidden behind an encoding.
 | `src/prompts.js` | The engine's player decisions wired to real dialogs; one event → one sentence. |
 | `src/framing.js` | Setting the scene: the book's two questions, an oracle to hand, and the answer kept in the journal. |
 | `src/coach.js` | The guide: what to do next and what it costs, derived from live state, on every screen. Holds no rules of its own. |
+| `src/paper.js` | The book's two sheets: the mystery sheet as a read-only screen, and both sheets rendered as a standalone document to print or hand over. |
 | `src/wizard.js` | The investigator wizard and the mystery wizard. |
 | `src/sheet.js` | The investigator sheet and the persistent resource header. |
 | `src/play.js` | The scene loop: choosing, running stages, threats, boundaries. |
@@ -495,6 +496,8 @@ this whole document exists to prevent.
 | Solo: open a scene by saying where it is and who is there | Permission | `SCENE_FRAMING` | `framing.framingCard`, `framingLines`, `framingAction` | Top of every scene; rest and obligation dialogs | smoke: setting the scene, `a rest or obligation scene can be set, asked about, and written down` |
 | Solo: ask the game when you do not know | Permission | oracles | `framing.framingCard` buttons | Oracle and yes/no on the framing card | smoke: the oracle button produces words |
 | Solo: keep the record however you like | Permission | `RECORDING_METHODS` | `screens.renderJournal` | Journal screen, rules library | guidance only |
+| The mystery sheet, whole, on one page | Lookup | — | `paper.renderMysterySheet` | Case › Mystery | `the mystery sheet is one page that only shows, and both sheets save as a document` |
+| Both sheets as something you can print or hand over | Permission | — | `paper.sheetsHtml`, `saveSheets` | Mystery sheet and investigator sheet | (same row) |
 | …and the game's own half of it is kept too | Cost | oracles | `framing.keepOracle`, `prompts.randomEvent`, `play.endSceneFlow`, `screens.renderOracle` | Journal, story view | `what the game says is kept, not just what you type` |
 | A clue prompt outlives a description you skipped | Cost | genre clue tables | `prompts.describeClue` → `clueSets[].prompts` | Clues screen | (same row) |
 | Picking the case up days later | Permission | — | `coach.recapCard` | Home and the scene picker | `you can pick the case up, read it back, keep a cast, and see how far undo goes` |
@@ -517,9 +520,8 @@ this whole document exists to prevent.
 - [x] **Phase 7 — Co-op and the book's own guidance.** The party, the round
   structure, threat attachment, per-investigator boundaries and experience; the
   scene-framing questions, the oracle to hand, and the recording methods.
-- [ ] **Backlog** (deliberately not built): a redo stack; a rendered HTML
-  character sheet alongside the JSON export (the case exports as a story, the
-  sheet does not); a tablet two-column layout.
+- [ ] **Backlog** (deliberately not built): a redo stack; a tablet two-column
+  layout.
 
 ## 8. Process rules
 
@@ -544,6 +546,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-22 | The book's two sheets, as the app's own. The mystery sheet is a screen now — problem, danger, the scene, every clue set, the truth, threats, rivals and both decks on one page — and it only shows: Case, Clues and Play still own every action, because a fourth surface that could also change things is how two screens end up disagreeing. Both sheets also render as one standalone HTML document to print, keep or hand to someone without the app, which closes the last template backlog item; the three set-aside cards are deliberately not on it. Building it found a latent crash on the ended-mystery branch and, behind that, three harnesses each keeping their own copy of the route list, so the new screen was measured by none of them — they read `tests/routes.mjs` now, which reads `main.js`. | one smoke block, watched failing, including the ended-mystery branch; 15 routes measured, not 14 | citr-v15 |
 | 2026-09-22 | Second pass over the book, into the chapters the first pass had not reached: the oracles, danger, creation and the nine-page worked example. One defect: a two-word subject oracle rolled action and focus, where Ch.4 says to roll "the first two tables" — action and descriptor — and keep focus as the optional third. Two words now read as a verb and an adjective, which is a prompt, instead of a verb and a noun, which is nearly an answer. Recorded as ruling A25 rather than a plain fix, because the Ch.2 worked example does roll action and focus: it is the same passage that rolls 2d6 against the 1d6 yes/no oracle (A11), and the same precedent applies. The yes/no bands, danger's definition and the creation steps all matched. | one smoke block, watched failing | citr-v14 |
 | 2026-09-22 | Audited against the rulebook itself for the first time since extraction — recovered from the session transcript, since it was never a file. The engine came back clean: every mechanical rule matched, and all 1,224 extracted table rows matched the book verbatim but for three apostrophes normalised on purpose. Three findings, all in the record rather than the code. Four entries in the ambiguity table were not ambiguities at all — the book states them outright — and claiming them overstated how much the app had invented; they are struck rather than deleted so the ids stay stable. Two genuine contradictions **in the book** had never been recorded (A23: the consequences table says 9+ ends the game, the solve chapter says 10+; A24: the chapter and the Quick rules disagree on what the day boundary clears) — the app had silently taken the right side of both. And one rule was simply unimplemented: setup step 6, "Begin play with an investigation scene". | one smoke block, watched failing; the rulebook cross-check is scripted in `tests/unit.mjs` guidance and re-runnable | citr-v13 |
 | 2026-09-22 | Read back against the build template, and closed the six places the app had drifted from it. Both house aids now live in `data-house.js` behind the `HOUSE_AID` flag the template asks for (§2.2), and every surface reads its label from there instead of retyping it. A failed stage test — the one roll made over and over — offers **Try it again**, which repeats it without walking back through the actor and attribute choosers (§14.1). And four decisions the template says to take consciously rather than by default were taken and written down: no sound or haptics, no portraits, homebrew yours to write but never mixed into the extracted tables, and why the solo assistant is split across `framing.js` and `coach.js` instead of the template's single `solo.js`. | one smoke block; the retry assertion watched failing. Adding a shipped file also turned up a deploy test that kept its own copy of the shell list — it reads the worker's now | citr-v12 |
