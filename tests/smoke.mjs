@@ -1191,6 +1191,31 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8n. the subject oracle pairs the words the book pairs (Ch.4)
+// "Roll 1d66 on the first two tables. If you want more detail, roll on the
+// third as well." The first two are action and descriptor; focus is the third.
+// The app rolled action and focus for two words and held the descriptor back,
+// so a two-word answer read as a verb and a noun rather than a verb and an
+// adjective — an answer where the book gives a prompt.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "mid-session");
+  const shape = await page.evaluate(async () => {
+    const R = await import("../src/rules.js");
+    const two = R.rollSubject(false), three = R.rollSubject(true);
+    return {
+      two: Object.keys(two).sort(), three: Object.keys(three).sort(),
+      twoWords: R.subjectWords(two).length, threeWords: R.subjectWords(three).length,
+    };
+  });
+  if (String(shape.two) !== "action,descriptor") fail(`two words come from ${shape.two.join(" + ")}; the book's first two tables are action and descriptor`);
+  if (String(shape.three) !== "action,descriptor,focus") fail(`three words come from ${shape.three.join(" + ")}`);
+  if (shape.twoWords !== 2 || shape.threeWords !== 3) fail(`the oracle returned ${shape.twoWords} and ${shape.threeWords} words`);
+  if (errors.length) fail(`console error in the oracle: ${errors[0].slice(0, 120)}`);
+  if (!failures.length) ok("the subject oracle pairs action with descriptor, and focus is the third");
+  await ctx.close();
+}
+
 // 9. a roll keeps your place on the screen
 {
   const { ctx, page, errors } = await newPage();

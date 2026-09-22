@@ -259,8 +259,8 @@ export function renderOracle(host) {
       btn("Two words", () => ask(false), "primary"),
       btn("Three words", () => ask(true)))));
 
-  function ask(withDescriptor) {
-    const s = R.rollSubject(withDescriptor);
+  function ask(withFocus) {
+    const s = R.rollSubject(withFocus);
     const words = R.subjectWords(s);
     out.replaceChildren(el("h3", { text: "Subject oracle" }),
       el("p", { class: "mono", text: words.join("  ·  ") }),

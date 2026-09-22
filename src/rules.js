@@ -47,10 +47,16 @@ export function rollName(mode = "tables") {
 
 export const rollYesNo = () => { const n = d6(); return { die: n, row: lookupRange(D.YES_NO, n) }; };
 
-/** Subject oracles: action + focus, optionally a descriptor. */
-export function rollSubject(withDescriptor = true) {
-  const out = { action: rollTable(D.ORACLE_ACTION), focus: rollTable(D.ORACLE_FOCUS) };
-  if (withDescriptor) out.descriptor = rollTable(D.ORACLE_DESCRIPTOR);
+/**
+ * The book's order: "roll 1d66 on the first two tables. If you want more
+ * detail, roll on the third table as well." The first two are action and
+ * descriptor; focus is the optional third. Two words are meant to read as a
+ * verb and an adjective — Confront · Old — which is a prompt; action and
+ * focus would give Confront · Gadget, which is closer to an answer.
+ */
+export function rollSubject(withFocus = true) {
+  const out = { action: rollTable(D.ORACLE_ACTION), descriptor: rollTable(D.ORACLE_DESCRIPTOR) };
+  if (withFocus) out.focus = rollTable(D.ORACLE_FOCUS);
   return out;
 }
 export const subjectWords = (s) => [s.action?.value, s.descriptor?.value, s.focus?.value].filter(Boolean);

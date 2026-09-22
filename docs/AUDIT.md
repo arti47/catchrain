@@ -766,6 +766,31 @@ investigation and says why for the rest, the gate lifts the moment a scene has
 been played, and a save with no counter but a clue set in hand is not gated.
 The table cross-check is a script and re-runnable against the source.
 
+## Cycle 25 — the chapters the first pass did not reach
+
+Cycle 24 read the rules chapters. This read the rest: the oracles, danger,
+creation, and the nine-page worked example that several rulings were originally
+drawn from. The yes/no bands (1–2 extreme no, 3 no, 4 yes, 5–6 extreme yes),
+danger beginning at 0, and the creation steps all matched exactly.
+
+### F57 — A two-word subject oracle rolled the wrong two tables
+Ch.4: "roll 1d66 on the **first two tables**. If you want more detail, roll on
+the third table as well." The tables are printed Action, Descriptor, Focus, and
+the chapter's own example spells it out — "'confront', 'old', and 'gadget' from
+the action, descriptor, and focus subject oracles **respectively**". The app
+rolled action and focus and held the descriptor back for the third word, so two
+words came out as a verb and a noun (*Reveal · Power*) where the book gives a
+verb and an adjective (*Reveal · Old*). The first is close to an answer; the
+second is a prompt, which is the job.
+
+Recorded as ruling A25 rather than a plain correction, because the Ch.2 worked
+example genuinely does roll "the action and focus tables" for two words. It is
+the same passage that rolls 2d6 against a 1d6 oracle (A11), and the same
+precedent decides it: the table and its instruction win over the example.
+
+*Guard:* one smoke block, watched failing — two words come from action and
+descriptor, three add focus, and the counts are right.
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
