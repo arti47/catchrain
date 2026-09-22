@@ -29,13 +29,17 @@ function diceRow(dice, attrValue, total, doubles) {
   return wrap;
 }
 
-function showResult(title, res, extraEvents = [], onReroll) {
+function showResult(title, res, extraEvents = [], onReroll, onAgain) {
   const body = el("div", {});
   add(body,
     diceRow(res.dice, res.attrValue || 0, res.total, res.doubles),
     el("p", { class: `outcome ${res.outcome.id}`, text: `${res.outcome.name} — ${res.outcome.text}` }),
     eventList([...(res.events || []), ...extraEvents]));
   const actions = [{ label: "Continue" }];
+  // A failed stage test is the one roll a player makes over and over, at the
+  // same stage with the same approach. This is that, without walking back
+  // through the actor and attribute choosers to say the same two things again.
+  if (onAgain) actions.push({ label: "Try it again", kind: "ghost", onClick: () => { setTimeout(onAgain, 40); } });
   if (onReroll) actions.push({ label: "Re-roll with a keyword", kind: "ghost", onClick: () => { setTimeout(onReroll, 40); } });
   modal({ title, body, actions });
 }
@@ -160,7 +164,14 @@ async function applyTest({ attrId, label, manual, againstThreatId, stageTest, un
   const onReroll = spare.length && !Store.mystery.ended
     ? () => rerollFlow({ attrId, label, againstThreatId, stageTest, actorId: actor.id, first: { dice: res.dice, total: res.total, outcome: res.outcome, attrValue: res.attrValue } })
     : null;
-  showResult(Store.party.length > 1 ? `${actor.name} \u2014 ${label}` : label, res, extra, onReroll);
+  // Only after a failure: the stage did not move, so the same test is still the
+  // one in front of you. After a success the label would name a stage you have
+  // already left, which is a different roll wearing the same words.
+  const m2 = Store.mystery;
+  const onAgain = stageTest && res.outcome.id === "failure" && !m2.ended && m2.scene && !m2.scene.done
+    ? () => applyTest({ attrId, label, againstThreatId, stageTest, undoLabel: label, actorId: actor.id })
+    : null;
+  showResult(Store.party.length > 1 ? `${actor.name} \u2014 ${label}` : label, res, extra, onReroll, onAgain);
   await rerender();
 }
 

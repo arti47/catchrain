@@ -9,9 +9,15 @@ import { join } from "node:path";
 import { serve, launch } from "./server.mjs";
 
 const dir = mkdtempSync(join(tmpdir(), "citr-sw-"));
-for (const f of ["index.html", "styles.css", "data.js", "manifest.json", "service-worker.js", "icon.svg", "src"]) {
-  cpSync(f, join(dir, f), { recursive: true });
-}
+// What to stage is read out of the worker's own shell list rather than repeated
+// here. A hand-kept copy silently rots the first time a shipped file is added:
+// the worker then fetches a file the deploy does not have, install rejects, and
+// the failure reads as "the service worker never took control" — nothing like
+// its cause.
+const shellSource = readFileSync("service-worker.js", "utf8");
+const shellPaths = [...shellSource.matchAll(/"\.\/([^"]+)"/g)].map((m) => m[1]);
+const staged = [...new Set(shellPaths.map((p) => p.split("/")[0])), "service-worker.js"];
+for (const f of staged) cpSync(f, join(dir, f), { recursive: true });
 
 const { server, port } = await serve(dir);
 const browser = await launch(chromium);

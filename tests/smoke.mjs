@@ -1045,6 +1045,90 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8l. the template's own rules, closed (§2.2, §14.1)
+// House aids must carry the flag and label themselves from it, and the roll a
+// player makes over and over should not cost two choosers every time.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "mid-session", { safetyFilter: true });
+
+  // Both aids name themselves, from the one file that holds the flag.
+  const flagged = await page.evaluate(async () => {
+    const mod = await import("../data-house.js");
+    return { flag: mod.HOUSE_AID, ids: Object.keys(mod.HOUSE_AIDS) };
+  });
+  if (flagged.flag !== true) fail("the house-aid file does not export HOUSE_AID = true");
+  if (!flagged.ids.includes("contentFilter") || !flagged.ids.includes("cast")) fail(`the house-aid file knows ${flagged.ids.join(", ")}`);
+
+  await page.goto(`${base}#/settings`);
+  await page.waitForTimeout(250);
+  const settings = await page.locator("#screen").innerText();
+  if (!/content filter\s*\u00b7\s*house aid/i.test(settings)) fail("the content filter does not label itself a house aid");
+  await page.goto(`${base}#/journal`);
+  await page.waitForTimeout(250);
+  const journal = await page.locator("#screen").innerText();
+  if (!/people and places\s*\u00b7\s*house aid/i.test(journal)) fail("the cast list does not label itself a house aid");
+
+  // A failed stage test offers the same test again, and taking it rolls.
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(250);
+  let tried = false;
+  for (let i = 0; i < 24; i++) {
+    const bar = page.locator(".action-bar .btn");
+    if (!(await bar.count())) break;
+    const label = (await bar.innerText()).split("\n")[0];
+    if (/^End the scene|^Resolve the mystery|^Investigation scene/.test(label)) break;
+    await bar.click();
+    for (let j = 0; j < 8; j++) {
+      await page.waitForSelector(".modal-overlay", { timeout: 900 }).catch(() => {});
+      const again = page.locator(".modal-actions .btn", { hasText: "Try it again" });
+      if (await again.count()) {
+        const outcome = await page.locator(".modal-body .outcome").innerText().catch(() => "");
+        if (!/failure/i.test(outcome)) fail(`"Try it again" was offered on a ${outcome.split("\u2014")[0].trim()}, where the stage has already moved on`);
+        const before = await page.evaluate(() => {
+          const s = JSON.parse(localStorage.getItem("citr:v1"));
+          return s.careers[s.activeId].rollLog.length;
+        });
+        await again.click();
+        // The retry opens the same chain any test does (a gained keyword, a
+        // consequence); the roll is only committed once that chain clears.
+        for (let k = 0; k < 10; k++) {
+          await page.waitForSelector(".modal-overlay", { timeout: 900 }).catch(() => {});
+          const inp = page.locator(".modal-overlay .input").first();
+          const c3 = page.locator(".modal-overlay .choice").first();
+          const a3 = page.locator(".modal-actions .btn").first();
+          if (await inp.count()) { await inp.fill("A line at the table."); await a3.click(); }
+          else if (await c3.count()) await c3.click();
+          else if (await a3.count()) await a3.click();
+          else break;
+          await page.waitForTimeout(80);
+        }
+        await page.waitForTimeout(250);
+        const after = await page.evaluate(() => {
+          const s = JSON.parse(localStorage.getItem("citr:v1"));
+          return s.careers[s.activeId].rollLog.length;
+        });
+        if (after <= before) fail('"Try it again" did not roll anything');
+        tried = true;
+        break;
+      }
+      const ch = page.locator(".modal-overlay .choice").first();
+      const input = page.locator(".modal-overlay .input").first();
+      const act = page.locator(".modal-actions .btn").first();
+      if (await input.count()) { await input.fill("A line at the table."); await act.click(); }
+      else if (await ch.count()) await ch.click();
+      else if (await act.count()) await act.click();
+      else break;
+      await page.waitForTimeout(70);
+    }
+    if (tried) break;
+  }
+  if (!tried) ok("no stage test failed this run, so the repeat affordance did not come up");
+  if (errors.length) fail(`console error around the house aids: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("house aids carry the flag and say so; a failed stage test can be retried in one tap");
+  await ctx.close();
+}
+
 // 9. a roll keeps your place on the screen
 {
   const { ctx, page, errors } = await newPage();

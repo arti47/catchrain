@@ -40,6 +40,19 @@ later work does not re-open them.
 6. **Theme — follows the system**, with an in-app override and a text-size control.
 7. **Many careers, not one.** The book's career rules make multiple mysteries a
    published rule, so the career list is in the schema from day one.
+8. **No sound and no haptics.** Taken deliberately rather than by omission: this
+   is played in one hand, often late, often beside someone asleep, and the dice
+   are already drawn as pips on the result card. The roll is a thing you read,
+   not a thing you hear.
+9. **No portraits.** Never in the schema, and dropped rather than left as a
+   field with no UI. An investigator here is three numbers, a trait, an
+   obligation and a keyword; a face would be the only thing on the sheet the
+   game never asks about.
+10. **Homebrew: yours to write, never mixed into the tables.** You may write
+    your own clue descriptions, obligations, keywords, traits, motivations and
+    cast entries, and each is stored on your own career. What you cannot do is
+    add rows to the extracted d66 tables — those stay proofread-able against
+    the book, and anything the app invents lives in `data-house.js` (§4).
 
 ### 1.2 Template scope deliberately omitted
 
@@ -256,7 +269,8 @@ in the README rather than hidden behind an encoding.
 |---|---|
 | `index.html` | Shell: header, resource header, screen mount, action host, tab bar |
 | `styles.css` | Theme tokens (light + dark) and every component style |
-| `data.js` | The whole rules library: 34 d66 tables, 6 resolution tables, every constant |
+| `data.js` | The whole rules library: 34 d66 tables, 6 resolution tables, every constant. Extracted content only |
+| `data-house.js` | The two house aids and the `HOUSE_AID` flag — everything the app invented, kept out of `data.js` (§4) |
 | `manifest.json`, `service-worker.js`, `icon.svg` | PWA |
 | `tests/` | Harnesses, probes (layout, flow, screenshots) and the seed fixtures (dev only) |
 | `.playtest/` | The playtest driver, the seeded session runner and the transcript renderer: controls pressed by their printed labels, whole sessions from creation to a closed case, solo and co-op, app dice and typed, and the record laid out as a PDF to read (dev only) |
@@ -292,6 +306,14 @@ in the README rather than hidden behind an encoding.
 Adding or moving a `src/` file updates this table **and** the service worker's
 shell list, and bumps `CACHE_VERSION`, in the same change.
 
+One deliberate divergence from the template's module map: it names a single
+`solo.js` for the solo assistant, and here that responsibility is split in two,
+because the two halves are asked at different moments. `framing.js` is the
+book's own guidance — the two questions that open a scene, with an oracle to
+hand. `coach.js` is the app's, and holds no rules: what to press next and what
+it costs. Merging them would put a chapter of the book and a piece of interface
+help in one module and make it impossible to tell which was which.
+
 ### 3.2 Data model
 
 ```
@@ -326,7 +348,13 @@ here in the same change.
 
 ## 4. House aids
 
-Two, each labelled as such wherever it appears.
+Two, and both obey the template's rule for them (§2.2): they live in their own
+file, `data-house.js`, which exports `HOUSE_AID = true` and the text each one
+uses to name itself. Nothing invented is mixed into `data.js` — that file is
+extracted rulebook content and is the one part of the system a human can
+proofread against the book. Every surface that shows an aid reads its label from
+`data-house.js` rather than retyping it, so an aid cannot quietly lose its
+label.
 
 The **content filter** in Settings.
 The book supplies no safety tools, so the app lets a player list table rows to
@@ -336,7 +364,7 @@ and is described in the UI as a house aid, not a rule.
 **People and places** on the journal screen: the oracles make words and the
 player makes the people, and nothing in the book remembers who they were. Over a
 case that runs for days of real time that is the first thing lost. It lives on
-`career.cast` and is titled "(house aid)" on the screen itself.
+`career.cast` and titles itself from `HOUSE_AIDS.cast`.
 
 ## 5. Data Extraction Ledger
 
@@ -478,7 +506,9 @@ this whole document exists to prevent.
 - [x] **Phase 7 — Co-op and the book's own guidance.** The party, the round
   structure, threat attachment, per-investigator boundaries and experience; the
   scene-framing questions, the oracle to hand, and the recording methods.
-- [ ] **Backlog** (deliberately not built): a redo stack; a rendered HTML character sheet alongside the JSON export; a tablet two-column layout.
+- [ ] **Backlog** (deliberately not built): a redo stack; a rendered HTML
+  character sheet alongside the JSON export (the case exports as a story, the
+  sheet does not); a tablet two-column layout.
 
 ## 8. Process rules
 
@@ -503,6 +533,7 @@ this whole document exists to prevent.
 |---|---|---|---|
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
+| 2026-09-22 | Read back against the build template, and closed the six places the app had drifted from it. Both house aids now live in `data-house.js` behind the `HOUSE_AID` flag the template asks for (§2.2), and every surface reads its label from there instead of retyping it. A failed stage test — the one roll made over and over — offers **Try it again**, which repeats it without walking back through the actor and attribute choosers (§14.1). And four decisions the template says to take consciously rather than by default were taken and written down: no sound or haptics, no portraits, homebrew yours to write but never mixed into the extracted tables, and why the solo assistant is split across `framing.js` and `coach.js` instead of the template's single `solo.js`. | one smoke block; the retry assertion watched failing. Adding a shipped file also turned up a deploy test that kept its own copy of the shell list — it reads the worker's now | citr-v12 |
 | 2026-09-22 | Six ways the app lost what the player had made. The game's own half of the conversation was thrown away everywhere it spoke — the framing card's oracle words, the doubles event, the day's event, the Oracles screen, and the clue prompt behind a description you skipped; all of it now reaches the journal, and an undescribed clue set shows the prompts it was given. A case that runs over days had nothing to come back to, so Home and the scene picker carry **Where you left off**. The journal could not be read as a story: it now has Story / Everything / Rolls, oldest first with the machinery out of the way, and saves as a text file. The Clues tab gained the case board — what is ruled out, what a guess is worth now, and what is worth doing. A cast list, labelled a house aid, remembers the people you invent. And the undo button, twenty steps deep all along, now says so. | two smoke blocks, both watched failing; the full playtest matrix | citr-v11 |
 | 2026-09-22 | The app could be played correctly and could not be learned: the sequence of play lived in a tutorial you had to go and read. New `src/coach.js` — a guide above every screen that says what to do next and what it costs, derived from state so it cannot go stale, naming the real control instead of duplicating it, with a **Why?** that lays out your other options, how near each of the four endings is, and what a guess is worth if you stop now. A blank app now offers **Start playing**: one tap rolls an investigator and a case through the wizards' own paths and deals you into the first scene. Stage button labels moved into `data.js` so the guide and the play screen name one control, not two. | one smoke block watched failing; `--guided` plays a whole session from a blank app to a closed case pressing only what the guide names | citr-v10 |
 | 2026-09-21 | Played one session properly — reading the fiction, choosing from it, writing after every beat — and read the record back. Every test line in the journal was arithmetic that does not work (`4+5 = 11`), because `attributeTest` never returned the attribute it had just added; the re-roll comparison, whose whole job is to let you choose between two outcomes, printed the same broken sums. And a rest or obligation scene asked the book's two questions above a single "Done": no field, no oracle, nothing reaching the journal. Also played the two configurations the first pass skipped — co-op and typed dice — across twelve sessions, with no findings. | two smoke blocks, both watched failing; twelve seeded sessions in four configurations | citr-v9 |

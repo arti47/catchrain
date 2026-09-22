@@ -650,6 +650,60 @@ still shows its prompt, the recap carries the story and not the machinery, the
 story view reads oldest first without the machinery and can be saved, the cast
 persists and is labelled, and undo admits its depth.
 
+## Cycle 23 — read back against the build template
+
+Not play, and not the rulebook: the app read against the **build instructions**
+it was made from. Everything mandatory was in place — both ledgers, the roadmap,
+the process rules, the audit protocol and its harnesses, the measurement
+contract, §6.6's four teaching layers with the guide as the fourth and none of
+the other three displaced, and a named check for every §13 defect class. The
+local-only architecture is a sanctioned §4.2 answer, not a divergence. Three
+things assumed missing were already built: the header investigator switcher,
+"Check my data" and the face-distribution view.
+
+Six real divergences, two of them code.
+
+### F47 — The house aids did not carry the flag the template requires (§2.2 LOCKED)
+The rule is that an invented aid lives in its own file, exports `HOUSE_AID =
+true`, and is labelled wherever it surfaces. Both aids were labelled — by hand,
+in four separate strings, one of which could have been edited away without
+anything noticing. They now live in `data-house.js` with the flag, and every
+surface reads its label from there. The flag is not decoration: putting it in a
+file that nothing imported would have been defect D-2 in its own right, so the
+labels are what read it.
+
+### F48 — The roll a player makes over and over cost two choosers every time (§14.1 #8)
+A failed stage test does not advance the stage, so the next thing you do is make
+the same test, with the same person, on the same attribute. The app asked who
+acts and which approach, every single time. The result card now offers **Try it
+again** — but only after a failure, because after a success the stage has moved
+and the same words would name a different roll.
+
+### F49–F52 — Four decisions taken by default rather than consciously (§14.2)
+The template lists decisions that must be made deliberately and written down,
+because defaulting them is how a build acquires positions nobody chose. Four had
+been defaulted: sound and haptics (none, and now for a stated reason), portraits
+(never in the schema, now explicitly dropped rather than left as a field with no
+UI), homebrew (yours to write, never mixed into the extracted tables), and the
+split of the template's single `solo.js` into `framing.js` and `coach.js` — the
+book's guidance and the app's help kept apart on purpose. All four are recorded
+in CLAUDE.md §1.1 and §3.1.
+
+### F53 — The deploy test kept its own copy of the shipped-file list
+Adding `data-house.js` turned `npm run sw` red with "the service worker never
+took control of the page". The worker was fine: the test staged a hand-written
+list of files into its temp deploy, that list had never heard of the new file,
+the worker's install fetched a 404 and rejected, and it never activated. A guard
+that rots the first time the thing it guards gains a file is worth less than no
+guard, because its failure names the symptom and not the cause. The test now
+reads the list out of the worker's own `SHELL`.
+
+*Guards:* one smoke block — the house-aid file exports the flag and knows both
+aids, each surface labels itself from it, and a failed stage test offers a retry
+that actually rolls. The retry assertion was watched failing (it caught a real
+timing bug in the check itself first: the roll commits only once the dialog
+chain the retry opens has cleared).
+
 ## Verified clean
 
 Settled ground; later passes need not re-litigate these without new evidence.
@@ -707,6 +761,7 @@ Settled ground; later passes need not re-litigate these without new evidence.
   the guide says to press.
 - Everything the game says — every oracle, every prompt — is in the record, and
   the record reads back as a story.
+- Every house aid carries the template's flag and labels itself from it.
 - No export unread, no import unused (dead-data scan clean).
 
 ## Known gaps, stated rather than hidden

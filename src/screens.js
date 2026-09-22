@@ -2,6 +2,7 @@
 
 import { el, add, uid, fmtTime, d66Code } from "./core.js";
 import * as DATA from "../data.js";
+import { HOUSE_AIDS, houseAidLabel, houseAidTitle } from "../data-house.js";
 import * as R from "./rules.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
@@ -159,8 +160,8 @@ export function renderTables(host) {
     resultHost.replaceChildren(
       el("h3", { text: name }),
       el("p", { class: "mono", text: `d66 ${r.code} — ${r.value}` }),
-      r.redirected ? el("p", { class: "small", text: `Your content filter moved this roll (house aid): ${r.dice.join("")} was a row you blocked.` }) : null,
-      r.allBlocked ? el("p", { class: "small", text: "Every row of this table is filtered, so the roll stands (house aid)." }) : null,
+      r.redirected ? el("p", { class: "small", text: `Your content filter moved this roll ${houseAidLabel("contentFilter")}: ${r.dice.join("")} was a row you blocked.` }) : null,
+      r.allBlocked ? el("p", { class: "small", text: `Every row of this table is filtered, so the roll stands ${houseAidLabel("contentFilter")}.` }) : null,
     );
   };
 
@@ -422,8 +423,8 @@ export function renderJournal(host) {
 
   add(host, section("The case, as it happened", listHost));
 
-  add(host, section("People and places (house aid)", cast,
-    el("p", { class: "small muted", text: "The book does not ask you to keep a cast list. This is the app's own aid, so a name you invented on day one is still here on day four." }),
+  add(host, section(houseAidTitle("cast"), cast,
+    el("p", { class: "small muted", text: HOUSE_AIDS.cast.text }),
     btn("Add someone", async () => {
       const name = await promptModal({ title: "Who, or where?", placeholder: "e.g. the night supervisor at the care agency" });
       if (!name) return;
@@ -604,7 +605,7 @@ export function renderSettings(host) {
       optionBtn(`${sz}%`, () => { Settings.set("textScale", sz); applyTextScale(); rerender(); }, Settings.get("textScale") === sz))))));
 
   const blocked = R.blockedList();
-  add(host, section("Content filter · house aid",
+  add(host, section(houseAidTitle("contentFilter"),
     el("p", { class: "small muted", text: "Not from the book. Rows you list here are skipped when the app rolls a table, so a mystery stays inside what you want to play. Lines and veils, in one list." }),
     el("p", { class: "small mono", text: blocked.length ? blocked.join(", ") : "Nothing filtered." }),
     el("div", { class: "btn-row" },
