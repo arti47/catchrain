@@ -53,6 +53,14 @@ later work does not re-open them.
     cast entries, and each is stored on your own career. What you cannot do is
     add rows to the extracted d66 tables — those stay proofread-able against
     the book, and anything the app invents lives in `data-house.js` (§4).
+11. **Depth, drawn — not a 3D engine.** The dice, cards, dial and rain get real
+    perspective, but out of CSS transforms, because a WebGL library would be the
+    app's first dependency, its first build step and a megabyte in a cache that
+    has to survive on a phone with no signal — against §3's no-build rule and
+    decision 5's 320px floor. What a canvas would buy over this is a table
+    surface nobody plays on: the game is read, not watched. The depth that is
+    there is one setting away from off, and already off for anyone whose device
+    asks for less motion.
 
 ### 1.2 Template scope deliberately omitted
 
@@ -238,11 +246,17 @@ a blank app to a closed case pressing nothing but what the guide names.
 **The look is part of the rules.** Headings, the premise sentence, clue
 descriptions and card faces are set in a serif; labels, numbers and controls in
 sans, with tabular figures. Colour is spent only on meaning. The screens carry
-one texture (a fixed vignette, plus faint rain streaks at night), cards are
-hairline-bordered panels rather than stacked boxes, and the five things the game
-draws — dice, playing cards, the clock, the fatigue track, the tab icons — are
-drawn as themselves rather than typed as glyphs. `npm run shots` renders every
-main screen in both themes for eyes-on review.
+one texture (a fixed vignette, plus rain streaks at night that actually fall),
+cards are hairline-bordered panels rather than stacked boxes, and the five things
+the game draws — dice, playing cards, the clock, the fatigue track, the tab icons
+— are drawn as themselves rather than typed as glyphs. **And they have depth:** a
+die is a cube of six pip faces that tumbles and lands on the number rolled, the
+solve turns its three cards over, the clock is a disc rather than a diagram, and
+the fatigue boxes sit in a well. All of it is CSS transforms and gradients —
+nothing is imported for it, nothing is downloaded, and the lighting is achromatic
+so the colour budget still goes to meaning. `Settings.depth` flattens the lot in
+one attribute, and a device that asks for less motion gets it without asking.
+`npm run shots` renders every main screen in both themes for eyes-on review.
 
 **An installed app has to be told.** A home-screen install is resumed from the
 app switcher, not loaded, so nothing looks for a new version unless the app
@@ -344,7 +358,8 @@ citr:v1
                round{mode:"shared"|"individual", scenes{invId:{type,done}}},
                jokersDrawn, ended, endTrigger, guesses[], results[], solved, correct, answers[], xpGained }
 citr:v1:settings  { theme, textScale, manualDice, multiplayer, rivals, career,
-                    safetyFilter, blocked[], wakeLock, autoOracle, sceneFraming, coach }
+                    safetyFilter, blocked[], wakeLock, autoOracle, sceneFraming, coach,
+                    depth }
 ```
 
 Every schema addition ships a back-fill in `derived.normalize*` and is recorded
@@ -544,6 +559,7 @@ this whole document exists to prevent.
 
 | Date | Change | Verification | Cache |
 |---|---|---|---|
+| 2026-09-23 | Depth, drawn rather than imported. A die is a cube now: six pip faces, tumbled and landed on the number rolled, lit from the upper left and marked on its own faces when it comes up doubles; the solve turns its three set-aside cards over; the clock is a disc with a dome rather than a pie chart; the fatigue boxes sit in a well; and the night rain falls, one composited layer translating by exactly one tile of its own gradient so the loop is seamless. All CSS transforms and gradients — no dependency, no build step, nothing to download, and the lighting achromatic so colour still means what it meant. `Settings.depth` takes every bit of it away in one attribute, and building it found the reduced-motion rule matching `*` but not `*::before`/`*::after`, so the rain would have kept falling for the one player who had asked it to stop. Recorded as product decision 11: a WebGL library would have been the app's first dependency, its first build step and a megabyte of cache, to animate a table nobody looks at. | two smoke blocks, both watched failing (the second caught the pseudo-element gap); layout probe clean at 320/360/390; interaction, walk, scan, deploy path; guided and solo playtests; eyes-on in both themes, on the screen and inside a result dialog | citr-v16 |
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |
 | 2026-09-22 | The book's two sheets, as the app's own. The mystery sheet is a screen now — problem, danger, the scene, every clue set, the truth, threats, rivals and both decks on one page — and it only shows: Case, Clues and Play still own every action, because a fourth surface that could also change things is how two screens end up disagreeing. Both sheets also render as one standalone HTML document to print, keep or hand to someone without the app, which closes the last template backlog item; the three set-aside cards are deliberately not on it. Building it found a latent crash on the ended-mystery branch and, behind that, three harnesses each keeping their own copy of the route list, so the new screen was measured by none of them — they read `tests/routes.mjs` now, which reads `main.js`. | one smoke block, watched failing, including the ended-mystery branch; 15 routes measured, not 14 | citr-v15 |

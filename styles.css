@@ -134,7 +134,40 @@ body::before {
     repeating-linear-gradient(74deg, transparent 0 26px, rgba(232, 237, 242, .035) 26px 27px),
     radial-gradient(130% 90% at 50% 0%, transparent 42%, rgba(0, 0, 0, .55) 100%);
 }
+/* Night rain that falls: one composited layer, translating by exactly one tile
+   of its own gradient (23px at 74deg = 83.44px down), so the loop is seamless.
+   Dark theme only, off when the app is flattened, and stopped for a player who
+   asked for less motion. */
+body::after {
+  content: ""; position: fixed; left: 0; right: 0; top: -50%; height: 200%;
+  pointer-events: none; z-index: 0; display: none;
+  background: repeating-linear-gradient(74deg, transparent 0 22px, rgba(232, 237, 242, .05) 22px 23px);
+  animation: rainfall 9s linear infinite;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body::after { display: block; } }
+:root[data-theme="dark"] body::after { display: block; }
+@keyframes rainfall { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 83.44px, 0); } }
+
 body > * { position: relative; z-index: 1; }
+
+/* -------------------------------------------------- depth, and the way out
+   Everything above is drawn with transforms and gradients — no dependency, no
+   build step, nothing to download. One attribute takes all of it away. */
+:root[data-depth="off"] body::after { display: none; }
+:root[data-depth="off"] .dice { perspective: none; }
+:root[data-depth="off"] .die .tumble { animation: none; }
+:root[data-depth="off"] .die .cube,
+:root[data-depth="off"] .die .face { transform: none; }
+:root[data-depth="off"] .die .face { display: none; }
+:root[data-depth="off"] .die .cube[data-face="1"] .f1,
+:root[data-depth="off"] .die .cube[data-face="2"] .f2,
+:root[data-depth="off"] .die .cube[data-face="3"] .f3,
+:root[data-depth="off"] .die .cube[data-face="4"] .f4,
+:root[data-depth="off"] .die .cube[data-face="5"] .f5,
+:root[data-depth="off"] .die .cube[data-face="6"] .f6 { display: grid; }
+:root[data-depth="off"] .hand { perspective: none; }
+:root[data-depth="off"] .pcard.flip { animation: none; }
+:root[data-depth="off"] .clock::after { display: none; }
 
 ::selection { background: var(--accent-dim); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
@@ -381,15 +414,22 @@ b, strong { font-weight: 650; }
 .box::before {
   content: ""; width: 26px; height: 30px; border-radius: 5px;
   border: 1px solid var(--line); background: var(--panel-2);
+  box-shadow: inset 0 2px 4px rgba(20, 22, 26, .1);
   transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
 }
 .box.on::before {
   background: linear-gradient(180deg, color-mix(in srgb, var(--loss) 82%, transparent), var(--loss));
   border-color: color-mix(in srgb, var(--loss) 75%, black);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 1px 2px rgba(20, 22, 26, .2);
 }
-.clock { display: inline-flex; }
-.clock svg { display: block; }
+.clock { display: inline-flex; position: relative; }
+.clock svg { display: block; filter: drop-shadow(0 1px 1px rgba(20, 22, 26, .22)); }
+/* A dial is a disc, not a diagram: one highlight, one shaded rim, no colour spent. */
+.clock::after {
+  content: ""; position: absolute; inset: 3px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(120% 120% at 32% 22%,
+    rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 52%, rgba(20, 22, 26, .2) 100%);
+}
 .clock .seg-off { fill: var(--panel-2); stroke: var(--line); }
 .clock .seg-on { fill: var(--accent); stroke: color-mix(in srgb, var(--accent) 70%, black); }
 
@@ -422,14 +462,20 @@ button.chip:hover { border-color: var(--accent); }
 .chip.signature { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-dim); }
 
 /* -------------------------------------------------------- playing cards */
-.hand { display: flex; flex-wrap: wrap; gap: .3rem; }
+.hand { display: flex; flex-wrap: wrap; gap: .3rem; perspective: 700px; }
 .pcard {
   position: relative; width: 36px; height: 50px; border-radius: 5px;
   background: linear-gradient(170deg, #fdfcf8, #f0ece2);
   border: 1px solid rgba(20, 22, 26, .35); color: #16181c;
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-1), inset 0 1px 0 rgba(255, 255, 255, .8), inset 0 -3px 6px rgba(20, 22, 26, .09);
   display: flex; align-items: center; justify-content: center;
   font-family: var(--serif); font-size: .9rem; font-weight: 600; line-height: 1;
+}
+/* The one moment the game turns a card over on purpose: the solve. */
+.pcard.flip { animation: card-turn .5s cubic-bezier(.22, .72, .28, 1) both; backface-visibility: hidden; }
+@keyframes card-turn {
+  from { transform: rotateY(-168deg) translateZ(26px); }
+  to   { transform: none; }
 }
 .pcard .rank { position: absolute; top: 3px; left: 4px; font-size: .62rem; letter-spacing: -.02em; }
 .pcard .pip { font-size: 1.15rem; line-height: 1; }
@@ -472,17 +518,65 @@ button.chip:hover { border-color: var(--accent); }
 .threat-head { display: flex; justify-content: space-between; gap: .5rem; align-items: center; }
 .threat-head strong { font-family: var(--serif); font-size: 1rem; }
 
-/* --------------------------------------------------------------- dice */
-.dice { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+/* --------------------------------------------------------------- dice
+   A die is a cube with six pip faces, turned to the one that was rolled and
+   tumbling into place as it arrives. All of it is transforms, so it composites
+   rather than repaints; the number lives on the wrapper's aria-label, so none
+   of this is load-bearing. `[data-depth="off"]` flattens it back to one face. */
+.dice { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
 .die {
-  width: 38px; height: 38px; border-radius: 9px; flex: 0 0 auto;
-  background: linear-gradient(165deg, #fbf9f4, #e8e3d8);
-  border: 1px solid rgba(20, 22, 26, .3); box-shadow: var(--shadow-1);
-  display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
-  padding: 5px;
+  width: 38px; height: 38px; flex: 0 0 auto;
+  position: relative;
+  /* Each die is looked at on its own, so a die at the edge of a row is not
+     sheared by a vanishing point that belongs to the row. The resting tilt is
+     small enough to stay inside the gap between two dice. */
+  perspective: 300px;
+  --tilt: rotateX(-7deg) rotateY(-9deg);
 }
-.die i { border-radius: 50%; background: #1b1d21; align-self: center; justify-self: center; width: 6px; height: 6px; }
-.die.doubles { border-color: var(--danger); box-shadow: 0 0 0 2px var(--danger-dim); }
+.die .tumble, .die .cube { position: absolute; inset: 0; transform-style: preserve-3d; }
+.die .tumble { animation: die-land .58s cubic-bezier(.18, .74, .24, 1) both; }
+.die .face {
+  position: absolute; inset: 0; border-radius: 7px; padding: 5px;
+  display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+  background: linear-gradient(165deg, #fbf9f4, #e8e3d8);
+  border: 1px solid rgba(20, 22, 26, .3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), inset 0 -3px 6px rgba(20, 22, 26, .13);
+  backface-visibility: hidden;
+}
+.die i {
+  border-radius: 50%; background: #1b1d21; align-self: center; justify-self: center;
+  width: 6px; height: 6px; box-shadow: inset 0 -1px 1px rgba(255, 255, 255, .3);
+}
+/* Lit from the upper left, so the sides of a cube are not the same tone as its
+   front. Achromatic: the colour budget is spent on meaning, not on lighting. */
+.die .f2, .die .f5 { background: linear-gradient(165deg, #eeeade, #d7d1c3); }
+.die .f3, .die .f4 { background: linear-gradient(165deg, #fffdf9, #f2eee5); }
+
+/* The six faces of a 19px half-cube, and the turn that brings each to the front. */
+.die .f1 { transform: translateZ(19px); }
+.die .f6 { transform: rotateY(180deg) translateZ(19px); }
+.die .f2 { transform: rotateY(90deg) translateZ(19px); }
+.die .f5 { transform: rotateY(-90deg) translateZ(19px); }
+.die .f3 { transform: rotateX(90deg) translateZ(19px); }
+.die .f4 { transform: rotateX(-90deg) translateZ(19px); }
+.die .cube { transform: var(--tilt) translateZ(-19px); }
+.die .cube[data-face="6"] { transform: var(--tilt) translateZ(-19px) rotateY(180deg); }
+.die .cube[data-face="2"] { transform: var(--tilt) translateZ(-19px) rotateY(-90deg); }
+.die .cube[data-face="5"] { transform: var(--tilt) translateZ(-19px) rotateY(90deg); }
+.die .cube[data-face="3"] { transform: var(--tilt) translateZ(-19px) rotateX(-90deg); }
+.die .cube[data-face="4"] { transform: var(--tilt) translateZ(-19px) rotateX(90deg); }
+@keyframes die-land {
+  from { transform: rotateX(-520deg) rotateY(430deg) scale(.6); }
+  62%  { transform: rotateX(-20deg) rotateY(16deg) scale(1.04); }
+  to   { transform: none; }
+}
+/* Doubles marks the dice themselves, not a rectangle behind them: a tilted cube
+   inside an axis-aligned ring reads as two objects. */
+.die.doubles .face {
+  border-color: var(--danger);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), inset 0 -3px 6px rgba(20, 22, 26, .13),
+              0 0 7px var(--danger-dim);
+}
 .math { font-family: var(--mono); font-size: .78rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .outcome { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; margin: .6rem 0 .4rem; }
 .outcome.success { color: var(--ok); }
@@ -630,7 +724,10 @@ details.framing .ask li { font-size: .89rem; margin-bottom: .15rem; }
   margin-bottom: .15rem;
 }
 
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+/* A pseudo-element is not matched by `*`, and the rain is one. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
 
 /* --- The guide ------------------------------------------------------------ */
 /* Loud enough to be read first and quiet enough to live on every screen: a

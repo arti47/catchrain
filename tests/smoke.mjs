@@ -1286,6 +1286,99 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8p. the table is drawn in three dimensions, and can be flattened
+// The five things the game draws were flat: a die was a printed face rather
+// than a cube that landed on one. Depth is drawn here, not imported — no
+// dependency, no build step — and it is one CSS transform away from off,
+// for a player who asked for less motion or wants the plain thing.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "mid-session");
+  const build = () => page.evaluate(async () => {
+    const ui = await import("../src/ui.js");
+    const host = document.querySelector("#screen");
+    const row = document.createElement("div");
+    row.className = "dice"; row.id = "probe-dice";
+    document.querySelector("#probe-dice")?.remove();
+    row.appendChild(ui.dieFace(4));
+    host.appendChild(row);
+  });
+  const read = () => page.evaluate(() => {
+    const die = document.querySelector("#probe-dice .die");
+    const cube = die.querySelector(".cube");
+    const faces = [...die.querySelectorAll(".face")];
+    const shown = faces.filter((f) => getComputedStyle(f).display !== "none");
+    const tumble = die.querySelector(".tumble");
+    return {
+      label: die.getAttribute("aria-label"),
+      faces: faces.length,
+      landed: cube ? cube.getAttribute("data-face") : null,
+      transform: cube ? getComputedStyle(cube).transform : "none",
+      shown: shown.map((f) => f.className.trim()),
+      pips: shown.length === 1 ? shown[0].querySelectorAll("i").length : null,
+      width: Math.round(die.getBoundingClientRect().width),
+      overflow: Math.round(die.getBoundingClientRect().width) > 44,
+      animation: tumble ? getComputedStyle(tumble).animationName : "none",
+    };
+  });
+
+  await build();
+  const on = await read();
+  if (on.faces !== 6) fail(`a die is drawn with ${on.faces} faces, not six`);
+  if (on.landed !== "4") fail(`the cube landed on ${on.landed}, not the 4 that was rolled`);
+  if (on.transform === "none") fail("the cube is not turned to the face that was rolled");
+  if (on.label !== "4") fail(`the die reads "${on.label}" to a screen reader`);
+  if (on.animation === "none") fail("a die appears rather than lands: no tumble");
+  if (on.overflow) fail(`a die projects to ${on.width}px and would overflow its row`);
+
+  // Flat, on request: one face, the one that was rolled, and nothing moving.
+  await page.evaluate(async () => {
+    const { Settings } = await import("../src/settings.js");
+    const { applyDepth } = await import("../src/screens.js");
+    Settings.set("depth", false); applyDepth();
+  });
+  await build();
+  const off = await read();
+  if (off.shown.length !== 1) fail(`flattened, the die still shows ${off.shown.length} faces`);
+  if (off.shown.length === 1 && !/\bf4\b/.test(off.shown[0])) fail(`flattened, the die shows ${off.shown[0]} instead of the 4 that was rolled`);
+  if (off.pips !== 4) fail(`flattened, the 4 face carries ${off.pips} pips`);
+  if (off.transform !== "none") fail("flattened, the die is still turned in space");
+  if (off.animation !== "none") fail("flattened, the die still tumbles");
+
+  // And the setting is in Settings, where the theme and the text size are.
+  await page.evaluate(async () => {
+    const { Settings } = await import("../src/settings.js");
+    const { applyDepth } = await import("../src/screens.js");
+    Settings.set("depth", true); applyDepth();
+  });
+  await page.goto(`${base}#/settings`);
+  await page.waitForTimeout(300);
+  const settings = await page.locator("#screen").innerText();
+  if (!/depth/i.test(settings)) fail("Settings never offers to flatten the app");
+  if (errors.length) fail(`console error around the dice: ${errors[0].slice(0, 140)}`);
+  await ctx.close();
+}
+
+// 8q. a player who asked for less motion gets none of it
+{
+  const c = await browser.newContext({ viewport: { width: 390, height: 780 }, reducedMotion: "reduce" });
+  const page = await c.newPage();
+  await seed(page, base, "mid-session");
+  const anim = await page.evaluate(async () => {
+    const ui = await import("../src/ui.js");
+    const row = document.createElement("div");
+    row.className = "dice";
+    row.appendChild(ui.dieFace(4));
+    document.querySelector("#screen").appendChild(row);
+    const t = row.querySelector(".tumble");
+    return { tumble: getComputedStyle(t).animationName, rain: getComputedStyle(document.body, "::after").animationName };
+  });
+  if (anim.tumble !== "none") fail(`reduced motion still tumbles the dice (${anim.tumble})`);
+  if (anim.rain !== "none") fail(`reduced motion still runs the rain (${anim.rain})`);
+  if (!failures.length) ok("the dice land as cubes, flatten on request, and stop for reduced motion");
+  await c.close();
+}
+
 // 9. a roll keeps your place on the screen
 {
   const { ctx, page, errors } = await newPage();

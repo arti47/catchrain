@@ -89,7 +89,7 @@ function renderOutcome(host, c, m) {
     explain("Each correct guess buys one answer, taken in order. Write the answers as true, then either start the next mystery or leave the case where it is."));
 
   add(host, section("The cards",
-    el("div", { class: "hand" }, ...m.setAside.map(cardFace)),
+    el("div", { class: "hand" }, ...m.setAside.map((card) => cardFace(card, { flip: true }))),
     ...(m.results || []).map((r, i) => row(`Guess ${i + 1}: ${r.guess.rank}${r.guess.suit}`,
       el("span", {}, r.correct ? pill("Correct", "ok") : pill(r.reason === "red herring" ? "Red herring" : "Wrong", "loss")))),
     row("Correct", `${correct} of 3`),

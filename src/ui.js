@@ -184,9 +184,14 @@ export const optionBtn = (label, onClick, selected) =>
 export const pill = (text, kind = "") => el("span", { class: `pill ${kind}`, text });
 
 const SUIT_PIP = { S: "\u2660", H: "\u2665", D: "\u2666", C: "\u2663" };
-/** One playing card, drawn as a card: corner index, suit pip, red suits in rust. */
-export const cardFace = (c) => el("span", {
-  class: `pcard ${c.suit === "H" || c.suit === "D" ? "red" : ""}`,
+/**
+ * One playing card, drawn as a card: corner index, suit pip, red suits in rust.
+ * `opts.flip` turns it over as it arrives, for the one moment the game turns a
+ * card over on purpose — the solve. The map callback passes an index here, so
+ * options are read defensively.
+ */
+export const cardFace = (c, opts) => el("span", {
+  class: `pcard ${c.suit === "H" || c.suit === "D" ? "red" : ""}${opts && opts.flip ? " flip" : ""}`,
   "aria-label": `${c.rank} of ${{ S: "spades", H: "hearts", D: "diamonds", C: "clubs" }[c.suit] || "?"}`,
 }, el("span", { class: "rank", text: c.rank }), el("span", { class: "pip", text: SUIT_PIP[c.suit] || "?" }));
 
@@ -194,10 +199,23 @@ export const cardFace = (c) => el("span", {
 const PIPS = {
   1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
 };
+const pipFace = (n) => {
+  const face = el("span", { class: `face f${n}` });
+  const on = new Set(PIPS[n] || []);
+  for (let i = 0; i < 9; i++) add(face, on.has(i) ? el("i") : el("span"));
+  return face;
+};
+/**
+ * A die as a die: six pip faces on a cube that tumbles and lands on the number
+ * that was rolled. The number itself is on the wrapper, so a screen reader —
+ * or a flattened app, or a player who asked for less motion — reads the result
+ * without any of the geometry. CSS does all of it; nothing is imported for it.
+ */
 export function dieFace(n, kind = "") {
   const die = el("span", { class: `die ${kind}`, role: "img", "aria-label": `${n}` });
-  const on = new Set(PIPS[n] || []);
-  for (let i = 0; i < 9; i++) add(die, on.has(i) ? el("i") : el("span"));
+  const cube = el("span", { class: "cube", "data-face": String(n), "aria-hidden": "true" });
+  for (let f = 1; f <= 6; f++) add(cube, pipFace(f));
+  add(die, el("span", { class: "tumble" }, cube));
   return die;
 }
 

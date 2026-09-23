@@ -15,6 +15,7 @@ const DEFAULTS = {
   autoOracle: true,         // offer an oracle prompt when a scene needs a detail
   sceneFraming: true,       // the book opens every scene by describing it, so this is on
   coach: true,              // the guide bar: what to do next, on every screen
+  depth: true,              // the drawn things have depth: dice land, cards turn, rain falls
 };
 
 let cache = null;

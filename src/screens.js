@@ -602,7 +602,11 @@ export function renderSettings(host) {
     defRow("Theme", el("div", { class: "btn-row" }, ...["system", "light", "dark"].map((t) =>
       optionBtn(t[0].toUpperCase() + t.slice(1), () => { Settings.set("theme", t); applyTheme(); rerender(); }, Settings.get("theme") === t)))),
     defRow("Text size", el("div", { class: "btn-row" }, ...[90, 100, 115, 130].map((sz) =>
-      optionBtn(`${sz}%`, () => { Settings.set("textScale", sz); applyTextScale(); rerender(); }, Settings.get("textScale") === sz))))));
+      optionBtn(`${sz}%`, () => { Settings.set("textScale", sz); applyTextScale(); rerender(); }, Settings.get("textScale") === sz)))),
+    defRow("Depth", el("div", {},
+      el("div", { class: "btn-row" }, ...[["On", true], ["Off", false]].map(([label, v]) =>
+        optionBtn(label, () => { Settings.set("depth", v); applyDepth(); rerender(); }, (Settings.get("depth") !== false) === v))),
+      el("small", { class: "muted", text: "Dice land as cubes, the solve turns its cards over, the dial is a disc and the night rain falls. Drawn by the stylesheet, so it costs no download; off is the plain thing. If your device already asks for less motion, nothing moves either way." })))));
 
   const blocked = R.blockedList();
   add(host, section(houseAidTitle("contentFilter"),
@@ -699,6 +703,7 @@ export function renderSettings(host) {
         Settings.reset();
         applyTheme();
         applyTextScale();
+        applyDepth();
         showToast("Everything erased.");
         go("home");
       }, "danger"))));
@@ -713,6 +718,16 @@ export function applyTheme() {
 }
 export function applyTextScale() {
   document.documentElement.style.setProperty("--scale", (Settings.get("textScale") || 100) / 100);
+}
+/**
+ * Depth is drawn by the stylesheet, so turning it off is one attribute: the
+ * dice stop tumbling and flatten to the face they landed on, cards stop
+ * turning over, the dial loses its dome and the night rain stops falling.
+ * A player who has asked the system for less motion gets that anyway.
+ */
+export function applyDepth() {
+  if (Settings.get("depth") === false) document.documentElement.setAttribute("data-depth", "off");
+  else document.documentElement.removeAttribute("data-depth");
 }
 let wakeLock = null;
 export async function applyWakeLock() {
