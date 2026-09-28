@@ -2,6 +2,7 @@
 
 import { el, add, clear } from "./core.js";
 import { coachBar } from "./coach.js";
+import { edgeFade, centreInScroller } from "./ui.js";
 
 const routes = new Map();
 /**
@@ -52,7 +53,10 @@ export function sectionNav(current) {
       "aria-current": name === current ? "page" : null,
     }, d.title, badges[name] ? el("span", { class: "dot", title: badges[name] }) : null));
   }
-  return nav;
+  // The row scrolls, so the pill you are on is the one the right edge cuts off
+  // unless it is asked for. Instant, because this is a first paint, not a move.
+  requestAnimationFrame(() => centreInScroller(nav, nav.querySelector('[aria-current="page"]')));
+  return edgeFade(nav);
 }
 
 export function renderTabs() {
@@ -89,16 +93,39 @@ export async function render() {
   // added later cannot quietly ship without it.
   add(host, coachBar(name));
   const out = await def.render(host);
+  pairHeading(host);
   if (out && out.action) {
     host.classList.add("has-action");
     add(actionHost, out.action[1]);
     add(host, out.action[0]);
   }
   renderTabs();
+  // A screen that changed arrives; one that re-rendered under you does not, or
+  // every roll would fade the page you are reading.
+  if (!sameScreen) {
+    host.classList.remove("arriving");
+    void host.offsetWidth;
+    host.classList.add("arriving");
+  }
   host.focus({ preventScroll: true });
   window.scrollTo(0, keepTo); // the browser clamps if the screen got shorter
   lastRoute = name;
   document.title = `${def.title} · Caught in the Rain`;
+}
+
+/**
+ * "What this screen does" is a note about the heading, not a band across the
+ * screen under it. Pairing them here rather than at twenty call sites means a
+ * screen written later cannot get it wrong, which is the same reason the guide
+ * lives in the router.
+ */
+function pairHeading(host) {
+  const h1 = host.querySelector(":scope > h1");
+  const note = h1 && h1.nextElementSibling;
+  if (!h1 || !note || !note.classList.contains("explain")) return;
+  const rowEl = el("div", { class: "heading-row" });
+  h1.replaceWith(rowEl);
+  add(rowEl, h1, note);
 }
 
 export function start() {

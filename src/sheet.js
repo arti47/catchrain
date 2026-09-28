@@ -6,13 +6,33 @@ import * as D from "./derived.js";
 import { Store } from "./store.js";
 import { rankName } from "./deck.js";
 import { Settings } from "./settings.js";
-import { section, row, defRow, btn, explain, promptModal, showToast, chooseModal, modal, actionBar } from "./ui.js";
+import { section, row, defRow, btn, edgeFade, explain, promptModal, showToast, chooseModal, modal, actionBar } from "./ui.js";
 import * as Roller from "./roller.js";
 import { eventList } from "./prompts.js";
 import { go } from "./router.js";
 import { saveSheets } from "./paper.js";
 
-const IN_PLAY = new Set(["home", "play", "sheet", "clues", "solve", "journal"]);
+const IN_PLAY = new Set(["home", "play", "sheet", "case-sheet", "clues", "solve", "journal"]);
+
+/**
+ * The numbers tuck away as you read down a screen and come back the moment you
+ * climb back up or one of them changes. They are what every choice is made on,
+ * so they are never gone for long — but four fixed bars was a third of a small
+ * phone spent on chrome while you were reading a page of fiction.
+ */
+let lastScrollY = 0;
+export function watchScroll() {
+  const host = document.querySelector("#resource-header");
+  if (!host) return;
+  addEventListener("scroll", () => {
+    const y = Math.max(0, window.scrollY);
+    const down = y > lastScrollY + 4;
+    const up = y < lastScrollY - 4;
+    if (down && y > 140) host.classList.add("tucked");
+    else if (up || y <= 140) host.classList.remove("tucked");
+    lastScrollY = y;
+  }, { passive: true });
+}
 
 /** Sticky under the app header: the numbers that decide every choice in the game. */
 export function renderResourceHeader(routeName) {
@@ -21,6 +41,8 @@ export function renderResourceHeader(routeName) {
   const c = Store.career, m = Store.mystery, inv = Store.investigator;
   if (!c || !m || !IN_PLAY.has(routeName)) { host.hidden = true; clear(host); return; }
   host.hidden = false;
+  // A number that just changed is a number worth looking at.
+  host.classList.remove("tucked");
   clear(host);
   const res = (label, value, kind = "", warn = false, meter = null) =>
     el("div", { class: `res ${kind} ${warn ? "warn" : ""}` },
@@ -37,11 +59,16 @@ export function renderResourceHeader(routeName) {
       : null,
     res("Danger", m.danger, "danger", band === "high" || band === "extreme", m.danger / 12),
     res("Fatigue", `${inv.fatigue}/${FATIGUE_BOXES}`, "loss", inv.fatigue >= 4, inv.fatigue / FATIGUE_BOXES),
-    res("Day", `${inv.day}·${inv.clock}/${CLOCK_SEGMENTS}`),
+    // The clock is drawn everywhere else in the app; spelling it out here was
+    // the one place the game's own dial turned back into a fraction.
+    el("div", { class: "res dialled" },
+      el("div", { class: "res-stack" }, el("b", { text: String(inv.day) }), el("span", { text: "day" })),
+      clockTrack(inv, 20)),
     res("Truths", `${m.truthRevealed.length}/${m.truthRevealed.length + m.truthDeck.length}`, "truth"),
     res("Clue deck", m.clueDeck.length, "", m.clueDeck.length <= 5),
     D.allAttributesStruck(inv) ? res("Struck", "all", "loss", true) : null,
   );
+  edgeFade(host);
 }
 
 const attrTile = (inv, a) => {

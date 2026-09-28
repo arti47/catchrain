@@ -12,7 +12,7 @@
   --panel-2:  #e9e5dd;
   --ink:      #1b1d21;
   --ink-2:    #5d6470;
-  --ink-3:    #8a919c;
+  --ink-3:    #6b7280;   /* 4.6:1 on --panel: it carries every small label */
   --line:     rgba(27, 29, 33, .13);
   --line-2:   rgba(27, 29, 33, .07);
 
@@ -46,6 +46,11 @@
   --scale: 1;
 }
 
+/* A forced theme has to tell the browser which one it is, or the scrollbars,
+   the date pickers and the form controls stay on the system setting. */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"]  { color-scheme: dark; }
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --paper:   #0b0e11;
@@ -53,7 +58,7 @@
     --panel-2: #1c232b;
     --ink:     #e8edf2;
     --ink-2:   #9aa6b4;
-    --ink-3:   #6c7784;
+    --ink-3:   #8b96a4;
     --line:    rgba(232, 237, 242, .12);
     --line-2:  rgba(232, 237, 242, .06);
 
@@ -80,7 +85,7 @@
   --panel-2: #1c232b;
   --ink:     #e8edf2;
   --ink-2:   #9aa6b4;
-  --ink-3:   #6c7784;
+  --ink-3:   #8b96a4;
   --line:    rgba(232, 237, 242, .12);
   --line-2:  rgba(232, 237, 242, .06);
   --accent:     #74b4d4;
@@ -109,7 +114,9 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
-  font-size: .95rem;
+  /* The same size as the fields you type into: a 15px app with 16px inputs is
+     a mismatch you can see on every screen that has both. */
+  font-size: 1rem;
   line-height: 1.5;
   letter-spacing: .005em;
   touch-action: manipulation;
@@ -171,12 +178,36 @@ body > * { position: relative; z-index: 1; }
 
 ::selection { background: var(--accent-dim); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+/* An accent ring on an accent fill is no ring: this one is drawn in the paper
+   first, so it reads on any button in either theme. */
+.btn.primary:focus-visible, .seg-opt:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--accent);
+}
 
 h1, h2 { font-family: var(--serif); font-weight: 600; letter-spacing: -.01em; line-height: 1.15; margin: 0 0 .5rem; }
+/* The heading and its note are one thing: the note is an affordance beside the
+   title, not a band across the screen under it. */
+.heading-row { display: flex; align-items: flex-start; gap: .4rem; margin-bottom: .85rem; }
+.heading-row h1 { margin: 0; flex: 1 1 auto; min-width: 0; }
+.heading-row .explain { margin: 0; border-left: 0; flex: 0 0 auto; }
+.heading-row .explain summary {
+  width: var(--tap); min-height: var(--tap); padding: 0;
+  justify-content: center;
+  border: 1px solid var(--line); border-radius: 999px;
+}
+.heading-row .explain summary::before { content: "?"; font-size: .95rem; opacity: 1; }
+.heading-row .explain[open] {
+  position: relative; flex: 1 0 100%; order: 3;
+  border-left: 2px solid var(--line); margin-top: .2rem;
+}
+.heading-row .explain[open] summary {
+  width: 100%; border: 0; border-radius: 0; justify-content: flex-start; padding: .5rem .7rem;
+}
 h1 { font-size: 1.45rem; }
 h2 { font-size: 1.15rem; }
 h3 {
-  font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .16em;
+  font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .14em;
   color: var(--ink-3); margin: 0 0 .6rem;
 }
 p { margin: 0 0 .6rem; }
@@ -188,17 +219,26 @@ a { color: var(--accent); text-underline-offset: 2px; }
 b, strong { font-weight: 650; }
 
 /* ------------------------------------------------------------ app frame */
+/* A home-screen install starts the document at the top of the screen, so the
+   header owes the status bar its own height. Everything sticky under it owes
+   the same, or the whole stack sits one notch too high. */
 .app-header {
-  position: sticky; top: 0; z-index: 30; height: var(--header);
+  position: sticky; top: 0; z-index: 30;
+  height: calc(var(--header) + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 var(--gutter);
+  padding-left: var(--gutter); padding-right: var(--gutter);
   background: var(--glass); backdrop-filter: saturate(140%) blur(12px);
   border-bottom: 1px solid var(--line);
 }
 .brand { display: flex; align-items: center; gap: .55rem; text-decoration: none; color: var(--ink); }
+/* A drop, in ink. It used to be a lit amber dot, which spent the one colour
+   that is supposed to mean danger and nothing else on the title bar. */
 .brand-mark {
-  width: 9px; height: 9px; border-radius: 50%; background: var(--danger);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent), 0 0 12px var(--danger);
+  width: 10px; height: 14px; background: var(--ink-2);
+  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+  transform: rotate(180deg);
+  opacity: .85;
 }
 .brand-name { font-family: var(--serif); font-size: 1rem; font-weight: 600; letter-spacing: .01em; }
 .header-tools { display: flex; gap: 2px; }
@@ -213,16 +253,37 @@ b, strong { font-weight: 650; }
 
 /* the numbers that decide every choice, sticky under the header */
 .resource-header {
-  position: sticky; top: var(--header); z-index: 29;
+  position: sticky; top: calc(var(--header) + env(safe-area-inset-top)); z-index: 29;
   background: var(--glass); backdrop-filter: saturate(140%) blur(12px);
   border-bottom: 1px solid var(--line);
   padding: .4rem var(--gutter) .45rem;
-  display: flex; gap: .55rem; overflow-x: auto; scrollbar-width: none;
+  display: flex; gap: .4rem; overflow-x: auto; scrollbar-width: none;
 }
 .resource-header::-webkit-scrollbar { display: none; }
+/* Tucked: it slides up behind the header. Its place in the flow is at the very
+   top of the document, which you have already scrolled past by the time this
+   can happen, so nothing below it moves. */
+.resource-header {
+  transition: transform .22s cubic-bezier(.3, .8, .3, 1);
+  will-change: transform;
+}
+.resource-header.tucked { transform: translateY(calc(-100% - var(--header))); }
+/* A row that scrolls says so at the edge it is cutting, and only there. */
+.fade-end {
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 22px), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 22px), transparent 100%);
+}
+.fade-start {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22px);
+  mask-image: linear-gradient(90deg, transparent 0, #000 22px);
+}
+.fade-start.fade-end {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+}
 .res {
-  flex: 0 0 auto; min-width: 58px; text-align: left; line-height: 1.1;
-  padding: .1rem .55rem .1rem 0; border-right: 1px solid var(--line-2);
+  flex: 0 0 auto; min-width: 0; text-align: left; line-height: 1.1;
+  padding: .1rem .4rem .1rem 0; border-right: 1px solid var(--line-2);
 }
 .res:last-child { border-right: 0; }
 .res b {
@@ -230,7 +291,7 @@ b, strong { font-weight: 650; }
   font-family: var(--serif); letter-spacing: 0;
 }
 .res span {
-  display: block; font-size: .58rem; text-transform: uppercase; letter-spacing: .14em;
+  display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .1em;
   color: var(--ink-3); margin-top: 1px;
 }
 .res.danger b { color: var(--danger); }
@@ -245,6 +306,12 @@ b, strong { font-weight: 650; }
   align-self: center; display: flex; flex-direction: column; justify-content: center;
 }
 .res.who b { color: var(--accent); font-size: .92rem; }
+/* Day and the dial read as one value: the number over its label, with the four
+   segments beside them. */
+.res.dialled { display: flex; align-items: center; gap: .35rem; flex-wrap: nowrap; }
+.res-stack { line-height: 1.1; }
+.res.dialled .clock { flex: 0 0 auto; }
+
 .res .meter {
   display: block; height: 2px; margin-top: 4px; border-radius: 2px;
   background: var(--line); overflow: hidden;
@@ -261,6 +328,12 @@ b, strong { font-weight: 650; }
   max-width: 680px; margin: 0 auto; outline: none;
 }
 .screen.has-action { padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 104px); }
+/* Anything the app scrolls to keeps clear of the bars at both ends, so a jump
+   never parks what you asked for underneath the tab bar or the header. */
+.screen > *, .screen .opt, .screen .table-row, .screen details.acc {
+  scroll-margin-top: calc(var(--header) + env(safe-area-inset-top) + 56px);
+  scroll-margin-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 84px);
+}
 
 .tab-bar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
@@ -271,7 +344,7 @@ b, strong { font-weight: 650; }
   position: relative; flex: 1; min-height: var(--tabbar);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   border: 0; background: none; color: var(--ink-3); text-decoration: none; cursor: pointer;
-  font-size: .62rem; letter-spacing: .06em; text-transform: uppercase;
+  font-size: .72rem; letter-spacing: .05em; text-transform: uppercase;
   transition: color .12s ease;
 }
 .tab[aria-current="page"] { color: var(--accent); }
@@ -301,8 +374,10 @@ b, strong { font-weight: 650; }
 /* -------------------------------------------------------- section nav */
 .section-nav {
   display: flex; gap: .4rem; overflow-x: auto; scrollbar-width: none;
-  margin: 0 0 1rem; padding-bottom: .1rem;
+  margin: 0 0 1rem; padding-bottom: .1rem; padding-right: 22px;
+  scroll-snap-type: x proximity;
 }
+.section-nav a { scroll-snap-align: center; }
 .section-nav::-webkit-scrollbar { display: none; }
 .section-nav a, .section-nav .section-step {
   flex: 0 0 auto; min-height: 40px; padding: .5rem .8rem;
@@ -324,6 +399,28 @@ b, strong { font-weight: 650; }
 .card {
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
   padding: .9rem 1rem; margin-bottom: .85rem; box-shadow: var(--shadow-1);
+}
+/* Warm paper by day, wet asphalt by night — and both of those are surfaces, not
+   fills. By day the panels take a little grain; by night they stop just short
+   of opaque, so the rain behind them keeps going instead of ending at an edge.
+   Both are off the moment the app is flattened. */
+:root:not([data-depth="off"]) .card,
+:root:not([data-depth="off"]) .modal-card {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E");
+  background-size: 120px 120px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-depth="off"]) .card {
+    background-color: color-mix(in srgb, var(--panel) 93%, transparent);
+    background-image: none;
+    backdrop-filter: blur(1px);
+  }
+}
+:root[data-theme="dark"]:not([data-depth="off"]) .card {
+  background-color: color-mix(in srgb, var(--panel) 93%, transparent);
+  background-image: none;
+  backdrop-filter: blur(1px);
 }
 .card-title { display: flex; align-items: center; gap: .5rem; }
 .card-title::after { content: ""; flex: 1; height: 1px; background: var(--line-2); }
@@ -351,12 +448,20 @@ b, strong { font-weight: 650; }
   transition: transform .08s ease, background .12s ease, border-color .12s ease, opacity .12s ease;
 }
 .btn:active:not([disabled]) { transform: translateY(1px); }
+/* A 50px bar does not read as pressed from one pixel of travel. */
+.btn.big:active:not([disabled]) { transform: scale(.985); box-shadow: var(--shadow-1); }
 .btn.primary {
   background: linear-gradient(180deg, color-mix(in srgb, var(--btn) 88%, white) 0%, var(--btn) 100%);
   color: var(--btn-ink); border-color: color-mix(in srgb, var(--btn) 60%, black);
   box-shadow: var(--shadow-1), inset 0 1px 0 rgba(255, 255, 255, .16);
 }
 .btn.primary:hover:not([disabled]) { background: color-mix(in srgb, var(--btn) 92%, white); }
+/* Picked, not pressed: the option you are on is marked, and blue stays the
+   colour of the one thing the screen is asking you to do. */
+.btn.chosen {
+  background: var(--accent-dim); color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent); font-weight: 700;
+}
 .btn.danger { background: transparent; color: var(--loss); border-color: color-mix(in srgb, var(--loss) 45%, transparent); }
 .btn.ghost { background: transparent; }
 .btn.ghost:hover:not([disabled]) { background: var(--panel-2); }
@@ -370,6 +475,28 @@ b, strong { font-weight: 650; }
 .btn-row { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .6rem; }
 .btn-row:first-child { margin-top: 0; }
 .btn-row .btn { flex: 1 1 auto; }
+
+/* A set of options, drawn as one control: one border around the lot, and the
+   chosen one carried on a single moving panel instead of four loose buttons. */
+.seg {
+  display: flex; padding: 3px; gap: 2px;
+  border: 1px solid var(--line); border-radius: var(--r); background: var(--panel-2);
+}
+.seg-opt {
+  flex: 1 1 0; min-width: 0; min-height: var(--tap); padding: .35rem .5rem;
+  border: 0; border-radius: calc(var(--r) - 4px); background: transparent;
+  color: var(--ink-2); font: inherit; font-size: .84rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background .14s ease, color .14s ease, box-shadow .14s ease;
+}
+.seg-opt.on {
+  background: var(--panel); color: var(--ink);
+  box-shadow: var(--shadow-1), inset 0 1px 0 rgba(255, 255, 255, .5);
+}
+.seg-opt:hover:not(.on) { color: var(--ink); }
+/* Four genres read as a block, not as three and a stray. */
+.seg.grid { display: grid; grid-template-columns: 1fr 1fr; }
+@media (min-width: 480px) { .seg.grid { grid-template-columns: repeat(4, 1fr); } }
 
 .pill {
   display: inline-flex; align-items: center; gap: .3rem;
@@ -391,9 +518,22 @@ b, strong { font-weight: 650; }
   text-transform: uppercase; letter-spacing: .12em; list-style: none;
 }
 .explain summary::-webkit-details-marker { display: none; }
-.explain summary::before { content: "?"; font-size: .7rem; opacity: .7; }
+.explain summary::before { content: "?"; font-size: .8rem; opacity: .7; }
+/* Read aloud, never drawn: a real label behind a drawn affordance. */
+.vh {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
 .explain[open] summary { color: var(--ink-2); }
 .explain p { padding: 0 .7rem .6rem; margin: 0; font-size: .86rem; color: var(--ink-2); }
+
+/* Three lines of it, and the rest on a tap: long enough to hold the premise,
+   short enough that it never pushes the scene off the screen. */
+.premise.clamp {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.premise.clamp.open { -webkit-line-clamp: unset; overflow: visible; }
 
 /* the sentence the whole mystery hangs on */
 .premise {
@@ -441,12 +581,15 @@ b, strong { font-weight: 650; }
   display: flex; flex-direction: column; justify-content: center; gap: .1rem;
 }
 .attr b { font-family: var(--serif); font-size: 1.75rem; font-weight: 600; line-height: 1; }
-.attr span { font-size: .6rem; text-transform: uppercase; letter-spacing: .14em; color: var(--ink-3); }
-.attr.struck { opacity: .5; }
+.attr span { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); }
+/* Struck is a mark through the number, not a fade: transparency on top of
+   muted ink is how a state ends up under the contrast floor. */
+.attr.struck { background: var(--loss-dim); border-color: color-mix(in srgb, var(--loss) 30%, transparent); }
 .attr.struck b { color: var(--loss); position: relative; }
+.attr.struck span { color: var(--loss); }
 .attr.struck::after {
   content: ""; position: absolute; left: 12%; right: 12%; top: 52%;
-  height: 2px; border-radius: 2px; background: var(--loss); opacity: .8;
+  height: 2px; border-radius: 2px; background: var(--loss);
   transform: rotate(-9deg);
 }
 
@@ -458,7 +601,10 @@ b, strong { font-weight: 650; }
   cursor: pointer; transition: border-color .12s ease, background .12s ease;
 }
 button.chip:hover { border-color: var(--accent); }
-.chip.struck { color: var(--ink-3); opacity: .55; text-decoration: line-through; text-decoration-thickness: 1px; }
+.chip.struck {
+  color: var(--ink-2); background: transparent; border-style: dashed;
+  text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: var(--loss);
+}
 .chip.signature { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-dim); }
 
 /* -------------------------------------------------------- playing cards */
@@ -498,14 +644,18 @@ button.chip:hover { border-color: var(--accent); }
 .clue-set.false { border-color: color-mix(in srgb, var(--loss) 40%, transparent); opacity: .72; }
 
 /* ------------------------------------------------------- scene, threats */
-.stages { display: flex; gap: .25rem; margin-bottom: .7rem; }
-.stage-step {
-  flex: 1 1 0; min-width: 0; padding: .4rem .15rem .35rem; border-radius: var(--r-sm);
-  background: var(--panel-2); border: 1px solid var(--line-2);
-  text-align: center; font-size: .6rem; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.stages {
+  display: flex; gap: .25rem; margin-bottom: .7rem;
+  overflow-x: auto; scrollbar-width: none; padding-right: 22px;
+  scroll-snap-type: x proximity;
 }
-@media (max-width: 359px) { .stage-step { font-size: .55rem; letter-spacing: .02em; } }
+.stages::-webkit-scrollbar { display: none; }
+.stage-step {
+  flex: 0 0 auto; padding: .4rem .6rem .35rem; border-radius: var(--r-sm);
+  background: var(--panel-2); border: 1px solid var(--line-2);
+  text-align: center; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--ink-3); white-space: nowrap; scroll-snap-align: center;
+}
 .stage-step.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 30%, transparent); }
 .stage-step.now {
   background: var(--accent); border-color: transparent; color: var(--accent-ink); font-weight: 700;
@@ -599,6 +749,15 @@ button.chip:hover { border-color: var(--accent); }
   border: 1px solid var(--line); background: var(--panel); color: var(--ink);
 }
 .input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-dim); }
+.field { position: relative; display: flex; }
+.field .input { padding-right: calc(var(--tap) + 2px); }
+.field-clear {
+  position: absolute; right: 0; top: 0; bottom: 0; width: var(--tap);
+  border: 0; background: none; color: var(--ink-3); font-size: 1.1rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.field-clear:hover { color: var(--ink); }
+.field-count { margin: .45rem 0 0; }
 textarea { min-height: 110px; line-height: 1.5; }
 label.opt {
   display: flex; align-items: center; gap: .7rem; min-height: var(--tap);
@@ -608,6 +767,30 @@ label.opt:last-child { border-bottom: 0; }
 label.opt input[type="checkbox"], label.opt input[type="radio"] {
   width: 20px; height: 20px; flex: 0 0 auto; accent-color: var(--accent);
 }
+/* A flag reads better as a switch than as a tick, and the whole row is already
+   its target. The input stays: it is what a keyboard and a screen reader use. */
+label.opt.switch { gap: .8rem; }
+label.opt.switch input[type="checkbox"] {
+  position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
+}
+label.opt.switch .opt-text { order: 1; }
+.switch-track {
+  order: 2; flex: 0 0 auto; position: relative; width: 44px; height: 26px;
+  border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line);
+  box-shadow: inset 0 1px 3px rgba(20, 22, 26, .12);
+  transition: background .16s ease, border-color .16s ease;
+}
+.switch-track::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px;
+  border-radius: 50%; background: var(--panel);
+  box-shadow: 0 1px 2px rgba(20, 22, 26, .35);
+  transition: transform .16s cubic-bezier(.3, .8, .3, 1);
+}
+label.opt.switch input:checked ~ .switch-track {
+  background: var(--accent); border-color: color-mix(in srgb, var(--accent) 70%, black);
+}
+label.opt.switch input:checked ~ .switch-track::after { transform: translateX(18px); }
+label.opt.switch input:focus-visible ~ .switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
 label.opt .opt-text { flex: 1; font-size: .9rem; font-weight: 600; }
 label.opt .opt-text small { display: block; color: var(--ink-2); font-weight: 400; font-size: .8rem; margin-top: .1rem; }
 
@@ -619,6 +802,17 @@ label.opt .opt-text small { display: block; color: var(--ink-2); font-weight: 40
   display: flex; align-items: flex-end; justify-content: center;
 }
 @media (min-width: 560px) { .modal-overlay { align-items: center; } }
+@keyframes modal-rise {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+:root:not([data-depth="off"]) .modal-card { animation: modal-rise .16s cubic-bezier(.2, .8, .3, 1) both; }
+:root:not([data-depth="off"]) .screen.arriving { animation: screen-in .13s ease-out both; }
+
 .modal-card {
   width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg);
@@ -640,6 +834,28 @@ label.opt .opt-text small { display: block; color: var(--ink-2); font-weight: 40
 .choice[aria-disabled="true"] { opacity: .5; }
 .choice-label { display: block; font-weight: 650; font-size: .92rem; }
 .choice-note { display: block; font-size: .8rem; color: var(--ink-2); margin-top: .1rem; }
+
+/* A screen that runs for thousands of pixels needs a way back that is not a
+   swipe marathon. It appears only once you are far enough down to want it. */
+.to-top {
+  position: fixed; right: var(--gutter); z-index: 27;
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 14px);
+  width: var(--tap); height: var(--tap); border-radius: 999px;
+  border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(10px);
+  color: var(--ink-2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-2);
+  opacity: 0; transform: translateY(8px); pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.to-top.show { opacity: 1; transform: none; pointer-events: auto; }
+.screen.has-action ~ #action-host + .to-top,
+body:has(.action-bar) .to-top { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 76px); }
+.to-top::before {
+  content: ""; width: 9px; height: 9px; margin-top: 3px;
+  border-left: 1.6px solid currentColor; border-top: 1.6px solid currentColor;
+  transform: rotate(45deg);
+}
 
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%) translateY(150%);
@@ -761,6 +977,23 @@ details.framing .ask li { font-size: .89rem; margin-bottom: .15rem; }
   margin: 8px 0 0;
   font-size: .82rem;
   color: var(--ink-2);
+}
+/* One line, on the screens you came to in order to look something up. */
+.coach.compact { padding: 0; }
+.coach-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: var(--tap); padding: .5rem .8rem;
+  border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+}
+.coach-line {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--serif); font-size: .95rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.coach-chevron {
+  flex: 0 0 auto; width: 8px; height: 8px; margin-right: 2px;
+  border-right: 1.5px solid var(--ink-3); border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(45deg); transform-origin: 60% 60%;
 }
 .coach-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .coach-row .btn { min-height: 44px; }

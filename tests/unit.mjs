@@ -738,4 +738,72 @@ await test("old saves normalize without crashing", () => {
   assert(Array.isArray(Store.career.journal), "journal back-filled");
 });
 
+// --- The frame ----------------------------------------------------------------
+// A notched phone in standalone mode starts the document at the top of the
+// screen: without a top inset the header sits under the status bar, and
+// everything sticky under it is off by the same amount.
+const { readFileSync } = await import("node:fs");
+const CSS = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+const SHEET_SRC = readFileSync(new URL("../src/sheet.js", import.meta.url), "utf8");
+
+await test("the colour that means danger is spent on danger", () => {
+  const mark = CSS.match(/\.brand-mark \{[^}]*\}/s);
+  assert(mark, "the brand mark has no rule");
+  assert(!/--danger/.test(mark[0]), "the title bar spends the danger colour on decoration");
+});
+
+await test("the frame answers the notch at the top, not only at the bottom", () => {
+  const header = CSS.match(/\.app-header \{[^}]*\}/s);
+  assert(header && /env\(safe-area-inset-top\)/.test(header[0]), "the app header takes no top inset");
+  const res = CSS.match(/\.resource-header \{[^}]*\}/s);
+  assert(res && /env\(safe-area-inset-top\)/.test(res[0]), "what sticks under the header does not allow for the inset");
+});
+
+await test("a forced theme tells the browser chrome and the widgets which one it is", () => {
+  assert(/:root\[data-theme="dark"\][^{]*\{[^}]*color-scheme:\s*dark/s.test(CSS), "a forced dark theme leaves UA widgets on the system setting");
+  assert(/:root\[data-theme="light"\][^{]*\{[^}]*color-scheme:\s*light/s.test(CSS), "a forced light theme leaves UA widgets on the system setting");
+});
+
+await test("the numbers follow every screen that is in play", () => {
+  const line = SHEET_SRC.match(/const IN_PLAY = new Set\(\[([^\]]*)\]\)/);
+  assert(line, "IN_PLAY is not a set any more");
+  for (const r of ["home", "play", "sheet", "clues", "solve", "journal", "case-sheet"])
+    assert(line[1].includes(`"${r}"`), `${r} shows the case but not its numbers`);
+});
+
+// --- Installing it ------------------------------------------------------------
+const MANIFEST = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
+const WORKER = readFileSync(new URL("../service-worker.js", import.meta.url), "utf8");
+const INDEX = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+
+await test("a maskable icon has a safe zone of its own", () => {
+  const any = MANIFEST.icons.filter((i) => (i.purpose || "any").split(/\s+/).includes("any"));
+  const masked = MANIFEST.icons.filter((i) => (i.purpose || "").split(/\s+/).includes("maskable"));
+  assert(any.length, "no plain icon at all");
+  assert(masked.length, "nothing declared maskable");
+  for (const m of masked)
+    assert(!any.some((a) => a.src === m.src), `${m.src} is declared both any and maskable, so the art gets cropped`);
+});
+
+await test("every file the manifest names is a file the worker caches", () => {
+  for (const i of MANIFEST.icons) {
+    const path = "./" + i.src.replace(/^\.?\//, "");
+    assert(WORKER.includes(`"${path}"`), `${i.src} is in the manifest and not in the shell`);
+  }
+});
+
+await test("the install offers the places you actually start from", () => {
+  assert(Array.isArray(MANIFEST.shortcuts) && MANIFEST.shortcuts.length >= 2, "the manifest has no shortcuts");
+  for (const sc of MANIFEST.shortcuts) {
+    assert(sc.name && sc.url, "a shortcut with no name or no url");
+    assert(sc.url.includes("#/"), `${sc.name} does not point at a route`);
+  }
+  assert(Array.isArray(MANIFEST.display_override), "no display_override");
+});
+
+await test("an iOS home-screen install is told what it is", () => {
+  assert(/apple-mobile-web-app-capable/.test(INDEX), "iOS is never told this is a standalone app");
+  assert(/apple-mobile-web-app-status-bar-style/.test(INDEX), "iOS has no status bar style, so the notch is painted white");
+});
+
 process.exit(report() ? 0 : 1);

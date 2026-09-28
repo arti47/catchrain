@@ -11,7 +11,7 @@ import { RULES_LIBRARY } from "./library.js";
 import { resetDrafts, expressStart } from "./wizard.js";
 import { recapCard } from "./coach.js";
 import { Updates } from "./updates.js";
-import { section, row, defRow, btn, optionBtn, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState } from "./ui.js";
+import { section, row, defRow, btn, seg, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState } from "./ui.js";
 import { go } from "./router.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());
@@ -154,9 +154,11 @@ export function renderTables(host) {
   add(host, el("h1", { text: "Tables" }),
     explain("Every d66 table in the book, in the order you reach for them: the genre tables and the oracles you roll every scene, then the ones you roll once a mystery or once an investigator. Rolling here changes nothing in your game — it just hands you a word."));
 
-  const resultHost = el("div", { class: "card" }, el("p", { class: "muted small", text: "Roll a table and the result lands here." }));
+  // An empty card holding a place is a card in the way until it is used.
+  const resultHost = el("div", { class: "card", hidden: true });
   add(host, resultHost);
   const showRoll = (name, r) => {
+    resultHost.hidden = false;
     resultHost.replaceChildren(
       el("h3", { text: name }),
       el("p", { class: "mono", text: `d66 ${r.code} — ${r.value}` }),
@@ -166,7 +168,12 @@ export function renderTables(host) {
   };
 
   const search = el("input", { class: "input", type: "search", placeholder: "Search every table", "aria-label": "Search every table" });
-  add(host, section("Find a row", search));
+  const count = el("p", { class: "small muted field-count", hidden: true });
+  const clearBtn = el("button", {
+    class: "field-clear", type: "button", "aria-label": "Clear the search", hidden: true,
+    onclick: () => { search.value = ""; filter(); search.focus(); },
+  }, el("span", { "aria-hidden": "true" }, "\u00d7"));
+  add(host, section("Find a row", el("div", { class: "field" }, search, clearBtn), count));
 
   const tableBlock = (name, table) => {
     const det = el("details", { class: "acc" });
@@ -174,26 +181,28 @@ export function renderTables(host) {
     const grid = el("div", { class: "table-grid" });
     table.forEach((v, i) => add(grid, el("div", { class: "table-row", dataset: { value: v.toLowerCase() } },
       el("span", { class: "code", text: d66Code(i) }), el("span", { text: v }))));
-    add(body, el("div", { class: "btn-row" }, btn("Roll 1d66", () => showRoll(name, R.rollTable(table)), "primary")), grid);
+    add(body, el("div", { class: "btn-row" }, btn("Roll 1d66", () => showRoll(name, R.rollTable(table)))), grid);
     add(det, el("summary", {}, name, " ", el("span", { class: "pill", text: "36" })), body);
     return det;
   };
 
   const genreWrap = el("div", {});
-  const genreBtns = el("div", { class: "btn-row" }, ...DATA.GENRE_IDS.map((g) =>
-    optionBtn(DATA.GENRES[g].name, () => { current = g; paint(); }, g === genreId)));
   let current = genreId;
+  const genreBtns = el("div", { class: "seg-host" });
+  const paintGenres = () => genreBtns.replaceChildren(
+    (() => {
+      const g = seg(DATA.GENRE_IDS.map((id) => ({ value: id, label: DATA.GENRES[id].name })), current,
+        (id) => { current = id; paint(); }, "Genre");
+      g.classList.add("grid");
+      return g;
+    })());
   const paint = () => {
     genreWrap.replaceChildren();
     for (const kind of DATA.TABLE_KINDS) {
       const label = kind[0].toUpperCase() + kind.slice(1);
       add(genreWrap, tableBlock(`${DATA.GENRES[current].name} · ${label}`, DATA.GENRES[current][kind]));
     }
-    for (const b of genreBtns.children) {
-      const on = b.textContent === DATA.GENRES[current].name;
-      b.className = `btn ${on ? "primary" : "ghost"}`;
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-    }
+    paintGenres();
     filter();
   };
   add(host, section("Genre tables", genreBtns, genreWrap));
@@ -213,6 +222,7 @@ export function renderTables(host) {
 
   function filter() {
     const q = search.value.trim().toLowerCase();
+    let found = 0, tables = 0;
     for (const det of host.querySelectorAll("details.acc")) {
       let hits = 0;
       for (const rowEl of det.querySelectorAll(".table-row")) {
@@ -222,7 +232,13 @@ export function renderTables(host) {
       }
       det.open = q ? hits > 0 : false;
       det.hidden = !!q && hits === 0;
+      if (hits) { found += hits; tables++; }
     }
+    clearBtn.hidden = !q;
+    count.hidden = !q;
+    count.textContent = q
+      ? (found ? `${found} row${found === 1 ? "" : "s"} in ${tables} table${tables === 1 ? "" : "s"}.` : "Nothing matches that.")
+      : "";
   }
   search.addEventListener("input", filter);
   paint();
@@ -234,9 +250,10 @@ export function renderOracle(host) {
   add(host, el("h1", { text: "Oracles" }),
     explain("Ask the game a question. Closed questions (“is anyone watching?”) go to the yes/no oracle; open ones (“what are they doing?”) get two or three words to interpret. Nothing here touches your mystery's state."));
 
-  const out = el("div", { class: "card" }, el("p", { class: "muted small", text: "Answers land here." }));
-  const history = el("div", { class: "card" }, el("h3", { text: "Recent" }));
+  const out = el("div", { class: "card", hidden: true });
+  const history = el("div", { class: "card", hidden: true }, el("h3", { text: "Recent" }));
   const remember = (text) => {
+    history.hidden = false;
     const line = el("p", { class: "small", text });
     history.insertBefore(line, history.children[1] || null);
     while (history.children.length > 9) history.lastChild.remove();
@@ -250,18 +267,20 @@ export function renderOracle(host) {
     el("p", { class: "small muted", text: "1d6. Extreme answers exaggerate the result rather than just answering it." }),
     btn("Ask", () => {
       const r = R.rollYesNo();
+      out.hidden = false;
       out.replaceChildren(el("h3", { text: "Yes or no" }), el("p", { class: "mono", text: `d6 ${r.die} — ${r.row.name}` }));
       remember(`Yes/no: ${r.row.name} (${r.die})`);
     }, "primary")));
 
   add(host, section("Subject oracle",
     el("div", { class: "btn-row" },
-      btn("Two words", () => ask(false), "primary"),
+      btn("Two words", () => ask(false)),
       btn("Three words", () => ask(true)))));
 
   function ask(withFocus) {
     const s = R.rollSubject(withFocus);
     const words = R.subjectWords(s);
+    out.hidden = false;
     out.replaceChildren(el("h3", { text: "Subject oracle" }),
       el("p", { class: "mono", text: words.join("  ·  ") }),
       el("p", { class: "small muted", text: [s.action && `action ${s.action.code}`, s.descriptor && `descriptor ${s.descriptor.code}`, s.focus && `focus ${s.focus.code}`].filter(Boolean).join(" · ") }));
@@ -382,11 +401,14 @@ export function renderJournal(host) {
   };
   paint();
 
-  const views = el("div", { class: "btn-row" }, ...[["story", "Story"], ["all", "Everything"], ["rolls", "Rolls"]].map(([id, label]) =>
-    optionBtn(label, () => { view = id; page = 0; paint(); }, view === id)));
+  const views = el("div", { class: "seg-host" });
+  const paintViews = () => views.replaceChildren(
+    seg([{ value: "story", label: "Story" }, { value: "all", label: "Everything" }, { value: "rolls", label: "Rolls" }],
+      view, (id) => { view = id; page = 0; paintViews(); paint(); }, "How to read it"));
+  paintViews();
   add(host, section("How to read it", views,
     el("p", { class: "small muted", text: "Story is the case as it happened, oldest first: what you wrote and what the game answered back. Everything adds the machinery; Rolls is the dice alone." }),
-    el("div", { class: "btn-row" }, btn("Save the story as text", () => saveStory(c), "primary"))));
+    el("div", { class: "btn-row" }, btn("Save the story as text", () => saveStory(c)))));
 
   // House aid (§4), not a rule: the book's oracles make words and you make
   // the people out of them, and nothing in the game remembers who they were.
@@ -431,7 +453,7 @@ export function renderJournal(host) {
       const note = await promptModal({ title: name, message: "One line: what they are to the case.", multiline: true });
       Store.update("remember someone", () => { c.cast.push({ id: uid(), name, note: note || "" }); });
       paintCast();
-    }, "primary")));
+    })));
   add(host, ways);
 
   const log = c.rollLog.slice().reverse().slice(0, 40);
@@ -594,18 +616,18 @@ export function renderSettings(host) {
   for (const t of TOGGLES) {
     const input = el("input", { type: "checkbox", checked: Settings.get(t.key) ? true : null,
       onchange: (e) => { Settings.set(t.key, e.target.checked); if (t.key === "wakeLock") applyWakeLock(); rerender(); } });
-    add(toggles, el("label", { class: "opt" }, input, el("span", { class: "opt-text" }, t.name, el("small", { text: t.text }))));
+    add(toggles, el("label", { class: "opt switch" }, input, el("span", { class: "opt-text" }, t.name, el("small", { text: t.text })), el("span", { class: "switch-track", "aria-hidden": "true" })));
   }
   add(host, section("Rules and play", toggles));
 
   add(host, section("Appearance",
-    defRow("Theme", el("div", { class: "btn-row" }, ...["system", "light", "dark"].map((t) =>
-      optionBtn(t[0].toUpperCase() + t.slice(1), () => { Settings.set("theme", t); applyTheme(); rerender(); }, Settings.get("theme") === t)))),
-    defRow("Text size", el("div", { class: "btn-row" }, ...[90, 100, 115, 130].map((sz) =>
-      optionBtn(`${sz}%`, () => { Settings.set("textScale", sz); applyTextScale(); rerender(); }, Settings.get("textScale") === sz)))),
+    defRow("Theme", seg(["system", "light", "dark"].map((t) => ({ value: t, label: t[0].toUpperCase() + t.slice(1) })),
+      Settings.get("theme"), (t) => { Settings.set("theme", t); applyTheme(); rerender(); }, "Theme")),
+    defRow("Text size", seg([90, 100, 115, 130].map((sz) => ({ value: sz, label: `${sz}%` })),
+      Settings.get("textScale"), (sz) => { Settings.set("textScale", sz); applyTextScale(); rerender(); }, "Text size")),
     defRow("Depth", el("div", {},
-      el("div", { class: "btn-row" }, ...[["On", true], ["Off", false]].map(([label, v]) =>
-        optionBtn(label, () => { Settings.set("depth", v); applyDepth(); rerender(); }, (Settings.get("depth") !== false) === v))),
+      seg([{ value: true, label: "On" }, { value: false, label: "Off" }],
+        Settings.get("depth") !== false, (v) => { Settings.set("depth", v); applyDepth(); rerender(); }, "Depth"),
       el("small", { class: "muted", text: "Dice land as cubes, the solve turns its cards over, the dial is a disc and the night rain falls. Drawn by the stylesheet, so it costs no download; off is the plain thing. If your device already asks for less motion, nothing moves either way." })))));
 
   const blocked = R.blockedList();
@@ -715,6 +737,18 @@ export function applyTheme() {
   const t = Settings.get("theme");
   if (t === "system") document.documentElement.removeAttribute("data-theme");
   else document.documentElement.setAttribute("data-theme", t);
+  paintBrowserChrome();
+}
+/**
+ * The status bar and the browser's own chrome are painted from a meta tag, not
+ * from the stylesheet, so a light app under a dark status bar is the default
+ * unless the tag is kept in step with what the page is actually showing.
+ */
+export function paintBrowserChrome() {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  const paper = getComputedStyle(document.body).backgroundColor;
+  if (paper) meta.setAttribute("content", paper);
 }
 export function applyTextScale() {
   document.documentElement.style.setProperty("--scale", (Settings.get("textScale") || 100) / 100);

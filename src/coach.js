@@ -6,7 +6,7 @@
 // press now, and what will it cost me? Every sentence here is derived, never
 // canned: if the state changes the sentence changes, so it cannot go stale.
 
-import { el, add } from "./core.js";
+import { el, add, clear } from "./core.js";
 import { FATIGUE_BOXES, CLOCK_SEGMENTS, DECK, SCENE_TYPES } from "../data.js";
 import * as R from "./rules.js";
 import * as D from "./derived.js";
@@ -196,20 +196,46 @@ export function recapCard() {
  * looking at, it says so rather than growing a duplicate of it: one button ever
  * does one thing, which is also the only way the audit stays honest.
  */
+/**
+ * Where the guide is a card and where it is a line. On the surfaces the game is
+ * played on it is the first thing you read; on the ones you go to in order to
+ * look something up it is one line, because a step about a scene you are not in
+ * is not worth 40% of the screen.
+ */
+const PLAY_SURFACES = new Set(["home", "sheet", "case-sheet", "play", "clues", "solve", "wizard", "mystery"]);
+/** Opened on a reference screen, it stays open as long as the app is open. */
+let openedOnReference = false;
+
 export function coachBar(currentRoute) {
   if (!Settings.get("coach")) return null;
   const step = nextStep(currentRoute);
   const here = step.route === currentRoute;
   const wrap = el("div", { class: `coach ${step.tone || ""}`.trim(), role: "status" });
-  add(wrap,
-    el("p", { class: "coach-say" }, el("span", { class: "coach-mark", "aria-hidden": "true" }, "›"), el("span", { text: step.say })),
-    step.warn ? el("p", { class: "coach-warn", text: step.warn }) : null,
-    here
-      ? el("p", { class: "coach-here", text: `Press “${step.press}” on this screen.` })
-      : null);
-  add(wrap, el("div", { class: "coach-row" },
-    here ? null : btn(step.press ? `Go: ${step.press}` : "Take me there", () => go(step.route), "primary"),
-    btn("Why?", () => explainStep(step), "ghost")));
+  const full = () => {
+    wrap.classList.remove("compact");
+    clear(wrap);
+    add(wrap,
+      el("p", { class: "coach-say" }, el("span", { class: "coach-mark", "aria-hidden": "true" }, "›"), el("span", { text: step.say })),
+      step.warn ? el("p", { class: "coach-warn", text: step.warn }) : null,
+      here
+        ? el("p", { class: "coach-here", text: `Press \u201c${step.press}” on this screen.` })
+        : null);
+    add(wrap, el("div", { class: "coach-row" },
+      here ? null : btn(step.press ? `Go: ${step.press}` : "Take me there", () => go(step.route), "primary"),
+      btn("Why?", () => explainStep(step), "ghost")));
+  };
+  const line = () => {
+    wrap.classList.add("compact");
+    clear(wrap);
+    add(wrap, el("button", {
+      class: "coach-toggle", type: "button", "aria-expanded": "false",
+      "aria-label": `Next step: ${step.say}. Open the guide`,
+      onclick: () => { openedOnReference = true; full(); },
+    }, el("span", { class: "coach-mark", "aria-hidden": "true" }, "›"),
+       el("span", { class: "coach-line", text: step.say }),
+       el("span", { class: "coach-chevron", "aria-hidden": "true" })));
+  };
+  if (PLAY_SURFACES.has(currentRoute) || openedOnReference) full(); else line();
   return wrap;
 }
 

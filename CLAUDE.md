@@ -61,6 +61,13 @@ later work does not re-open them.
     surface nobody plays on: the game is read, not watched. The depth that is
     there is one setting away from off, and already off for anyone whose device
     asks for less motion.
+12. **The zoom stays locked.** `user-scalable=no, maximum-scale=1` fails WCAG
+    1.4.4 and is kept anyway, deliberately: the app is played one-handed over a
+    scene that takes minutes, and a stray pinch rescaling the page mid-roll
+    costs more than the zoom buys. The text-size control (90–130%) is the
+    answer instead, and it is in Settings rather than behind a gesture. iOS has
+    ignored the attribute since iOS 10, so this is a decision about Android and
+    desktop only.
 
 ### 1.2 Template scope deliberately omitted
 
@@ -256,7 +263,39 @@ the fatigue boxes sit in a well. All of it is CSS transforms and gradients —
 nothing is imported for it, nothing is downloaded, and the lighting is achromatic
 so the colour budget still goes to meaning. `Settings.depth` flattens the lot in
 one attribute, and a device that asks for less motion gets it without asking.
-`npm run shots` renders every main screen in both themes for eyes-on review.
+The panels are surfaces rather than fills — grain by day, and by night they stop
+just short of opaque so the rain behind them carries on instead of ending at an
+edge — dialogs and screens arrive rather than appear, and the same one setting
+stops all of it. `npm run shots` renders every main screen in both themes for
+eyes-on review.
+
+**The floor under the look.** Colour that carries meaning is spent on meaning
+only, so the title bar is an ink drop rather than a lit amber dot. `--ink-3`
+carries every small label in the app and is held at 4.5:1 or better in both
+themes; nothing load-bearing is drawn under 11px; a struck attribute or keyword
+is marked rather than faded, because transparency over muted ink is how a state
+ends up under the floor; and body copy is the size of the fields you type into.
+A forced theme re-declares `color-scheme` and repaints the `theme-color` meta,
+or the browser’s own chrome stays on the system setting. The frame answers the
+notch at the top as well as the bottom: a home-screen install starts the
+document at the top of the screen, so `.app-header` takes `env(safe-area-inset-top)`
+and everything sticky under it allows for the same.
+
+**One primary per screen, and one control per set of options.** Blue means the
+thing the screen is asking you to do; an option you have picked is marked, not
+painted as an action (`ui.seg`, a radiogroup; `.btn.chosen` for the rest).
+Feature flags are switches whose whole row is the target. A row that scrolls
+sideways — the numbers, the section nav, the stage rail — scrolls the item you
+are on into its own middle (`ui.centreInScroller`, never `scrollIntoView`, which
+would drag the page with it) and fades only the edge it is actually cutting.
+
+**The guide is a card where you play and a line where you read.** Full on the
+surfaces the game is played on; one tappable line on the ones you go to in order
+to look something up, opened for as long as the app is open. The numbers tuck
+away as you scroll into a page of reading and come back the moment you scroll up
+or one of them changes, so four fixed bars are not a third of a small phone.
+"What this screen does" is a `?` beside the heading, paired there by the router
+so a screen written later cannot get it wrong.
 
 **An installed app has to be told.** A home-screen install is resumed from the
 app switcher, not loaded, so nothing looks for a new version unless the app
@@ -288,8 +327,8 @@ in the README rather than hidden behind an encoding.
 | `styles.css` | Theme tokens (light + dark) and every component style |
 | `data.js` | The whole rules library: 34 d66 tables, 6 resolution tables, every constant. Extracted content only |
 | `data-house.js` | The two house aids and the `HOUSE_AID` flag — everything the app invented, kept out of `data.js` (§4) |
-| `manifest.json`, `service-worker.js`, `icon.svg` | PWA |
-| `tests/` | Harnesses, probes (layout, flow, screenshots), the seed fixtures, and `routes.mjs` — the route list read out of `main.js` so no harness keeps its own copy (dev only) |
+| `manifest.json`, `service-worker.js`, `icon.svg`, `icon-maskable.svg` | PWA. Two icons, because one file declared `any maskable` is cropped by the launcher that masks it |
+| `tests/` | Harnesses, probes (layout, flow, screenshots), the seed fixtures, `routes.mjs` — the route list read out of `main.js` — and `controls.mjs`, the one list of what counts as a tap target, so no harness keeps its own copy of either (dev only) |
 | `.playtest/` | The playtest driver, the seeded session runner and the transcript renderer: controls pressed by their printed labels, whole sessions from creation to a closed case, solo and co-op, app dice and typed, and the record laid out as a PDF to read (dev only) |
 | `docs/rules/` | The distilled rules, one file per subsystem — what the audit reads against the engine |
 | `docs/AUDIT.md` | Numbered findings, pass by pass, plus the verified-clean list |
@@ -559,6 +598,7 @@ this whole document exists to prevent.
 
 | Date | Change | Verification | Cache |
 |---|---|---|---|
+| 2026-09-28 | A UX and UI audit of the whole app, and the 37 things it found, fixed. **The frame:** a home-screen install put its header under the status bar (no `env(safe-area-inset-top)` against a `viewport-fit=cover` viewport); the section nav never scrolled the pill you were on into view, so the tab you were reading was the one the right edge cut off; `--ink-3` carried every small label in the app at 3.0:1 by day and 3.9:1 by night; those labels were 9–11px; struck states were opacity on top of muted ink; a forced theme left `color-scheme` and the `theme-color` meta on the system setting; the numbers followed five of the six screens that show a case. **The hierarchy:** the guide was the same full card on all fifteen routes — 40% of the first viewport on Tables and Settings, where it talks about a scene you are not in — and it pushed the stage rail, the one piece of state a scene turns on, below the fold on Play; the premise sat behind a closed accordion mid-scene; "What this screen does" was a band across every screen rather than a `?` beside its heading; four fixed bars were a third of a small phone. **The controls:** blue meant both "the action this screen wants" and "the option you picked", so Journal had four primaries and Tables seventeen; option sets were loose button rows, now one segmented radiogroup each; feature flags are switches; the table search can be emptied and says what it found; a focused primary had an accent ring on an accent fill; screens thousands of pixels long had no way back to the top. **The surface:** the body read at 15.2px against 16px fields; the clock was spelled out in the header while its dial sat two screens away; panels were flat fills, and now take grain by day and stop short of opaque by night so the rain carries on behind them; dialogs and screens arrive rather than appear; all of it rides `Settings.depth`. **Installing it:** one SVG declared `any maskable`, which the launcher that masks it crops — there are two now — plus shortcuts, `display_override` and the iOS standalone meta. And the title bar is an ink drop, because the amber dot spent the one colour that is supposed to mean danger. Two things found while fixing the rest: the layout probe's list of what counts as a tap target was hand-kept, so the new 38px segmented control measured as 44px and passed — `tests/controls.mjs` now holds that list once, the way `routes.mjs` holds the routes — and centring a scrolled row with `scrollIntoView` drags every ancestor with it, which threw the page back to the top on any re-render below the fold. | six smoke blocks and seven unit invariants, all watched failing; layout probe 15 routes, 0 overflow at 320/360/390, 44px floor; interaction, walk, scan, deploy path; guided and solo playtests; eyes-on in both themes | citr-v17 |
 | 2026-09-23 | Depth, drawn rather than imported. A die is a cube now: six pip faces, tumbled and landed on the number rolled, lit from the upper left and marked on its own faces when it comes up doubles; the solve turns its three set-aside cards over; the clock is a disc with a dome rather than a pie chart; the fatigue boxes sit in a well; and the night rain falls, one composited layer translating by exactly one tile of its own gradient so the loop is seamless. All CSS transforms and gradients — no dependency, no build step, nothing to download, and the lighting achromatic so colour still means what it meant. `Settings.depth` takes every bit of it away in one attribute, and building it found the reduced-motion rule matching `*` but not `*::before`/`*::after`, so the rain would have kept falling for the one player who had asked it to stop. Recorded as product decision 11: a WebGL library would have been the app's first dependency, its first build step and a megabyte of cache, to animate a table nobody looks at. | two smoke blocks, both watched failing (the second caught the pseudo-element gap); layout probe clean at 320/360/390; interaction, walk, scan, deploy path; guided and solo playtests; eyes-on in both themes, on the screen and inside a result dialog | citr-v16 |
 | 2026-09-20 | Data library and engine: 34 d66 tables, both decks, tests, consequences, lifecycle, career storage with undo. | 38 unit invariants | citr-v1 |
 | 2026-09-20 | The app: 14 routes, both wizards, the scene loop, clues, the solve, tables, library, tutorial, journal, settings. Fixed a toast that swallowed taps, `[hidden]` losing to `display:flex`, and a choice dialog that resolved its cancel path before the chosen value. | smoke clean at 320/360/390 | citr-v1 |

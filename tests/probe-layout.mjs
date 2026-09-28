@@ -7,6 +7,7 @@ import { serve, launch, seed } from "./server.mjs";
 const FIXTURE = process.argv[2] || "stress";
 const WIDTH = Number(process.argv[3] || 390);
 import { ROUTES } from "./routes.mjs";
+import { TAPPABLE } from "./controls.mjs";
 
 const { server, port } = await serve();
 const browser = await launch(chromium);
@@ -19,10 +20,10 @@ const rows = [];
 for (const route of ROUTES) {
   await page.goto(`${base}#/${route}`);
   await page.waitForTimeout(120);
-  rows.push(await page.evaluate((route) => {
+  rows.push(await page.evaluate(([route, TAPPABLE]) => {
     const vh = window.innerHeight;
     const bar = document.querySelector(".action-bar .btn");
-    const controls = document.querySelectorAll("#screen .btn, #screen .choice, #screen summary, #screen label.opt, #screen .chip, #screen .box");
+    const controls = document.querySelectorAll(TAPPABLE);
     let smallest = Infinity;
     for (const c of controls) {
       const r = c.getBoundingClientRect();
@@ -37,7 +38,7 @@ for (const route of ROUTES) {
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       textNodes: document.querySelector("#screen").innerText.length,
     };
-  }, route));
+  }, [route, TAPPABLE]));
 }
 
 console.log(`fixture=${FIXTURE} width=${WIDTH}px viewport=780px\n`);

@@ -151,7 +151,10 @@ export function dismissActionToast() {
 /** The per-screen "what this does" note: collapsed by default, two to four sentences. */
 export function explain(text) {
   const d = el("details", { class: "explain" });
-  add(d, el("summary", { text: "What this screen does" }), el("p", { text }));
+  // The label is the accessible name; the "?" is what is drawn. Zeroing the
+  // type instead would have put a 0px label in the app, which is the one thing
+  // the size floor exists to stop.
+  add(d, el("summary", {}, el("span", { class: "vh", text: "What this screen does" })), el("p", { text }));
   return d;
 }
 
@@ -177,9 +180,39 @@ export const defRow = (label, value) =>
 export const btn = (label, onClick, kind = "ghost", attrs = {}) =>
   el("button", { class: `btn ${kind}`, type: "button", onclick: onClick, ...attrs }, label);
 
-/** One option out of a set: the chosen one is pressed, for screen readers and for the audit. */
+/**
+ * One option out of a set. Chosen is not the same as primary: blue means the
+ * action this screen wants from you, and if it also means "this is the one you
+ * picked" then a screen with three of them has no primary at all.
+ */
 export const optionBtn = (label, onClick, selected) =>
-  btn(label, onClick, selected ? "primary" : "ghost", { "aria-pressed": selected ? "true" : "false" });
+  btn(label, onClick, selected ? "chosen" : "ghost", { "aria-pressed": selected ? "true" : "false" });
+
+/**
+ * A set of options drawn as one control rather than a row of buttons: one
+ * border, one moving indicator, and a radiogroup underneath so it is one stop
+ * for a keyboard and one announcement for a screen reader.
+ */
+export function seg(items, current, onPick, label) {
+  const group = el("div", { class: "seg", role: "radiogroup", "aria-label": label || null });
+  for (const it of items) {
+    const on = it.value === current;
+    add(group, el("button", {
+      class: `seg-opt ${on ? "on" : ""}`.trim(), type: "button",
+      role: "radio", "aria-checked": on ? "true" : "false",
+      tabindex: on ? "0" : "-1",
+      onclick: () => onPick(it.value),
+      onkeydown: (e) => {
+        const dir = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+        if (!dir) return;
+        e.preventDefault();
+        const i = items.findIndex((x) => x.value === current);
+        onPick(items[(i + dir + items.length) % items.length].value);
+      },
+    }, it.label));
+  }
+  return group;
+}
 
 export const pill = (text, kind = "") => el("span", { class: `pill ${kind}`, text });
 
@@ -217,6 +250,51 @@ export function dieFace(n, kind = "") {
   for (let f = 1; f <= 6; f++) add(cube, pipFace(f));
   add(die, el("span", { class: "tumble" }, cube));
   return die;
+}
+
+/**
+ * Back to the top of a long screen. One button for the whole app, shown only
+ * once you are far enough down to want it, so it never sits on a short screen.
+ */
+/**
+ * A row that scrolls sideways fades at whichever edge it is actually cutting,
+ * and nowhere else: a fade at the start when there is nothing before it reads
+ * as a fault rather than as an affordance.
+ */
+/**
+ * Bring a child into the middle of its own scroller by moving that scroller,
+ * never the page. `scrollIntoView` also scrolls every ancestor, so calling it
+ * on a nav that has scrolled off the top drags the whole document up with it —
+ * which is how a roll mid-scene threw the screen back to the top.
+ */
+export function centreInScroller(box, child) {
+  if (!box || !child) return;
+  const room = box.scrollWidth - box.clientWidth;
+  if (room <= 1) return;
+  const want = child.offsetLeft - (box.clientWidth - child.offsetWidth) / 2;
+  box.scrollLeft = Math.max(0, Math.min(room, want));
+}
+
+export function edgeFade(node) {
+  if (!node) return node;
+  const paint = () => {
+    const room = node.scrollWidth - node.clientWidth;
+    node.classList.toggle("fade-start", room > 1 && node.scrollLeft > 2);
+    node.classList.toggle("fade-end", room > 1 && node.scrollLeft < room - 2);
+  };
+  node.addEventListener("scroll", paint, { passive: true });
+  requestAnimationFrame(paint);
+  requestAnimationFrame(() => requestAnimationFrame(paint));
+  return node;
+}
+
+export function installBackToTop() {
+  const b = el("button", { class: "to-top", type: "button", "aria-label": "Back to the top",
+    onclick: () => window.scrollTo({ top: 0, behavior: "smooth" }) });
+  document.body.append(b);
+  const paint = () => b.classList.toggle("show", window.scrollY > 900);
+  addEventListener("scroll", paint, { passive: true });
+  paint();
 }
 
 export const emptyState = (text, actionLabel, onAction) =>

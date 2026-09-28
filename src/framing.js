@@ -38,7 +38,7 @@ export function framingCard(scene, opts = {}) {
       Store.update("set the scene", () => { scene.framing = text; });
       if (text) Store.journal("scene", text, { framing: true });
       rerender();
-    }, written ? "ghost" : "primary"),
+    }, "ghost"),
     btn("Ask the oracle", () => {
       const words = R.subjectWords(R.rollSubject(true));
       oracle.textContent = words.join("  ·  ");

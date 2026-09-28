@@ -9,6 +9,39 @@
   "background_color": "#101418",
   "theme_color": "#101418",
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "shortcuts": [
+    {
+      "name": "Back to the case",
+      "short_name": "The case",
+      "url": "./index.html#/home"
+    },
+    {
+      "name": "Play a scene",
+      "short_name": "Play",
+      "url": "./index.html#/play"
+    },
+    {
+      "name": "Ask an oracle",
+      "short_name": "Oracles",
+      "url": "./index.html#/oracle"
+    }
   ]
 }

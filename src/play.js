@@ -17,7 +17,7 @@ import { recapCard } from "./coach.js";
 import { SCENE_FRAMING } from "../data.js";
 const SCENE_FRAMING_NOTE = SCENE_FRAMING.note;
 import { go } from "./router.js";
-import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace } from "./ui.js";
+import { section, row, btn, pill, edgeFade, centreInScroller, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace } from "./ui.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());
 
@@ -526,10 +526,16 @@ function problemBlock(m, inScene) {
     row("Danger", el("span", { class: `pill ${m.danger >= 6 ? "danger" : ""}`, text: String(m.danger) })),
   ];
   if (!inScene) return section("The problem", el("p", { class: "premise", text: R.problemText(m) }), ...rows);
+  // Mid-scene the numbers fold away, but the sentence the mystery hangs on
+  // stays on the page: a premise behind a closed accordion is not a premise.
   const fold = el("details", { class: "acc" });
-  add(fold, el("summary", { text: "The problem" }),
-    el("div", { class: "acc-body" }, el("p", { class: "premise", text: R.problemText(m) }), ...rows));
-  return fold;
+  add(fold, el("summary", { text: "Danger and the rest of it" }),
+    el("div", { class: "acc-body" }, ...rows));
+  const line = el("p", { class: "premise clamp", text: R.problemText(m), tabindex: "0", role: "button",
+    "aria-label": "The problem. Tap to read all of it",
+    onclick: () => line.classList.toggle("open"),
+    onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); line.classList.toggle("open"); } } });
+  return section("The problem", line, fold);
 }
 
 /** Why a scene type cannot be taken right now, or null when it can. */
@@ -595,7 +601,12 @@ function renderInvestigation(host, m, scene) {
     const idx = order.indexOf(id), now = idx === scene.index;
     add(rail, el("div", { class: `stage-step ${now ? "now" : idx < scene.index ? "done" : ""}`, text: R.stage(id).name }));
   }
-  add(host, section("Stages", rail,
+  // The rail scrolls, so the stage you are in is the one it is scrolled to.
+  edgeFade(rail);
+  requestAnimationFrame(() => centreInScroller(rail, rail.querySelector(".stage-step.now")));
+  // Where you are in the scene is the state the whole screen turns on, so it
+  // goes above the guide rather than below it and the framing card both.
+  host.prepend(section("Stages", rail,
     el("p", { class: "small muted", text: R.stage(scene.stage).note }),
     scene.forceEscape ? el("p", { class: "small", text: "The track filled — you are running for the door." }) : null));
 

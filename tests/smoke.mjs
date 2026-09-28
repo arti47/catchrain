@@ -4,6 +4,7 @@ import { chromium } from "playwright-core";
 import { serve, launch, seed } from "./server.mjs";
 
 import { ROUTES } from "./routes.mjs";
+import { TAPPABLE_ALL } from "./controls.mjs";
 const WIDTHS = [320, 360, 390];
 let failures = [];
 const fail = (m) => { failures.push(m); console.log("  FAIL " + m); };
@@ -104,9 +105,9 @@ for (const width of WIDTHS) {
   for (const route of ROUTES) {
     await page.goto(`${base}#/${route}`);
     await page.waitForTimeout(60);
-    const hits = await page.evaluate(() => {
+    const hits = await page.evaluate((sel) => {
       const bad = [];
-      for (const n of document.querySelectorAll("#screen .btn, #screen .chip, #screen .box, #screen label.opt, #screen .section-nav a, .tab")) {
+      for (const n of document.querySelectorAll(sel)) {
         const r = n.getBoundingClientRect();
         if (r.width === 0 && r.height === 0) continue;
         if (Math.min(r.width, r.height) < 24) bad.push(`${n.className}:${Math.round(r.width)}x${Math.round(r.height)}`);
@@ -115,7 +116,7 @@ for (const width of WIDTHS) {
         if (parseFloat(getComputedStyle(i).fontSize) < 16) bad.push(`input font ${getComputedStyle(i).fontSize}`);
       }
       return bad;
-    });
+    }, TAPPABLE_ALL);
     if (hits.length) small.push(`${route}: ${hits.slice(0, 3).join(", ")}`);
   }
   if (small.length) fail("small targets — " + small.join(" | "));
@@ -411,16 +412,19 @@ for (const width of WIDTHS) {
     await page.reload();
   };
 
-  // Mid-scene the premise folds away; between scenes it is a card again.
+  // Mid-scene the premise stays readable and its numbers fold away; between
+  // scenes the whole block is a card again.
   await seed(page, base, "mid-session");
   await page.goto(`${base}#/play`);
   await page.waitForTimeout(180);
   const folded = await page.evaluate(() => {
-    const d = [...document.querySelectorAll("#screen details")].find((n) => /The problem/.test(n.querySelector("summary").textContent));
-    return d ? { open: d.open } : null;
+    const line = document.querySelector("#screen .premise.clamp");
+    const d = [...document.querySelectorAll("#screen .acc")].find((n) => /Danger/.test(n.querySelector("summary").textContent));
+    return { premise: line ? line.innerText.trim().length : 0, fold: d ? { open: d.open } : null };
   });
-  if (!folded) fail("mid-scene the premise is not folded away");
-  else if (folded.open) fail("the premise fold starts open mid-scene");
+  if (!folded.premise) fail("mid-scene the premise is not on the page at all");
+  if (!folded.fold) fail("mid-scene the premise block does not fold its numbers away");
+  else if (folded.fold.open) fail("the numbers fold starts open mid-scene");
 
   await patch("(c) => { c.mystery.scene = null; c.mystery.threats = []; }");
   await page.goto(`${base}#/play`);
@@ -908,13 +912,20 @@ for (const width of WIDTHS) {
   const toggle = page.locator("#screen .opt", { hasText: "Guide me" }).first();
   if (!(await toggle.count())) fail("the guide has no setting");
   else {
-    await toggle.locator("input").uncheck();
+    await toggle.evaluate((n) => n.scrollIntoView({ block: "center" }));
+    await page.waitForTimeout(150);
+    await toggle.locator(".switch-track").click();
     await page.goto(`${base}#/play`);
     await page.waitForTimeout(250);
     if (await page.locator(".coach").count()) fail("turning the guide off leaves it on the screen");
     await page.goto(`${base}#/settings`);
     await page.waitForTimeout(200);
-    await page.locator("#screen .opt", { hasText: "Guide me" }).first().locator("input").check();
+    const guideRow = page.locator("#screen .opt", { hasText: "Guide me" }).first();
+    if (!(await guideRow.locator("input").isChecked())) {
+      await guideRow.evaluate((n) => n.scrollIntoView({ block: "center" }));
+      await page.waitForTimeout(150);
+      await guideRow.locator(".switch-track").click();
+    }
   }
   if (errors.length) fail(`console error around the guide: ${errors[0].slice(0, 140)}`);
   if (!failures.length) ok("the guide deals you in, names the real button, and changes with the state");
@@ -1377,6 +1388,399 @@ for (const width of WIDTHS) {
   if (anim.rain !== "none") fail(`reduced motion still runs the rain (${anim.rain})`);
   if (!failures.length) ok("the dice land as cubes, flatten on request, and stop for reduced motion");
   await c.close();
+}
+
+// 8r. the frame reads: contrast, size, and nothing cut off
+// The section nav never scrolled its current pill into view, so the tab you
+// were on was the one clipped by the right edge. --ink-3 carried every small
+// uppercase label in the app at under 3:1, and those labels were 9-11px.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress");
+
+  const rgbOf = (c) => {
+    const hex = c.trim().match(/^#([0-9a-f]{6})$/i);
+    if (hex) return [0, 2, 4].map((i) => parseInt(hex[1].slice(i, i + 2), 16));
+    return c.match(/[\d.]+/g).slice(0, 3).map(Number);
+  };
+  const lum = (rgb) => {
+    const [r, g, b] = rgbOf(rgb).map((v) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a, b) => {
+    const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+    return (x + 0.05) / (y + 0.05);
+  };
+
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(async (t) => {
+      const { Settings } = await import("../src/settings.js");
+      const { applyTheme } = await import("../src/screens.js");
+      Settings.set("theme", t); applyTheme();
+    }, theme);
+    await page.goto(`${base}#/sheet`);
+    await page.waitForTimeout(250);
+    const tone = await page.evaluate(() => {
+      const cs = getComputedStyle(document.documentElement);
+      const probe = document.createElement("div");
+      probe.style.cssText = "color:var(--ink-3);background:var(--panel)";
+      document.body.append(probe);
+      const got = { ink3: getComputedStyle(probe).color, panel: getComputedStyle(probe).backgroundColor };
+      probe.remove();
+      return { ...got, scheme: cs.colorScheme };
+    });
+    const r = ratio(tone.ink3, tone.panel);
+    if (r < 4.5) fail(`${theme}: --ink-3 on --panel is ${r.toFixed(2)}:1, under the 4.5 AA floor`);
+    if (!tone.scheme.startsWith(theme)) fail(`${theme}: color-scheme reads "${tone.scheme}", so UA widgets follow the system instead`);
+    const meta = await page.getAttribute('meta[name="theme-color"]', "content");
+    const paper = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    if (ratio(meta, paper) > 1.6) fail(`${theme}: the browser chrome is painted ${meta} over a ${paper} app`);
+  }
+
+  // Nothing load-bearing is drawn under 11px.
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(300);
+  const small = await page.evaluate(() => {
+    const out = [];
+    for (const sel of [".res span", ".stage-step", ".tab", "h3", ".explain summary"]) {
+      const node = document.querySelector(sel);
+      if (node) out.push([sel, parseFloat(getComputedStyle(node).fontSize)]);
+    }
+    return out;
+  });
+  for (const [sel, px] of small) if (px < 11) fail(`${sel} is drawn at ${px}px, under the 11px floor`);
+
+  // The pill you are on is the one you can see.
+  for (const route of ["settings", "journal", "case-sheet"]) {
+    await page.goto(`${base}#/${route}`);
+    await page.waitForTimeout(300);
+    const cut = await page.evaluate(() => {
+      const nav = document.querySelector(".section-nav");
+      const here = nav && nav.querySelector('[aria-current="page"]');
+      if (!here) return null;
+      const n = nav.getBoundingClientRect(), h = here.getBoundingClientRect();
+      return { over: Math.round(Math.max(0, h.right - n.right) + Math.max(0, n.left - h.left)) };
+    });
+    if (cut && cut.over > 1) fail(`${route}: the pill you are on is cut off by ${cut.over}px`);
+  }
+
+  // A struck attribute is marked, not faded out of contrast.
+  await page.goto(`${base}#/sheet`);
+  await page.waitForTimeout(300);
+  const struck = await page.evaluate(() => {
+    const a = document.querySelector(".attr.struck");
+    return a ? { opacity: parseFloat(getComputedStyle(a).opacity), text: a.innerText.trim() } : null;
+  });
+  if (struck && struck.opacity < 0.95) fail(`a struck attribute is drawn at ${struck.opacity} opacity, on top of muted ink`);
+
+  if (errors.length) fail(`console error in the frame: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("the frame reads: AA contrast, an 11px floor, and the pill you are on in view");
+  await ctx.close();
+}
+
+// 8s. what is on top of a screen is what that screen is for
+// The guide was the same full card on all fifteen routes, so on Tables or
+// Settings it was 40% of the first viewport saying something about a scene you
+// were not looking at — and on Play it pushed the stage rail, the one piece of
+// state a scene turns on, below the fold.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress");
+
+  const shape = async (route) => {
+    await page.goto(`${base}#/${route}`);
+    await page.waitForTimeout(320);
+    return page.evaluate(() => {
+      const coach = document.querySelector(".coach");
+      const rail = document.querySelector(".stages");
+      const h1 = document.querySelector("#screen h1");
+      const box = (n) => (n ? Math.round(n.getBoundingClientRect().height) : 0);
+      const top = (n) => (n ? Math.round(n.getBoundingClientRect().top) : -1);
+      return {
+        coach: box(coach), compact: coach ? coach.classList.contains("compact") : null,
+        expandable: !!(coach && coach.querySelector(".coach-toggle")),
+        rail: top(rail), h1: top(h1), viewport: window.innerHeight,
+        explainInline: !!document.querySelector("#screen .heading-row .explain"),
+      };
+    });
+  };
+
+  // On a play surface the guide is a card, and the stage rail is above the fold.
+  const play = await shape("play");
+  if (play.compact) fail("the guide is collapsed on the play screen, where a first-timer needs it");
+  if (play.rail < 0) fail("the play screen has no stage rail");
+  else if (play.rail > play.viewport - 80) fail(`the stage rail starts at ${play.rail}px of a ${play.viewport}px screen`);
+
+  // On a reference screen it is one line, and it opens on request.
+  for (const route of ["tables", "settings", "rules", "careers"]) {
+    const ref = await shape(route);
+    if (!ref.compact) fail(`${route}: the guide is still the full card`);
+    if (!ref.expandable) fail(`${route}: the collapsed guide cannot be opened`);
+    if (ref.coach > 76) fail(`${route}: the collapsed guide is ${ref.coach}px tall`);
+  }
+
+  // Opening it gives back the whole thing, and it stays open while you are there.
+  await page.goto(`${base}#/tables`);
+  await page.waitForTimeout(300);
+  await page.locator(".coach-toggle").click();
+  await page.waitForTimeout(250);
+  const opened = await page.evaluate(() => {
+    const c = document.querySelector(".coach");
+    return { compact: c.classList.contains("compact"), why: !!c.querySelector(".coach-row .btn") };
+  });
+  if (opened.compact) fail("opening the collapsed guide did not open it");
+  if (!opened.why) fail("the opened guide does not carry its buttons");
+
+  // "What this screen does" is an affordance beside the heading, not a band under it.
+  const heading = await shape("journal");
+  if (!heading.explainInline) fail("the what-this-does note is still a full-width band under the heading");
+
+  if (errors.length) fail(`console error around the guide: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("the guide is a card where you play and a line where you read; the rail is above the fold");
+  await ctx.close();
+}
+
+// 8t. the numbers get out of the way of the reading
+// Header, numbers, action bar and tab bar together took about a third of a
+// small phone. The numbers go when you scroll into the text and come back the
+// moment you scroll up or one of them changes.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress");
+  await page.goto(`${base}#/journal`);
+  await page.waitForTimeout(350);
+  const hidden = await page.evaluate(async () => {
+    const h = document.querySelector("#resource-header");
+    const before = h.getBoundingClientRect().top;
+    window.scrollTo(0, 600);
+    await new Promise((r) => setTimeout(r, 420));
+    const away = h.getBoundingClientRect().bottom <= 60 || h.classList.contains("tucked");
+    window.scrollTo(0, 240);
+    await new Promise((r) => setTimeout(r, 420));
+    const back = !h.classList.contains("tucked");
+    return { before, away, back };
+  });
+  if (!hidden.away) fail("the numbers stay put when you scroll down into the reading");
+  if (!hidden.back) fail("the numbers do not come back when you scroll up");
+
+  // A premise you cannot read is not a premise: it shows without being opened.
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(350);
+  const premise = await page.evaluate(() => {
+    const n = [...document.querySelectorAll("#screen .premise, #screen .clamp")].find((x) => x.innerText.trim().length > 20);
+    return n ? { text: n.innerText.trim().slice(0, 40), visible: n.getBoundingClientRect().height > 0 } : null;
+  });
+  if (!premise || !premise.visible) fail("the premise is behind a closed accordion on the play screen");
+
+  if (errors.length) fail(`console error around the chrome: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("the numbers tuck away as you read and come back as you climb, and the premise is on the page");
+  await ctx.close();
+}
+
+// 8u. one primary, one control, one way back up
+// Blue was doing two jobs: the action you are meant to take, and whichever
+// option of a set was selected. A screen with three blue buttons has none.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress");
+
+  for (const route of ["journal", "oracle", "settings", "tables", "clues", "play"]) {
+    await page.goto(`${base}#/${route}`);
+    await page.waitForTimeout(320);
+    const primaries = await page.evaluate(() =>
+      [...document.querySelectorAll("#screen .btn.primary, #action-host .btn.primary")]
+        .filter((b) => !b.closest(".coach"))
+        .map((b) => b.innerText.replace(/\s+/g, " ").trim()));
+    if (primaries.length > 1) fail(`${route}: ${primaries.length} primary buttons — ${primaries.join(" / ")}`);
+  }
+
+  // A set of options is one control, not a row of buttons that look like actions.
+  await page.goto(`${base}#/settings`);
+  await page.waitForTimeout(320);
+  const segs = await page.evaluate(() => {
+    const out = [];
+    for (const seg of document.querySelectorAll("#screen .seg")) {
+      const opts = [...seg.querySelectorAll("[role='radio']")];
+      out.push({
+        count: opts.length,
+        checked: opts.filter((o) => o.getAttribute("aria-checked") === "true").length,
+        primary: opts.filter((o) => o.classList.contains("primary")).length,
+        role: seg.getAttribute("role"),
+      });
+    }
+    return out;
+  });
+  if (!segs.length) fail("Settings still lays its option sets out as loose buttons");
+  for (const g of segs) {
+    if (g.role !== "radiogroup") fail(`a segmented control is a ${g.role}, not a radiogroup`);
+    if (g.checked !== 1) fail(`a segmented control has ${g.checked} options marked as chosen`);
+    if (g.primary) fail("a segmented control still paints its chosen option as a primary action");
+  }
+
+  // A feature flag is a switch, and the whole row is its target.
+  const flags = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll("#screen label.opt")];
+    return { rows: rows.length, switches: rows.filter((r) => r.classList.contains("switch")).length };
+  });
+  if (!flags.rows) fail("Settings has no toggle rows at all");
+  if (flags.switches !== flags.rows) fail(`${flags.rows - flags.switches} of ${flags.rows} toggles are still bare checkboxes`);
+
+  // Long screens can be climbed without a swipe marathon.
+  await page.goto(`${base}#/rules`);
+  await page.waitForTimeout(320);
+  const top = await page.evaluate(async () => {
+    window.scrollTo(0, 2000);
+    await new Promise((r) => setTimeout(r, 360));
+    const b = document.querySelector(".to-top");
+    if (!b) return null;
+    const shown = getComputedStyle(b).opacity !== "0" && b.getBoundingClientRect().width > 0;
+    b.click();
+    await new Promise((r) => setTimeout(r, 1200));
+    return { shown, y: Math.round(window.scrollY) };
+  });
+  if (!top) fail("a screen thousands of pixels long has no way back to the top");
+  else {
+    if (!top.shown) fail("the back-to-top control never appears");
+    if (top.y > 4) fail(`back to the top left the page at ${top.y}px`);
+  }
+
+  // The search can be emptied without selecting the text by hand.
+  await page.goto(`${base}#/tables`);
+  await page.waitForTimeout(320);
+  await page.locator("#screen input[type='search'], #screen .input").first().fill("morgue");
+  await page.waitForTimeout(260);
+  const search = await page.evaluate(() => {
+    const clear = document.querySelector("#screen .field-clear");
+    const count = document.querySelector("#screen .field-count");
+    return { clear: !!clear, count: count ? count.innerText.trim() : null };
+  });
+  if (!search.clear) fail("the table search cannot be cleared in one tap");
+  if (!search.count) fail("the table search never says how many rows it found");
+
+  // The focus ring has to be visible on the button it is most often on.
+  const ring = await page.evaluate(() => {
+    const b = document.querySelector(".action-bar .btn.primary") || document.querySelector(".btn.primary");
+    if (!b) return null;
+    b.focus();
+    const cs = getComputedStyle(b);
+    return { color: cs.outlineColor, width: cs.outlineWidth, shadow: cs.boxShadow };
+  });
+  if (ring && !/0px 0px 0px 2px|inset/.test(ring.shadow || "")) fail("a focused primary button has no ring that survives its own fill");
+
+  if (errors.length) fail(`console error around the controls: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("one primary per screen, option sets are one control, and a long screen can be climbed");
+  await ctx.close();
+}
+
+// 8v. the surface: paper by day, weather by night, and the dial in the header
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress");
+
+  // The clock is the game's own icon and it already exists. The header drew it
+  // as "3/4" while the drawn dial sat two screens away on the sheet.
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(320);
+  const head = await page.evaluate(() => {
+    const dial = document.querySelector("#resource-header .clock svg");
+    const text = document.querySelector("#resource-header").innerText;
+    return { dial: !!dial, text };
+  });
+  if (!head.dial) fail("the header still spells the clock out instead of drawing it");
+
+  // Body copy and the fields the player types into are the same size.
+  const sizes = await page.evaluate(() => ({
+    body: parseFloat(getComputedStyle(document.body).fontSize),
+    input: (() => { const i = document.createElement("input"); i.className = "input"; document.body.append(i);
+      const px = parseFloat(getComputedStyle(i).fontSize); i.remove(); return px; })(),
+  }));
+  if (sizes.body < 15.9) fail(`body copy is ${sizes.body}px against ${sizes.input}px fields`);
+
+  // Night: the weather passes behind the paper rather than stopping at its edge.
+  for (const [theme, want] of [["dark", true], ["light", false]]) {
+    await page.evaluate(async (t) => {
+      const { Settings } = await import("../src/settings.js");
+      const { applyTheme, applyDepth } = await import("../src/screens.js");
+      Settings.set("theme", t); Settings.set("depth", true); applyTheme(); applyDepth();
+    }, theme);
+    await page.waitForTimeout(220);
+    const surface = await page.evaluate(() => {
+      const card = document.querySelector("#screen .card");
+      const cs = getComputedStyle(card);
+      const alpha = (cs.backgroundColor.match(/[\d.]+/g) || [])[3];
+      return { alpha: alpha === undefined ? 1 : Number(alpha), image: cs.backgroundImage };
+    });
+    if (want && surface.alpha >= 0.99) fail("at night the cards are solid, so the rain stops at their edge");
+    if (!want && surface.image === "none") fail("by day the paper has no grain at all");
+  }
+
+  // And one attribute takes the whole surface away again.
+  await page.evaluate(async () => {
+    const { Settings } = await import("../src/settings.js");
+    const { applyDepth } = await import("../src/screens.js");
+    Settings.set("depth", false); applyDepth();
+  });
+  await page.waitForTimeout(200);
+  const flat = await page.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector("#screen .card"));
+    const alpha = (cs.backgroundColor.match(/[\d.]+/g) || [])[3];
+    return { alpha: alpha === undefined ? 1 : Number(alpha), image: cs.backgroundImage };
+  });
+  if (flat.alpha < 0.99 || flat.image !== "none") fail("flattened, the cards keep their grain and their translucency");
+
+  if (errors.length) fail(`console error around the surface: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("the dial is in the header, the body reads at field size, and the surface is paper or weather");
+  await ctx.close();
+}
+
+// 8w. things arrive rather than appear, and stop when asked
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress");
+  await page.evaluate(async () => {
+    const { Settings } = await import("../src/settings.js");
+    const { applyDepth } = await import("../src/screens.js");
+    Settings.set("depth", true); applyDepth();
+  });
+  await page.goto(`${base}#/tables`);
+  await page.waitForTimeout(300);
+  const moves = await page.evaluate(async () => {
+    const ui = await import("../src/ui.js");
+    ui.modal({ title: "Probe", body: document.createElement("p"), actions: [{ label: "Close" }] });
+    await new Promise((r) => setTimeout(r, 30));
+    const card = document.querySelector(".modal-card");
+    const anim = getComputedStyle(card).animationName;
+    document.querySelector(".modal-overlay").remove();
+    const screen = document.querySelector("#screen");
+    return { modal: anim, route: getComputedStyle(screen).animationName };
+  });
+  if (moves.modal === "none") fail("a dialog appears rather than arrives");
+  if (moves.route === "none") fail("a screen replaces the last one with no transition at all");
+
+  // Flattened, none of it runs.
+  await page.evaluate(async () => {
+    const { Settings } = await import("../src/settings.js");
+    const { applyDepth } = await import("../src/screens.js");
+    Settings.set("depth", false); applyDepth();
+  });
+  await page.goto(`${base}#/rules`);
+  await page.waitForTimeout(260);
+  const still = await page.evaluate(async () => {
+    const ui = await import("../src/ui.js");
+    ui.modal({ title: "Probe", body: document.createElement("p"), actions: [{ label: "Close" }] });
+    await new Promise((r) => setTimeout(r, 30));
+    const anim = getComputedStyle(document.querySelector(".modal-card")).animationName;
+    document.querySelector(".modal-overlay").remove();
+    return { modal: anim, route: getComputedStyle(document.querySelector("#screen")).animationName };
+  });
+  if (still.modal !== "none" || still.route !== "none") fail("flattened, the app still animates");
+
+  if (errors.length) fail(`console error around the motion: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("dialogs and screens arrive, and one setting stops all of it");
+  await ctx.close();
 }
 
 // 9. a roll keeps your place on the screen
