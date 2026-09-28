@@ -12,16 +12,21 @@ import { readiness } from "./coach.js";
 import { section, row, btn, pill, explain, promptModal, emptyState, actionBar, cardFace, showToast } from "./ui.js";
 import { go } from "./router.js";
 
+import { illustration, faceGrid, deckStack, cardBack } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 
 
 function setBlock(m, s) {
-  const hand = el("div", { class: "hand" }, ...s.cards.map(cardFace));
+  const hand = el("div", { class: `hand ${s.truth ? "" : "fan"}`.trim() }, ...s.cards.map((c) => {
+    const face = cardFace(c);
+    if (s.truth) face.classList.add("pinned");
+    return face;
+  }));
   const box = el("div", { class: `clue-set ${s.truth ? "truth" : ""} ${s.falseLead ? "false" : ""}` },
     el("div", { class: "threat-head" },
       el("strong", { text: `The ${rankName(s.rank)}` }),
       s.truth ? pill("Truth", "truth") : s.falseLead ? pill("False lead", "loss") : pill(`${s.cards.length} card${s.cards.length === 1 ? "" : "s"}`)),
-    s.cards.length ? hand : null,
+    s.cards.length ? hand : s.falseLead ? el("div", { class: "hand" }, cardBack("torn")) : null,
     el("p", { class: "small", text: s.description || "No description yet." }),
     // The words the game offered when each card was drawn. Without these a set
     // left undescribed is a bare rank, and the prompt that would have told you
@@ -50,7 +55,7 @@ export function renderClues(host) {
   const m = Store.mystery;
   if (!m) {
     add(host, el("h1", { text: "Clues" }), explain("Every clue you find is a card and a description. Cards of the same rank stack into one set; the bigger the set, the more truth cards it reveals when you establish it."));
-    add(host, emptyState("No mystery in progress.", "Set up a mystery", () => go("mystery")));
+    add(host, emptyState("No mystery in progress.", "Set up a mystery", () => go("mystery"), illustration("mystery")));
     return {};
   }
   const sets = D.clueSetList(m).sort((a, b) => DECK.clueRanks.indexOf(a.rank) - DECK.clueRanks.indexOf(b.rank));
@@ -66,18 +71,19 @@ export function renderClues(host) {
   // what you need when deciding whether to stop.
   const read = readiness(m);
   add(host, section("Where the case stands",
-    el("div", { class: "hand" }, ...m.truthRevealed.map(cardFace)),
+    faceGrid(m),
     el("p", { class: "small", text: read.guess }),
     ...read.pressure.map((t) => el("p", { class: "small", text: `${t[0].toUpperCase()}${t.slice(1)}.` })),
     open.length
       ? el("p", { class: "small muted", text: `${open.length} set${open.length === 1 ? "" : "s"} still open. A truth scene turns one over and rules out that many face cards \u2014 the biggest open set is worth the most.` })
       : el("p", { class: "small muted", text: "Nothing left to turn over. More truth cards means another investigation first." })));
 
+  const stacked = (count, label, text) => el("span", { class: "stacked" }, deckStack(count, label), el("span", { text }));
   add(host, section("The decks",
-    row("Clue deck", `${m.clueDeck.length} left`),
-    row("Discarded", `${m.clueDiscard.length}`),
+    row("Clue deck", stacked(m.clueDeck.length, "Clue deck", `${m.clueDeck.length} left`)),
+    row("Discarded", stacked(m.clueDiscard.length, "Discarded", `${m.clueDiscard.length}`)),
     row("Clue cards held", `${D.clueCount(m)} across ${D.clueSetList(m).filter((s) => !s.falseLead).length} set(s)`),
-    row("Truth cards known", `${m.truthRevealed.length} of ${m.truthRevealed.length + m.truthDeck.length + 0}`),
+    row("Truth cards known", stacked(m.truthDeck.length, "Truth deck", `${m.truthRevealed.length} of ${m.truthRevealed.length + m.truthDeck.length + 0}`)),
     row("Jokers drawn", `${m.jokersDrawn || 0} of 2`),
     m.clueDeck.length <= 5 ? el("p", { class: "small", text: "The deck is nearly out. When it empties the mystery ends." }) : null));
 

@@ -10,6 +10,7 @@ import { scoreGuesses } from "./deck.js";
 import { section, row, btn, pill, explain, promptModal, confirmModal, actionBar, emptyState, showToast, cardFace } from "./ui.js";
 import { go } from "./router.js";
 
+import { illustration } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 const SUIT_NAMES = { S: "Spades", H: "Hearts", D: "Diamonds", C: "Clubs" };
 
@@ -18,7 +19,7 @@ export function renderSolve(host) {
   if (!m) {
     add(host, el("h1", { text: "The solve" }),
       explain("Where a mystery ends: you name the three face cards set aside before play, and every one you get right buys an answer about what really happened. There is nothing to resolve until a mystery is running."));
-    add(host, emptyState("No mystery to resolve.", "Set up a mystery", () => go("mystery")));
+    add(host, emptyState("No mystery to resolve.", "Set up a mystery", () => go("mystery"), illustration("mystery")));
     return {};
   }
 

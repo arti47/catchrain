@@ -689,13 +689,67 @@ button.chip:hover { border-color: var(--accent); }
 .pcard .rank { position: absolute; top: 3px; left: 4px; font-size: .62rem; letter-spacing: -.02em; }
 .pcard .pip { font-size: 1.15rem; line-height: 1; }
 .pcard.red { color: #a0322a; }
+/* Face down: the icon's rain, slanting across the card stock inside a thin
+   frame. Ink on paper — a card back spends no colour, it only says "not yet". */
 .pcard.back {
   background:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, .14) 0 3px, transparent 3px 6px),
-    linear-gradient(170deg, color-mix(in srgb, var(--accent) 80%, black), var(--accent));
-  border-color: color-mix(in srgb, var(--accent) 60%, black);
+    repeating-linear-gradient(74deg, transparent 0 4px, rgba(27, 29, 33, .32) 4px 5px),
+    linear-gradient(170deg, #fdfcf8, #efebe1);
+  box-shadow: var(--shadow-1), inset 0 0 0 3px #f6f3ec, inset 0 0 0 4px rgba(27, 29, 33, .38);
   color: transparent;
 }
+.pcard.mini { width: 18px; height: 25px; border-radius: 3px; }
+.pcard.mini.back { box-shadow: inset 0 0 0 1.5px #f6f3ec, inset 0 0 0 2.2px rgba(27, 29, 33, .38); }
+.pcard.hollow { background: transparent; border: 1px dashed var(--line); box-shadow: none; }
+
+/* Ruled out: still the card, struck through, the way a note on the case board
+   is crossed off — never faded, because fading is how a state goes unread. */
+.pcard.ruled { background: linear-gradient(170deg, #efece6, #e3ded3); }
+.pcard.ruled::after {
+  content: ""; position: absolute; left: -3px; right: -3px; top: 50%; height: 2px;
+  background: var(--ink-2); border-radius: 2px; transform: rotate(-54deg);
+}
+
+/* Pinned up: an established truth, upright, with the pin that holds it. */
+.pcard.pinned::after {
+  content: ""; position: absolute; top: -4px; left: 50%; width: 9px; height: 9px; margin-left: -4.5px;
+  border-radius: 50%; background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--accent) 55%, white), var(--accent));
+  box-shadow: 0 1px 2px rgba(20, 22, 26, .35);
+}
+/* A false lead: the card it was, torn across and scored. */
+.pcard.torn {
+  clip-path: polygon(0 0, 100% 0, 100% 44%, 78% 52%, 60% 44%, 40% 55%, 22% 46%, 0 54%);
+}
+.pcard.torn::after {
+  content: ""; position: absolute; left: 4px; right: 4px; top: 30%; height: 2px;
+  background: var(--loss); border-radius: 2px; transform: rotate(-12deg);
+}
+
+/* The twelve face cards, rank by suit: the deduction, laid out. */
+.face-grid {
+  display: grid; grid-template-columns: repeat(4, 36px); gap: .35rem .45rem;
+  margin: .2rem 0 .8rem;
+}
+
+/* A deck, as thick as what is left in it. */
+.deck-stack {
+  position: relative; display: inline-block; flex: 0 0 auto;
+  width: calc(18px + var(--layers, 1) * 1.6px); height: calc(25px + var(--layers, 1) * 1.6px);
+}
+.deck-stack .pcard {
+  position: absolute; left: calc(var(--layer, 0) * 1.6px); bottom: calc(var(--layer, 0) * 1.6px);
+}
+.stacked { display: inline-flex; align-items: center; gap: .55rem; }
+
+/* A clue set, held like a hand: overlapped and fanned from the bottom edge. */
+.hand.fan { flex-wrap: nowrap; gap: 0; padding: 4px 0 2px 4px; }
+.hand.fan .pcard { transform-origin: 50% 110%; }
+.hand.fan .pcard + .pcard { margin-left: -13px; }
+.hand.fan .pcard:nth-child(1) { transform: rotate(-5deg); }
+.hand.fan .pcard:nth-child(2) { transform: rotate(-1.5deg); }
+.hand.fan .pcard:nth-child(3) { transform: rotate(2deg); }
+.hand.fan .pcard:nth-child(4) { transform: rotate(5.5deg); }
+.hand.fan .pcard:only-child { transform: none; }
 .clue-set {
   border: 1px solid var(--line); border-radius: var(--r); padding: .75rem .8rem;
   margin-bottom: .6rem; background: var(--panel-2);
@@ -703,7 +757,7 @@ button.chip:hover { border-color: var(--accent); }
 .clue-set .threat-head { margin-bottom: .5rem; }
 .clue-set .hand { margin-bottom: .5rem; }
 .clue-set.truth { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-.clue-set.truth .pcard { transform: rotate(90deg); margin: 7px 10px; }
+.clue-set.truth .hand { gap: .5rem; padding-top: 5px; }
 .clue-set.false { border-color: color-mix(in srgb, var(--loss) 40%, transparent); opacity: .72; }
 
 /* ------------------------------------------------------- scene, threats */
@@ -1081,3 +1135,174 @@ details.framing .ask li { font-size: .89rem; margin-bottom: .15rem; }
   line-height: 1.5;
   margin: 0 0 8px;
 }
+
+/* --- Drawings ------------------------------------------------------------- */
+/* Everything src/art.js draws. Ink by default; colour only where the thing
+   drawn already means something. */
+.art { display: inline-flex; line-height: 0; }
+.art svg { display: block; overflow: visible; }
+.glyph { color: var(--ink-2); }
+.illustration { color: var(--ink-3); }
+.illustration svg { width: 100%; height: auto; }
+.empty .illustration { width: 150px; margin: 0 auto .4rem; display: block; }
+.illustration-hero { display: block; width: 100%; max-width: 340px; margin: .2rem auto .9rem; }
+.dialog-art { display: flex; justify-content: center; margin: .1rem 0 .5rem; color: var(--danger); }
+
+/* Scene choices lead with what the scene is. */
+.choice.with-glyph { display: flex; align-items: center; gap: .8rem; }
+.choice-glyph { flex: 0 0 auto; color: var(--ink-2); }
+.choice-text { flex: 1 1 auto; min-width: 0; display: block; }
+.choice[aria-disabled="true"] .choice-glyph { color: var(--ink-3); }
+
+/* The signature seal, in the truth blue the chip is already drawn in. */
+.chip .glyph-seal { color: var(--accent); margin: -2px -.05rem -2px -.15rem; }
+
+/* A meter inside the pill that names it. */
+.pill .art { margin-right: .35rem; }
+.threat-meters { display: inline-flex; flex-wrap: wrap; gap: .3rem; justify-content: flex-end; }
+.marks rect.on, .level-bars rect.on { fill: var(--loss); }
+.marks rect.off, .level-bars rect.off { fill: none; stroke: currentColor; stroke-width: 1.1; opacity: .7; }
+
+/* Danger on its gauge: the four bands the app reads it in, in the one colour
+   that means danger, deepening as it rises. */
+.gauged { display: inline-flex; align-items: center; gap: .55rem; }
+.danger-gauge { color: var(--danger); }
+.danger-gauge rect.off { fill: var(--line); }
+.danger-gauge rect.on { fill: var(--danger); }
+.danger-gauge rect.on.low { fill-opacity: .4; }
+.danger-gauge rect.on.mid { fill-opacity: .6; }
+.danger-gauge rect.on.high { fill-opacity: .8; }
+
+/* Where a roll landed: every total the roll could make, banded by what it
+   does, with the roll marked above and the danger it had to clear. */
+.roll-scale { display: flex; margin: .55rem 0 .15rem; max-width: 100%; }
+.roll-scale svg { max-width: 100%; height: auto; }
+.roll-scale .band { fill: var(--panel-2); stroke: var(--line); stroke-width: .8; }
+.roll-scale .band.failure { fill: var(--loss-dim); }
+.roll-scale .band.cost { fill: var(--danger-dim); }
+.roll-scale .band.success { fill: var(--ok-dim); }
+.roll-scale .band.failure.hit { fill: var(--loss); }
+.roll-scale .band.cost.hit { fill: var(--danger); }
+.roll-scale .band.success.hit { fill: var(--ok); }
+.roll-scale .band.c-end { fill: var(--loss-dim); }
+.roll-scale .band.c-end.hit { fill: var(--loss); }
+.roll-scale .band.hit { fill: var(--ink-2); }
+.roll-scale .band.yn-extreme_no, .roll-scale .band.yn-extreme_yes { fill: var(--line); }
+.roll-scale .marker { fill: var(--ink); }
+.roll-scale .danger-line { stroke: var(--danger); stroke-width: 2; stroke-dasharray: 2.5 2; }
+.dice .roll-scale { margin: 0 0 0 .4rem; }
+
+/* A closed case's three guesses, as three marks. */
+.result-pips circle.on { fill: currentColor; }
+.result-pips circle.off { fill: none; stroke: currentColor; stroke-width: 1.2; }
+
+/* A rival's slot, drawn as the die it comes back on. */
+.rival-name { display: inline-flex; align-items: center; gap: .55rem; }
+.rival-die { display: inline-block; width: 19px; height: 19px; flex: 0 0 auto; }
+.rival-die .die { transform: scale(.5); transform-origin: 0 0; }
+.die.mini .tumble { animation: none; }
+
+/* The book's flowchart: four stages on a line, the one you are in named. */
+.stages.stage-path {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+  list-style: none; margin: .2rem 0 .7rem; padding: 0; overflow: visible;
+  position: relative; -webkit-mask-image: none; mask-image: none;
+}
+.stage-path::before {
+  content: ""; position: absolute; left: 12.5%; right: 12.5%; top: 9px; height: 2px;
+  background: var(--line); border-radius: 2px;
+}
+.stage-path .stage-step {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: .35rem;
+  background: none; border: 0; padding: 0; min-height: 44px; color: var(--ink-2);
+  white-space: normal; overflow: visible; text-transform: uppercase;
+  font-size: .72rem; letter-spacing: .06em;
+}
+.stage-path .node {
+  width: 20px; height: 20px; border-radius: 50%; z-index: 1;
+  background: var(--panel); border: 2px solid var(--line);
+}
+.stage-path .done .node { background: var(--ok); border-color: var(--ok); }
+.stage-path .now .node {
+  background: var(--accent); border-color: var(--panel);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 6px var(--accent-dim);
+}
+.stage-path .ahead .node { background: var(--panel); border-color: var(--ink-3); }
+.stage-path .skipped .node { background: transparent; border: 2px dashed var(--ink-3); }
+.stage-path .now .stage-name { color: var(--accent); font-weight: 700; }
+.stage-path .stage-step.now { background: none; color: var(--accent); }
+
+/* The problem as its case file: a tab on the folder, a clip on the corner, a
+   number stamped on it. */
+.card.case-file { position: relative; margin-top: 1.25rem; border-top-left-radius: 0; }
+.card.case-file::before {
+  content: ""; position: absolute; left: -1px; top: -13px; width: 38%; height: 13px;
+  background: inherit; border: 1px solid var(--line); border-bottom: 0;
+  border-radius: 8px 12px 0 0;
+}
+.case-clip { position: absolute; top: -16px; right: 20px; color: var(--ink-2); transform: rotate(7deg); }
+.case-stamp {
+  position: absolute; top: .55rem; right: 3.2rem;
+  font-family: var(--mono); font-size: .74rem; letter-spacing: .08em; font-weight: 700;
+  color: var(--ink-2); border: 1.5px solid currentColor; border-radius: 4px;
+  padding: .05rem .4rem; transform: rotate(-5deg); background: var(--panel);
+}
+
+/* The story: a mark on each day, and a drop cap opening it. */
+.story-day { display: flex; align-items: center; gap: .45rem; }
+.story-day .glyph { color: var(--ink-3); }
+.story-line.opens::first-letter {
+  float: left; font-family: var(--serif); font-size: 3.1em; line-height: .82;
+  padding: .08em .08em 0 0; color: var(--ink); font-weight: 600;
+}
+
+/* The reveal, lit: a pool of light behind the three cards. */
+.reveal {
+  border-radius: var(--r);
+  background: radial-gradient(ellipse 62% 78% at 50% 42%, rgba(255, 246, 222, .95), rgba(255, 246, 222, 0) 72%),
+              radial-gradient(ellipse 90% 100% at 50% 50%, transparent 55%, color-mix(in srgb, var(--ink) 9%, transparent));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .reveal {
+    background: radial-gradient(ellipse 60% 76% at 50% 40%, rgba(255, 238, 205, .16), rgba(255, 238, 205, 0) 72%),
+                radial-gradient(ellipse 90% 100% at 50% 50%, transparent 50%, rgba(0, 0, 0, .35));
+  }
+}
+:root[data-theme="dark"] .reveal {
+  background: radial-gradient(ellipse 60% 76% at 50% 40%, rgba(255, 238, 205, .16), rgba(255, 238, 205, 0) 72%),
+              radial-gradient(ellipse 90% 100% at 50% 50%, transparent 50%, rgba(0, 0, 0, .35));
+}
+
+/* A clue, drawn in front of you: the deck, the set you hold, the new card. */
+.draw-figure { display: flex; align-items: flex-end; gap: 1rem; margin: .1rem 0 .7rem; perspective: 700px; }
+@keyframes card-draw {
+  0%   { transform: translateX(-72px) translateY(6px) rotateY(180deg) scale(.55); }
+  55%  { transform: translateX(-10px) translateY(-4px) rotateY(70deg) scale(.95); }
+  100% { transform: none; }
+}
+:root:not([data-depth="off"]) .draw-figure .pcard.drawn {
+  animation: card-draw .7s cubic-bezier(.2, .75, .25, 1) .12s both; backface-visibility: hidden;
+}
+
+/* The genre, faintly, behind every screen while a case is open. */
+.genre-mark {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-repeat: no-repeat; background-position: right -14vw bottom 7vh;
+  background-size: min(118vw, 560px) auto; opacity: .08;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .genre-mark { opacity: .1; } }
+:root[data-theme="dark"] .genre-mark { opacity: .1; }
+:root[data-depth="off"] .genre-mark { display: none; }
+
+/* Marks that just happened arrive; everything else simply stands. */
+@keyframes ink-stamp { 0% { transform: scale(1.45); opacity: .15; } 60% { transform: scale(.94); opacity: 1; } 100% { transform: none; } }
+@keyframes seg-in { from { transform: scale(.2); opacity: 0; } to { transform: none; opacity: 1; } }
+:root:not([data-depth="off"]) .box.fresh::before { animation: ink-stamp .38s cubic-bezier(.3, .7, .3, 1) both; }
+:root:not([data-depth="off"]) .clock .seg-on.fresh {
+  transform-box: view-box; transform-origin: 50% 50%;
+  animation: seg-in .5s cubic-bezier(.2, .8, .3, 1) both;
+}
+.res b.ticking { display: inline-block; transform: scale(1.1); transition: transform .3s ease; }
+/* A row whose value carries a drawing lines up on the drawing's middle, not on
+   a text baseline the drawing does not have. */
+.row:has(.stacked), .row:has(.gauged), .row:has(.rival-name) { align-items: center; }

@@ -7,6 +7,8 @@ import { cardName, rankName } from "./deck.js";
 import { Settings } from "./settings.js";
 import { keepOracle } from "./framing.js";
 
+import { drawFigure } from "./art.js";
+import { Store } from "./store.js";
 export function installPrompts() {
   setPrompts({
     async enterDie(label) {
@@ -48,12 +50,16 @@ export function installPrompts() {
       // a description left blank now can still be written from the words you
       // were actually given, tomorrow or next week.
       if (set) { set.prompts = set.prompts || []; set.prompts.push(`${clue} — ${oracle}`); }
+      // The card comes off the deck in front of you and lands by the set it joins.
+      const m = Store.mystery;
+      const figure = set && card ? drawFigure(set, card, m ? m.clueDeck.length : 0) : null;
       if (!Settings.get("autoOracle")) {
         return await promptModal({
           title: isNew ? `New clue — the ${rankName(set.rank)}` : `The ${rankName(set.rank)} get clearer`,
           message: `${cardName(card)} drawn.`,
           placeholder: "What does your investigator find?",
           multiline: true,
+          figure,
         });
       }
       return await promptModal({
@@ -61,6 +67,7 @@ export function installPrompts() {
         message: `${cardName(card)} drawn. Prompts: ${clue} — ${oracle}. Write what this is, or leave it blank for now.`,
         placeholder: isNew ? "e.g. invoice found at the butcher shop" : "e.g. one of the doors is taped shut",
         multiline: true,
+        figure,
       });
     },
 

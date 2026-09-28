@@ -235,6 +235,9 @@ export async function attributeTest(opts) {
   const doubles = dice[0] === dice[1];
   const inScene = !!opts.inInvestigation && m && m.scene && m.scene.type === "investigation";
   const belowDanger = inScene && total < m.danger;
+  // Read before the halving below, so the result strip shows the danger this
+  // roll actually had to clear.
+  const dangerAtRoll = inScene ? m.danger : null;
 
   events.push({ t: "test", label: opts.label, attribute: opts.attrId, attrValue, dice, total, outcome: outcome.id, doubles, belowDanger, who: inv.name });
 
@@ -285,7 +288,7 @@ export async function attributeTest(opts) {
   // attrValue rides along: the journal line and the re-roll comparison both
   // print the sum, and without it they print the bare dice against the real
   // total — arithmetic that does not work, in the one record that outlives play.
-  return { dice, attrValue, total, outcome, events, doubles, belowDanger };
+  return { dice, attrValue, total, outcome, events, doubles, belowDanger, dangerAtRoll };
 }
 
 // --- Keyword actions ----------------------------------------------------------

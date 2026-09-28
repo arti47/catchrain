@@ -17,6 +17,7 @@ import { renderWizard, renderMysteryWizard } from "./wizard.js";
 import { renderTutorial } from "./tutorial.js";
 import { showToast, installBackToTop } from "./ui.js";
 import { initUpdates } from "./updates.js";
+import { motifUrl } from "./art.js";
 
 Store.init();
 applyTheme();
@@ -77,7 +78,21 @@ $("#theme-btn").addEventListener("click", () => {
   showToast(`Theme: ${next}`);
 });
 
+// The case's genre, drawn faintly behind every screen while a case is open:
+// one layer for the whole app, under everything, never in front of a word.
+const genreMark = document.createElement("div");
+genreMark.className = "genre-mark";
+genreMark.setAttribute("aria-hidden", "true");
+document.body.prepend(genreMark);
+function paintGenre() {
+  const m = Store.mystery;
+  const g = m && !m.solved ? m.genre : null;
+  if (g) document.body.dataset.genre = g; else delete document.body.dataset.genre;
+  genreMark.style.backgroundImage = g ? motifUrl(g, "#8a8f98") : "none";
+}
+
 function paintChrome() {
+  paintGenre();
   renderResourceHeader(location.hash.replace(/^#\//, "").split("?")[0] || "home");
   undoBtn.disabled = !Store.canUndo();
   // The stack is twenty deep and the button looked like one step. Say so.

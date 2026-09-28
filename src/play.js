@@ -17,8 +17,9 @@ import { recapCard } from "./coach.js";
 import { SCENE_FRAMING } from "../data.js";
 const SCENE_FRAMING_NOTE = SCENE_FRAMING.note;
 import { go } from "./router.js";
-import { section, row, btn, pill, edgeFade, centreInScroller, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace } from "./ui.js";
+import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace } from "./ui.js";
 
+import { illustration, glyph, stagePath, markBoxes, levelBars, testScale, consequenceScale, caseFile, dangerGauge } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 
 // --- Result presentation ------------------------------------------------------
@@ -31,10 +32,19 @@ function diceRow(dice, attrValue, total, doubles) {
 
 function showResult(title, res, extraEvents = [], onReroll, onAgain) {
   const body = el("div", {});
+  const all = [...(res.events || []), ...extraEvents];
   add(body,
     diceRow(res.dice, res.attrValue || 0, res.total, res.doubles),
+    testScale(res.total, res.dangerAtRoll === undefined ? null : res.dangerAtRoll),
     el("p", { class: `outcome ${res.outcome.id}`, text: `${res.outcome.name} — ${res.outcome.text}` }),
-    eventList([...(res.events || []), ...extraEvents]));
+    eventList(all));
+  // Each consequence rolled in this test, on its own table's strip, so the 9
+  // that ends the case is something you can see coming rather than a number.
+  for (const e of all.filter((x) => x.t === "consequence" && typeof x.total === "number")) {
+    const strip = consequenceScale(e.total);
+    strip.classList.add("consequence");
+    add(body, strip);
+  }
   const actions = [{ label: "Continue" }];
   // A failed stage test is the one roll a player makes over and over, at the
   // same stage with the same approach. This is that, without walking back
@@ -416,6 +426,7 @@ async function endSceneFlow() {
     modal({
       title: `Day ${Store.investigator.day - 1} is over`,
       body: el("div", {},
+        el("div", { class: "dialog-art" }, glyph("dawn", 44)),
         el("p", { class: "muted", text: "The clock filled. Neglected obligations cost fatigue, strikes clear, and a random event opens the new day — resolve it with a test." }),
         eventList(events),
         el("p", { class: "mono", text: applied.words.join("  ·  ") })),
@@ -436,13 +447,13 @@ export function renderPlay(host) {
   const c = Store.career;
   if (!c || !Store.investigator.name) {
     add(host, el("h1", { text: "Play" }), explain("This is where a mystery is played out, one scene at a time. You need an investigator first."));
-    add(host, emptyState("No investigator yet.", "Create an investigator", () => go("wizard")));
+    add(host, emptyState("No investigator yet.", "Create an investigator", () => go("wizard"), illustration("investigator")));
     return {};
   }
   const m = c.mystery;
   if (!m) {
     add(host, el("h1", { text: "Play" }), explain("Each scene is a choice: investigate for clues, establish a truth, rest, or attend an obligation. Four scenes make a day. You need a mystery to start."));
-    add(host, emptyState("No mystery in progress.", "Set up a mystery", () => go("mystery")));
+    add(host, emptyState("No mystery in progress.", "Set up a mystery", () => go("mystery"), illustration("mystery")));
     return {};
   }
   if (m.ended) {
@@ -501,13 +512,15 @@ export function renderPlay(host) {
       ? `${shared ? "The whole party plays this one." : "Each investigator takes their own."} ${t.text}`
       : t.text;
     add(list, el("button", {
-      class: "choice", type: "button",
+      class: "choice with-glyph", type: "button",
       onclick: barred
         ? () => modal({ title: t.name, body: el("div", {}, el("p", { text: barred.why }), el("p", { class: "small muted", text: barred.rule })), actions: [{ label: "Back" }] })
         : handler,
       "aria-disabled": barred ? "true" : null,
-    }, el("span", { class: "choice-label", text: t.name }),
-       el("span", { class: "choice-note", text: barred ? barred.why : note })));
+    }, glyph(t.id, 26, "choice-glyph"),
+       el("span", { class: "choice-text" },
+         el("span", { class: "choice-label", text: t.name }),
+         el("span", { class: "choice-note", text: barred ? barred.why : note }))));
   }
   add(host, section(party.length > 1 ? `Choose a scene — ${Store.investigator.name}` : "Choose a scene", list));
   add(host, section("Or stop here",
@@ -523,9 +536,10 @@ export function renderPlay(host) {
 function problemBlock(m, inScene) {
   const rows = [
     m.motivation ? row("Motivation", m.motivation) : null,
-    row("Danger", el("span", { class: `pill ${m.danger >= 6 ? "danger" : ""}`, text: String(m.danger) })),
+    row("Danger", el("span", { class: "gauged" }, dangerGauge(m.danger), el("span", { class: `pill ${m.danger >= 6 ? "danger" : ""}`, text: String(m.danger) }))),
   ];
-  if (!inScene) return section("The problem", el("p", { class: "premise", text: R.problemText(m) }), ...rows);
+  const caseNo = ((Store.career && Store.career.history) || []).length + 1;
+  if (!inScene) return caseFile(section("The problem", el("p", { class: "premise", text: R.problemText(m) }), ...rows), caseNo);
   // Mid-scene the numbers fold away, but the sentence the mystery hangs on
   // stays on the page: a premise behind a closed accordion is not a premise.
   const fold = el("details", { class: "acc" });
@@ -535,7 +549,7 @@ function problemBlock(m, inScene) {
     "aria-label": "The problem. Tap to read all of it",
     onclick: () => line.classList.toggle("open"),
     onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); line.classList.toggle("open"); } } });
-  return section("The problem", line, fold);
+  return caseFile(section("The problem", line, fold), caseNo);
 }
 
 /** Why a scene type cannot be taken right now, or null when it can. */
@@ -595,15 +609,9 @@ async function confirmEnd() {
 function renderInvestigation(host, m, scene) {
   const framing = framingCard(scene, { note: `${SCENE_FRAMING_NOTE} Danger is ${m.danger}${D.hasThreat(m) ? `, and ${D.activeThreats(m).map((t) => t.name).join(" and ")} is in it with you` : ""}.` });
   if (framing) add(host, framing);
-  const order = scene.order;
-  const rail = el("div", { class: "stages" });
-  for (const id of order) {
-    const idx = order.indexOf(id), now = idx === scene.index;
-    add(rail, el("div", { class: `stage-step ${now ? "now" : idx < scene.index ? "done" : ""}`, text: R.stage(id).name }));
-  }
-  // The rail scrolls, so the stage you are in is the one it is scrolled to.
-  edgeFade(rail);
-  requestAnimationFrame(() => centreInScroller(rail, rail.querySelector(".stage-step.now")));
+  // The book's own diagram (p.26): four stages on a line, the one you are in
+  // named. It fits a 320px row whole, so nothing has to scroll or be cut.
+  const rail = stagePath(scene);
   // Where you are in the scene is the state the whole screen turns on, so it
   // goes above the guide rather than below it and the framing card both.
   host.prepend(section("Stages", rail,
@@ -616,7 +624,9 @@ function renderInvestigation(host, m, scene) {
     add(tl, el("div", { class: "threat" },
       el("div", { class: "threat-head" },
         el("strong", { text: t.name }),
-        el("span", {}, pill(`Level ${t.level}`, "loss"), " ", pill(`${t.marks || 0}/${t.level} marks`))),
+        el("span", { class: "threat-meters" },
+          el("span", { class: "pill loss" }, levelBars(t.level), `Level ${t.level}`), " ",
+          el("span", { class: "pill" }, markBoxes(t.marks || 0, t.level), `${t.marks || 0}/${t.level} marks`))),
       el("p", { class: "small muted", text: R.threatLevelText(t.level) }),
       Store.party.length > 1
         ? el("p", { class: "small", text: `On ${Roller.attachedTo(t).name} — its rolls land on them until someone else acts against it.` })
@@ -632,7 +642,7 @@ function renderInvestigation(host, m, scene) {
     const chips = el("div", { class: "chip-list" });
     for (const k of ready) {
       add(chips, el("button", { class: `chip ${k.signature ? "signature" : ""}`, type: "button", onclick: () => useKeywordFlow(k).then(rerender) },
-        k.signature ? "★ " : "", k.text));
+        k.signature ? glyph("seal", 16) : null, k.signature ? el("span", { class: "vh", text: "Signature: " }) : null, k.text));
     }
     add(host, section(`Keywords ready (${ready.length})`, chips,
       el("p", { class: "small muted", text: "Spend one to re-roll a test, strengthen a clue, or remove a threat outright." })));

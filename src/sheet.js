@@ -12,6 +12,7 @@ import { eventList } from "./prompts.js";
 import { go } from "./router.js";
 import { saveSheets } from "./paper.js";
 
+import { glyph, tick } from "./art.js";
 const IN_PLAY = new Set(["home", "play", "sheet", "case-sheet", "clues", "solve", "journal"]);
 
 /**
@@ -50,6 +51,10 @@ export function renderResourceHeader(routeName) {
       el("span", { text: label }),
       meter === null ? null : el("i", { class: "meter", style: `--fill:${Math.round(clamp(meter, 0, 1) * 100)}%` }));
   const band = D.dangerBand(m.danger);
+  let dangerCell = null;
+  const dangerKey = `danger:${m.id}`;
+  const dangerBefore = lastSeen.has(dangerKey) ? lastSeen.get(dangerKey) : m.danger;
+  lastSeen.set(dangerKey, m.danger);
   add(host,
     // With a party the header follows whoever is in context, and switching is
     // the most repeated interaction in co-op, so it sits first.
@@ -57,7 +62,7 @@ export function renderResourceHeader(routeName) {
       ? el("button", { class: "res who", type: "button", "aria-label": `Playing as ${inv.name}. Switch investigator`, onclick: () => switchInvestigator() },
           el("b", { text: (inv.name || "?").split(" ")[0] }), el("span", { text: "playing as" }))
       : null,
-    res("Danger", m.danger, "danger", band === "high" || band === "extreme", m.danger / 12),
+    dangerCell = res("Danger", m.danger, "danger", band === "high" || band === "extreme", m.danger / 12),
     res("Fatigue", `${inv.fatigue}/${FATIGUE_BOXES}`, "loss", inv.fatigue >= 4, inv.fatigue / FATIGUE_BOXES),
     // The clock is drawn everywhere else in the app; spelling it out here was
     // the one place the game's own dial turned back into a fraction.
@@ -69,6 +74,7 @@ export function renderResourceHeader(routeName) {
     D.allAttributesStruck(inv) ? res("Struck", "all", "loss", true) : null,
   );
   edgeFade(host);
+  if (dangerCell && dangerBefore !== m.danger) tick(dangerCell.querySelector("b"), dangerBefore, m.danger);
 }
 
 const attrTile = (inv, a) => {
@@ -77,12 +83,27 @@ const attrTile = (inv, a) => {
     el("b", { text: String(D.attrValue(inv, a.id)) }), el("span", { text: a.name }));
 };
 
+/**
+ * What each drawing last showed, per investigator, so a box or a segment moves
+ * only the time it changes — not on every re-render of a screen that has it.
+ * The first sight of a value records it and moves nothing.
+ */
+const lastSeen = new Map();
+function changedUp(key, value) {
+  const before = lastSeen.get(key);
+  lastSeen.set(key, value);
+  return before !== undefined && value > before ? before : null;
+}
+
 export function fatigueTrack(inv, onChange) {
   const track = el("div", { class: "track" });
+  // A box just marked is stamped in, like ink pressed onto the sheet.
+  const was = changedUp(`fatigue:${inv.id}`, inv.fatigue);
   for (let i = 0; i < FATIGUE_BOXES; i++) {
     const on = i < inv.fatigue;
+    const fresh = on && was !== null && i >= was;
     add(track, el("button", {
-      class: `box ${on ? "on" : ""}`, type: "button",
+      class: `box ${on ? "on" : ""} ${fresh ? "fresh" : ""}`.trim(), type: "button",
       "aria-label": `Fatigue box ${i + 1}${on ? ", marked" : ""}`, "aria-pressed": on ? "true" : "false",
       onclick: () => onChange(i + 1 === inv.fatigue ? i : i + 1),
     }));
@@ -99,9 +120,12 @@ export function clockTrack(inv, size = 46) {
     return `${(c + r * Math.cos(rad)).toFixed(2)},${(c + r * Math.sin(rad)).toFixed(2)}`;
   };
   const wedges = [];
+  // A segment just marked sweeps in; the rest are simply there.
+  const was = changedUp(`clock:${inv.id}:${size}`, inv.clock);
   for (let i = 0; i < CLOCK_SEGMENTS; i++) {
     const from = (360 / CLOCK_SEGMENTS) * i, to = from + 360 / CLOCK_SEGMENTS;
-    wedges.push(`<path class="${i < inv.clock ? "seg-on" : "seg-off"}" stroke-width="1" d="M${c},${c} L${point(from)} A${r},${r} 0 0 1 ${point(to)} Z"/>`);
+    const fresh = i < inv.clock && was !== null && i >= was;
+    wedges.push(`<path class="${i < inv.clock ? "seg-on" : "seg-off"}${fresh ? " fresh" : ""}" stroke-width="1" d="M${c},${c} L${point(from)} A${r},${r} 0 0 1 ${point(to)} Z"/>`);
   }
   wrap.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">${wedges.join("")}</svg>`;
   return wrap;
@@ -197,7 +221,7 @@ export function renderSheet(host) {
     add(kw, el("button", {
       class: `chip ${k.struck ? "struck" : ""} ${k.signature ? "signature" : ""}`, type: "button",
       onclick: () => { if (k.struck) { showToast(k.signature ? "Struck until you rest." : "Already spent."); return; } useKeywordFlow(k); },
-    }, k.signature ? "★ " : "", k.text));
+    }, k.signature ? glyph("seal", 16) : null, k.signature ? el("span", { class: "vh", text: "Signature: " }) : null, k.text));
   }
   add(host, section(`Keywords (${D.usableKeywords(inv).length} ready)`,
     inv.keywords.length ? kw : el("p", { class: "muted small", text: "None yet. Failing a test is how most keywords arrive." }),

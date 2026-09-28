@@ -17,6 +17,7 @@ import { readiness } from "./coach.js";
 import { section, row, pill, explain, emptyState, cardFace, showToast, actionBar } from "./ui.js";
 import { go } from "./router.js";
 
+import { illustration, caseFile, dangerGauge } from "./art.js";
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // --- The mystery sheet, on screen ---------------------------------------------
@@ -26,7 +27,7 @@ export function renderMysterySheet(host) {
     explain("Everything the book's mystery sheet holds, on one page: the problem, the danger, every clue set, the threats in the scene and the rivals behind it. It only shows — the Case, Clues and Play tabs are where any of it changes."));
 
   if (!m) {
-    add(host, emptyState("No mystery in progress.", "Set up a mystery", () => go("mystery")));
+    add(host, emptyState("No mystery in progress.", "Set up a mystery", () => go("mystery"), illustration("mystery")));
     return {};
   }
   const inv = Store.investigator;
@@ -34,7 +35,7 @@ export function renderMysterySheet(host) {
   const sets = D.clueSetList(m).sort((a, b) => DECK.clueRanks.indexOf(a.rank) - DECK.clueRanks.indexOf(b.rank));
   const threats = D.activeThreats(m);
 
-  add(host, section("The problem",
+  add(host, caseFile(section("The problem",
     el("p", { class: "premise", text: R.problemText(m) }),
     row("Location", m.location || "—"),
     row("Object", m.object || "—"),
@@ -42,10 +43,10 @@ export function renderMysterySheet(host) {
     m.secondObject ? row("Second object", m.secondObject) : null,
     row("Motivation", m.motivation || "—"),
     row("Genre", GENRES[m.genre].name),
-    row("Difficulty", R.difficulty(m.difficulty).name)));
+    row("Difficulty", R.difficulty(m.difficulty).name)), ((Store.career && Store.career.history) || []).length + 1));
 
   add(host, section("Danger and the scene",
-    row("Danger", el("span", { class: `pill ${m.danger >= 6 ? "danger" : ""}`, text: String(m.danger) })),
+    row("Danger", el("span", { class: "gauged" }, dangerGauge(m.danger), el("span", { class: `pill ${m.danger >= 6 ? "danger" : ""}`, text: String(m.danger) }))),
     row("Scene", m.scene ? `${R.sceneType(m.scene.type).name}${m.scene.stage ? ` · ${R.stage(m.scene.stage).name} stage` : ""}${m.scene.done ? " (finished)" : ""}` : "None in progress"),
     row("Clock", `${inv.clock}/${CLOCK_SEGMENTS} · day ${inv.day}`),
     row("Ends when", m.ended

@@ -69,7 +69,7 @@ export function confirmModal({ title, message, confirmLabel = "Confirm", cancelL
   });
 }
 
-export function promptModal({ title, message, value = "", placeholder = "", multiline = false, confirmLabel = "Save" }) {
+export function promptModal({ title, message, value = "", placeholder = "", multiline = false, confirmLabel = "Save", figure = null }) {
   return new Promise((resolveRaw) => {
     let settled = false;
     const resolve = (v) => { if (!settled) { settled = true; resolveRaw(v); } };
@@ -79,7 +79,7 @@ export function promptModal({ title, message, value = "", placeholder = "", mult
     input.value = value;
     modal({
       title,
-      body: el("div", {}, message ? el("p", { class: "muted", text: message }) : null, input),
+      body: el("div", {}, figure, message ? el("p", { class: "muted", text: message }) : null, input),
       onClose: () => resolve(null),
       actions: [
         { label: confirmLabel, onClick: () => resolve(input.value.trim()) },
@@ -171,7 +171,9 @@ export const section = (title, ...children) =>
   el("section", { class: "card" }, title ? el("h3", { class: "card-title", text: title }) : null, ...children);
 
 export const row = (label, value) =>
-  el("div", { class: "row" }, el("span", { class: "row-label", text: label }), el("span", { class: "row-value" }, value));
+  el("div", { class: "row" },
+    typeof label === "string" ? el("span", { class: "row-label", text: label }) : el("span", { class: "row-label" }, label),
+    el("span", { class: "row-value" }, value));
 
 /** Long values stack, short values sit inline (§6.5). */
 export const defRow = (label, value) =>
@@ -289,7 +291,8 @@ export function installBackToTop() {
   paint();
 }
 
-export const emptyState = (text, actionLabel, onAction) =>
-  el("div", { class: "empty" }, el("p", { text }), actionLabel ? btn(actionLabel, onAction, "primary") : null);
+/** Nothing here yet: a drawing of what will be, the sentence, and the way to it. */
+export const emptyState = (text, actionLabel, onAction, art = null) =>
+  el("div", { class: "empty" }, art, el("p", { text }), actionLabel ? btn(actionLabel, onAction, "primary") : null);
 
 export { clear };

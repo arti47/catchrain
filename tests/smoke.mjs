@@ -1943,6 +1943,300 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8aa. the graphics pass: state drawn as the thing it is
+// Twenty-eight drawings, each checked for being there and for saying what it
+// shows. A data graphic has to agree with the state it draws; a glyph has to
+// be in the right place; motion has to stop when stillness is asked for.
+{
+  const { ctx, page, errors } = await newPage();
+  const q = (fn, arg) => page.evaluate(fn, arg);
+  await seed(page, base, "stress", { rivals: true });
+
+  // Clues: the twelve face cards, the decks as stacks, sets fanned, truths upright, false leads torn.
+  await page.goto(`${base}#/clues`);
+  await page.waitForTimeout(350);
+  const clues = await q(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const m = s.careers[s.activeId].mystery;
+    const grid = document.querySelector(".face-grid");
+    const seen = new Set(m.truthRevealed.map((c) => c.rank + c.suit)).size;
+    const truthCard = document.querySelector(".clue-set.truth .pcard");
+    return {
+      grid: grid ? grid.children.length : 0,
+      ruled: grid ? grid.querySelectorAll(".pcard.ruled").length : -1,
+      backs: grid ? grid.querySelectorAll(".pcard.back").length : -1,
+      seen,
+      gridFirst: grid ? grid.closest(".card").querySelector(".face-grid") === grid.closest(".card").children[1] : false,
+      stacks: document.querySelectorAll(".deck-stack").length,
+      fanned: !!document.querySelector(".clue-set:not(.truth) .hand.fan"),
+      truthTurn: truthCard ? getComputedStyle(truthCard).transform : "none",
+      pinned: !!document.querySelector(".clue-set.truth .pcard.pinned"),
+      torn: !!document.querySelector(".clue-set.false .pcard.torn"),
+      backImage: (() => { const b = document.querySelector(".pcard.back"); return b ? getComputedStyle(b).backgroundImage : ""; })(),
+    };
+  });
+  if (clues.grid !== 12) fail(`the case board draws ${clues.grid} face cards, not twelve`);
+  if (clues.ruled !== clues.seen) fail(`the card grid strikes ${clues.ruled} cards while ${clues.seen} are ruled out`);
+  if (clues.backs !== 12 - clues.seen) fail(`the card grid shows ${clues.backs} unseen cards face down, not ${12 - clues.seen}`);
+  if (!clues.gridFirst) fail("the card grid is not what the case board leads with");
+  if (clues.stacks < 3) fail(`the decks are drawn as ${clues.stacks} stacks, not three`);
+  if (!clues.fanned) fail("an open clue set lies flat instead of fanned like a held hand");
+  if (clues.truthTurn !== "none" && clues.truthTurn !== "matrix(1, 0, 0, 1, 0, 0)") fail("an established truth's cards are still turned on their side");
+  if (!clues.pinned) fail("an established truth's cards carry no pinned mark");
+  if (!clues.torn) fail("a false lead shows no torn card");
+  if (!/repeating-linear-gradient/.test(clues.backImage)) fail("a face-down card has no rain on its back");
+
+  // Play mid-scene: the stage path, threat meters, danger gauge, the case file.
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(350);
+  const play = await q(() => {
+    const path = document.querySelector(".stage-path");
+    const named = path ? [...path.querySelectorAll(".stage-name")].filter((n) => !n.classList.contains("vh")) : [];
+    const threat = document.querySelector(".threat");
+    const problem = [...document.querySelectorAll("#screen .card")].find((c) => /the problem/i.test(c.innerText));
+    return {
+      steps: path ? path.querySelectorAll("li").length : 0,
+      now: path ? path.querySelectorAll("li.now").length : 0,
+      named: named.length,
+      marks: threat ? (threat.querySelector(".marks") || {}).getAttribute?.("aria-label") : null,
+      bars: threat ? (threat.querySelector(".level-bars") || {}).getAttribute?.("aria-label") : null,
+      gauge: problem ? !!problem.querySelector(".danger-gauge") : false,
+      file: problem ? problem.classList.contains("case-file") && !!problem.querySelector(".case-clip") : false,
+    };
+  });
+  if (play.steps !== 4) fail(`the stage path draws ${play.steps} stages, not the book's four`);
+  if (play.now !== 1) fail(`the stage path marks ${play.now} stages as where you are`);
+  if (play.named !== 1) fail(`the stage path names ${play.named} stages on screen instead of only the one you are in`);
+  if (!play.marks || !/of \d marks/.test(play.marks)) fail("a threat's marks are not drawn as boxes to fill");
+  if (!play.bars || !/Level \d of 3/.test(play.bars)) fail("a threat's level is not drawn as a meter");
+  if (!play.gauge) fail("the problem card shows danger as a bare number, with no gauge");
+  if (!play.file) fail("the problem card is not dressed as a case file");
+
+  // The genre watermark is behind every screen while a case is open, and gone when flattened.
+  const mark = await q(() => {
+    const n = document.querySelector(".genre-mark");
+    return { genre: document.body.dataset.genre || null, image: n ? getComputedStyle(n).backgroundImage : "none", z: n ? getComputedStyle(n).zIndex : null };
+  });
+  if (!mark.genre) fail("an open case does not tell the page its genre");
+  if (!/data:image\/svg/.test(mark.image)) fail("an open case has no genre watermark behind it");
+
+  // A roll: the result scale, and a consequence scale when there is one.
+  await page.locator(".action-bar .btn").click();
+  let scaled = false, conseq = false;
+  for (let i = 0; i < 8; i++) {
+    await page.waitForTimeout(220);
+    if (await page.locator(".modal-overlay .roll-scale").count()) {
+      scaled = true;
+      conseq = conseq || !!(await page.locator(".modal-overlay .roll-scale.consequence").count());
+      break;
+    }
+    const choice = page.locator(".modal-overlay .choice").first();
+    const act = page.locator(".modal-actions .btn").first();
+    if (await choice.count()) await choice.click();
+    else if (await act.count()) await act.click();
+    else break;
+  }
+  if (!scaled) fail("a test's result shows the dice but not where the total landed");
+  await page.keyboard.press("Escape").catch(() => {});
+
+  // Home: result pips on closed cases, rival slots as die faces.
+  await page.goto(`${base}#/home`);
+  await page.waitForTimeout(350);
+  const home = await q(() => ({
+    pips: document.querySelectorAll("#screen .result-pips").length,
+    rivalDice: document.querySelectorAll("#screen .rival-die .die").length,
+    rivals: (() => { const s = JSON.parse(localStorage.getItem("citr:v1")); return s.careers[s.activeId].rivals.length; })(),
+  }));
+  if (!home.pips) fail("closed cases show their result as text only");
+  if (home.rivals && home.rivalDice !== home.rivals) fail(`${home.rivals} rivals, ${home.rivalDice} drawn as the die slot they return on`);
+
+  // The sheet: signature keywords carry the drawn seal, not a typed star.
+  await page.goto(`${base}#/sheet`);
+  await page.waitForTimeout(300);
+  const sig = await q(() => ({
+    seal: document.querySelectorAll("#screen .chip.signature .glyph-seal").length,
+    star: /★/.test(document.querySelector("#screen").innerText),
+  }));
+  if (!sig.seal) fail("a signature keyword has no drawn seal");
+  if (sig.star) fail("a typed ★ is still standing in for the signature mark");
+
+  // The journal: a glyph on each day, and a drop cap opening it.
+  await page.goto(`${base}#/journal`);
+  await page.waitForTimeout(300);
+  const journal = await q(() => ({
+    days: document.querySelectorAll("#screen .story-day .glyph-day").length,
+    dropcap: !!document.querySelector("#screen .story-line.opens"),
+  }));
+  if (!journal.days) fail("the story's days are dividers with no mark");
+  if (!journal.dropcap) fail("a day in the story opens without a drop cap");
+
+  // The oracle: the yes/no lands on a die and a banded strip.
+  await page.goto(`${base}#/oracle`);
+  await page.waitForTimeout(300);
+  await page.locator("#screen .btn", { hasText: /^Ask$/ }).click();
+  await page.waitForTimeout(700);
+  const oracle = await q(() => ({ die: !!document.querySelector("#screen .die"), scale: !!document.querySelector("#screen .roll-scale") }));
+  if (!oracle.die || !oracle.scale) fail("the yes/no answer is a line of text, with no die and no strip");
+
+  // The scene picker: a glyph on every scene.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const m = s.careers[s.activeId].mystery; m.scene = null; m.threats = [];
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(350);
+  const picker = await q(() => [...document.querySelectorAll("#screen .choice-list .choice")].map((c) => !!c.querySelector(".glyph")));
+  if (!picker.length || picker.some((x) => !x)) fail("the scene choices are text with no glyph");
+
+  // The clue dialog: the card is drawn off a deck in front of you.
+  const drew = await q(async () => {
+    const { getPrompts } = await import("../src/roller.js");
+    const set = { rank: "5", cards: [{ id: "a", rank: "5", suit: "S" }, { id: "b", rank: "5", suit: "H" }], entries: [], prompts: [] };
+    const p = getPrompts().describeClue({ set, card: set.cards[1], oracle: "Reveal", clue: "a note", isNew: false });
+    await new Promise((r) => setTimeout(r, 120));
+    const fig = document.querySelector(".modal-overlay .draw-figure");
+    const out = { fig: !!fig, drawn: fig ? !!fig.querySelector(".pcard.drawn") : false, deck: fig ? !!fig.querySelector(".deck-stack") : false,
+      anim: fig && fig.querySelector(".pcard.drawn") ? getComputedStyle(fig.querySelector(".pcard.drawn")).animationName : "none" };
+    document.querySelector(".modal-overlay .btn.ghost")?.click();
+    await p;
+    return out;
+  });
+  if (!drew.fig || !drew.drawn || !drew.deck) fail("a clue is drawn with no deck and no card coming off it");
+  if (drew.anim === "none") fail("the drawn card appears rather than coming off the deck");
+
+  // Flattened: the watermark goes and nothing moves.
+  await page.evaluate(async () => {
+    const { Settings } = await import("../src/settings.js");
+    const { applyDepth } = await import("../src/screens.js");
+    Settings.set("depth", false); applyDepth();
+  });
+  await page.goto(`${base}#/clues`);
+  await page.waitForTimeout(300);
+  const flat = await q(() => {
+    const n = document.querySelector(".genre-mark");
+    return { image: n ? getComputedStyle(n).backgroundImage : "none", hidden: n ? getComputedStyle(n).display === "none" : true };
+  });
+  if (!flat.hidden && flat.image !== "none") fail("flattened, the genre watermark is still behind the screen");
+  await page.evaluate(async () => {
+    const { Settings } = await import("../src/settings.js");
+    const { applyDepth } = await import("../src/screens.js");
+    Settings.set("depth", true); applyDepth();
+  });
+
+  // The solve: a pool of light behind the three cards.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const m = s.careers[s.activeId].mystery;
+    m.ended = true; m.solved = true; m.endTrigger = "chosen";
+    m.results = m.setAside.map((c) => ({ guess: c, correct: true })); m.correct = 3; m.answers = [];
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/solve`);
+  await page.waitForTimeout(400);
+  const lit = await q(() => { const r = document.querySelector(".reveal"); return r ? getComputedStyle(r).backgroundImage : "none"; });
+  if (!/radial-gradient/.test(lit)) fail("the reveal has no light on it");
+
+  // Empty states and the first screen carry their drawings; no case, no watermark.
+  await seed(page, base, "fresh");
+  await page.goto(`${base}#/home`);
+  await page.waitForTimeout(300);
+  const blank = await q(() => ({ hero: !!document.querySelector("#screen .illustration-hero"), genre: document.body.dataset.genre || null }));
+  if (!blank.hero) fail("the first screen of all has no picture on it");
+  if (blank.genre) fail("a blank app carries a genre watermark with no case open");
+  for (const [route, art] of [["clues", "mystery"], ["play", "investigator"], ["solve", "mystery"]]) {
+    await page.goto(`${base}#/${route}`);
+    await page.waitForTimeout(250);
+    if (!(await page.locator(`#screen .empty .illustration-${art}`).count())) fail(`${route}: the empty state is words with no drawing`);
+  }
+
+  if (errors.length) fail(`console error in the graphics pass: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("the graphics pass: every drawing is there, agrees with the state, and stops when asked");
+  await ctx.close();
+}
+
+// 8ab. the day turns, and the dialog shows the dawn
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress");
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId];
+    for (const i of c.investigators) i.clock = 3;
+    c.mystery.threats = [];
+    if (c.mystery.scene) c.mystery.scene.done = true;
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(350);
+  await page.locator(".action-bar .btn").click();
+  let dawn = false;
+  for (let i = 0; i < 5 && !dawn; i++) {
+    await page.waitForTimeout(250);
+    dawn = !!(await page.locator(".modal-overlay .glyph-dawn").count());
+    if (dawn) break;
+    const act = page.locator(".modal-actions .btn").first();
+    if (await act.count()) await act.click(); else break;
+  }
+  if (!dawn) fail("the day turns with no dawn drawn in its dialog");
+  if (errors.length) fail(`console error at the day's turn: ${errors[0].slice(0, 120)}`);
+  if (!failures.length) ok("the day turns under a drawn dawn");
+  await ctx.close();
+}
+
+// 8ac. what just changed moves, once, and nothing else does
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress");
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId];
+    c.investigators[0].fatigue = 1; c.investigators[0].clock = 1; c.mystery.danger = 3;
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/sheet`);
+  await page.waitForTimeout(350);
+  const before = await page.evaluate(() => ({
+    fresh: document.querySelectorAll(".box.fresh, .clock .seg-on.fresh").length,
+  }));
+  if (before.fresh) fail("a screen seen for the first time animates marks that were already there");
+  const after = await page.evaluate(async () => {
+    const { Store } = await import("../src/store.js");
+    const { render } = await import("../src/router.js");
+    Store.update("probe", () => { const i = Store.investigator; i.fatigue += 1; i.clock += 1; Store.mystery.danger += 4; });
+    await render();
+    await new Promise((r) => setTimeout(r, 60));
+    const box = document.querySelector(".box.fresh");
+    const seg = document.querySelector(".clock .seg-on.fresh");
+    return {
+      boxes: document.querySelectorAll(".box.fresh").length,
+      stamp: box ? getComputedStyle(box, "::before").animationName : "none",
+      segs: document.querySelectorAll("#screen .clock .seg-on.fresh").length,
+      sweep: seg ? getComputedStyle(seg).animationName : "none",
+      ticking: !!document.querySelector("#resource-header .res b.ticking"),
+    };
+  });
+  if (after.boxes !== 1) fail(`marking one fatigue stamped ${after.boxes} boxes`);
+  if (after.stamp === "none") fail("a newly marked fatigue box appears rather than being stamped in");
+  if (after.segs !== 1) fail(`marking one clock segment swept ${after.segs} segments on the sheet`);
+  if (after.sweep === "none") fail("a newly marked clock segment appears rather than sweeping in");
+  if (!after.ticking) fail("the header's danger jumps to its new value instead of counting to it");
+  // A render with nothing changed moves nothing.
+  const again = await page.evaluate(async () => {
+    const { render } = await import("../src/router.js");
+    await render();
+    return document.querySelectorAll("#screen .box.fresh, #screen .clock .seg-on.fresh").length;
+  });
+  if (again) fail(`re-rendering with nothing changed replayed ${again} animations`);
+  if (errors.length) fail(`console error around the motion: ${errors[0].slice(0, 120)}`);
+  if (!failures.length) ok("a mark is stamped, a segment sweeps and danger counts — once, when it changes");
+  await ctx.close();
+}
+
 // 9. a roll keeps your place on the screen
 {
   const { ctx, page, errors } = await newPage();

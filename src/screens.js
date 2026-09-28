@@ -11,9 +11,10 @@ import { RULES_LIBRARY } from "./library.js";
 import { resetDrafts, expressStart } from "./wizard.js";
 import { recapCard } from "./coach.js";
 import { Updates } from "./updates.js";
-import { section, row, defRow, btn, seg, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState } from "./ui.js";
+import { section, row, defRow, btn, seg, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState, dieFace } from "./ui.js";
 import { go } from "./router.js";
 
+import { illustration, glyph, resultPips, yesNoScale, caseFile, dangerGauge } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 
 // --- Home ---------------------------------------------------------------------
@@ -24,6 +25,7 @@ export function renderHome(host) {
 
   if (!c || !Store.investigator.name) {
     add(host, section("Never played this before?",
+      illustration("hero"),
       el("p", { text: "Press the button at the bottom. It rolls you an investigator and a case and puts you in the first scene — you do not have to decide anything, and nothing it rolls is permanent." }),
       el("p", { class: "small muted", text: "From then on, the line at the top of every screen says what to do next and what it will cost you. Press Why? next to it whenever you want the longer answer." })));
     add(host, section("Or take your time",
@@ -102,23 +104,23 @@ export function renderHome(host) {
 
   add(host, recapCard());
 
-  add(host, section("The problem",
+  add(host, caseFile(section("The problem",
     el("p", { class: "premise", text: R.problemText(m) }),
     row("Motivation", m.motivation || "—"),
     row("Genre", DATA.GENRES[m.genre].name),
     row("Difficulty", R.difficulty(m.difficulty).name),
-    row("Danger", String(m.danger)),
-    row("Clue sets", `${D.openSets(m).length} open, ${D.truthSets(m).length} established, ${D.falseLeads(m).length} false`)));
+    row("Danger", el("span", { class: "gauged" }, dangerGauge(m.danger), el("span", { text: String(m.danger) }))),
+    row("Clue sets", `${D.openSets(m).length} open, ${D.truthSets(m).length} established, ${D.falseLeads(m).length} false`)), c.history.length + 1));
 
   if (Settings.get("rivals") && c.rivals.length) {
     add(host, section("Rivals",
-      ...c.rivals.map((r, i) => row(`${i + 1}. ${r.name}`, el("span", {}, pill(`Level ${r.level}`, "loss"), " ",
+      ...c.rivals.map((r, i) => row(el("span", { class: "rival-name" }, el("span", { class: "rival-die" }, dieFace(i + 1, "mini")), r.name), el("span", {}, pill(`Level ${r.level}`, "loss"), " ",
         btn("Remove", () => { Store.update("remove rival", () => { c.rivals.splice(i, 1); }); rerender(); }))))));
   }
 
   if (c.history.length) {
     add(host, section("Closed cases", ...c.history.slice(-5).reverse().map((h) =>
-      defRow(new Date(h.closedAt).toLocaleDateString(), el("div", {}, el("p", { class: "small", text: h.problem }), pill(`${h.correct}/3 correct`, h.correct === 3 ? "ok" : h.correct ? "" : "loss"))))));
+      defRow(new Date(h.closedAt).toLocaleDateString(), el("div", {}, el("p", { class: "small", text: h.problem }), el("span", { class: `pill ${h.correct === 3 ? "ok" : h.correct ? "" : "loss"}`.trim() }, resultPips(h.correct), `${h.correct}/3 correct`))))));
   }
 
   const label = m.ended ? "Resolve the mystery" : (m.scene && !m.scene.done) ? "Back to the scene" : "Play the next scene";
@@ -268,7 +270,9 @@ export function renderOracle(host) {
     btn("Ask", () => {
       const r = R.rollYesNo();
       out.hidden = false;
-      out.replaceChildren(el("h3", { text: "Yes or no" }), el("p", { class: "mono", text: `d6 ${r.die} — ${r.row.name}` }));
+      out.replaceChildren(el("h3", { text: "Yes or no" }),
+        el("div", { class: "dice" }, dieFace(r.die), yesNoScale(r.die)),
+        el("p", { class: "mono", text: `d6 ${r.die} — ${r.row.name}` }));
       remember(`Yes/no: ${r.row.name} (${r.die})`);
     }, "primary")));
 
@@ -354,7 +358,7 @@ export function renderJournal(host) {
   const c = Store.career;
   add(host, el("h1", { text: "Journal" }),
     explain("The record of this case: what you wrote, what the dice did, and what the app changed as a result. It pages a session at a time so it stays readable, and it exports as plain text you can keep."));
-  if (!c) { add(host, emptyState("No career yet.", "Create an investigator", () => go("wizard"))); return {}; }
+  if (!c) { add(host, emptyState("No career yet.", "Create an investigator", () => go("wizard"), illustration("journal"))); return {}; }
 
   let page = 0;
   const PAGE = 25;
@@ -383,10 +387,15 @@ export function renderJournal(host) {
       if (shown.length < all.length) {
         add(listHost, btn(`Show ${Math.min(STORY_PAGE, all.length - shown.length)} earlier`, () => { page++; paint(); }));
       }
-      let day = null;
+      let day = null, opened = false;
       for (const e of shown) {
-        if ((e.day || 1) !== day) { day = e.day || 1; add(listHost, el("h3", { class: "card-title", text: `Day ${day}` })); }
-        add(listHost, el("p", { class: e.kind === "oracle" ? "mono small" : "story-line", text: e.text }));
+        if ((e.day || 1) !== day) {
+          day = e.day || 1; opened = false;
+          add(listHost, el("h3", { class: "card-title story-day" }, glyph("day", 16), el("span", { text: `Day ${day}` })));
+        }
+        const prose = e.kind !== "oracle";
+        add(listHost, el("p", { class: prose ? `story-line${opened ? "" : " opens"}` : "mono small", text: e.text }));
+        if (prose) opened = true;
       }
       if (!all.length) add(listHost, el("p", { class: "muted small", text: "Nothing written yet. Whatever you write in a scene, and every answer the oracle gives, lands here." }));
       return;
