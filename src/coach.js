@@ -12,6 +12,7 @@ import * as R from "./rules.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
 import { Settings } from "./settings.js";
+import { WIZARD_STEPS, wizardStep } from "./wizard.js";
 import { btn, modal, section, defRow } from "./ui.js";
 
 const go = (name) => import("./router.js").then((m) => m.go(name));
@@ -57,7 +58,7 @@ export function nextStep(currentRoute) {
     // Someone mid-wizard is coached through it; everyone else is offered the
     // one tap that skips it, because the slow path should never be the advice.
     if (currentRoute === "wizard") {
-      return { id: "in-wizard", route: "wizard", press: "Create the investigator",
+      return { id: "in-wizard", route: "wizard", press: WIZARD_STEPS[wizardStep()].action,
         say: "Four steps, and every one of them has a Roll button.",
         why: "Spread 2, 1 and 0 across the three attributes — the 2 is what they reach for first. Then one obligation (neglect it and the day costs you a fatigue), one signature keyword (your reusable favour, back after every rest), and a name. Nothing is permanent; the sheet edits all of it." };
     }
@@ -202,12 +203,14 @@ export function recapCard() {
  * look something up it is one line, because a step about a scene you are not in
  * is not worth 40% of the screen.
  */
-const PLAY_SURFACES = new Set(["home", "sheet", "case-sheet", "play", "clues", "solve", "wizard", "mystery"]);
+const PLAY_SURFACES = new Set(["home", "sheet", "case-sheet", "play", "clues", "wizard", "mystery"]);
+/** Screens that guide themselves, step by step, and are not improved by a second voice. */
+const SILENT = new Set(["solve"]);
 /** Opened on a reference screen, it stays open as long as the app is open. */
 let openedOnReference = false;
 
 export function coachBar(currentRoute) {
-  if (!Settings.get("coach")) return null;
+  if (!Settings.get("coach") || SILENT.has(currentRoute)) return null;
   const step = nextStep(currentRoute);
   const here = step.route === currentRoute;
   const wrap = el("div", { class: `coach ${step.tone || ""}`.trim(), role: "status" });
@@ -235,7 +238,8 @@ export function coachBar(currentRoute) {
        el("span", { class: "coach-line", text: step.say }),
        el("span", { class: "coach-chevron", "aria-hidden": "true" })));
   };
-  if (PLAY_SURFACES.has(currentRoute) || openedOnReference) full(); else line();
+  const blank = !Store.career || !Store.investigator;
+  if (!blank && (PLAY_SURFACES.has(currentRoute) || openedOnReference)) full(); else line();
   return wrap;
 }
 

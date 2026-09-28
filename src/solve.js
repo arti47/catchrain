@@ -88,8 +88,13 @@ function renderOutcome(host, c, m) {
   add(host, el("h1", { text: correct === 3 ? "You had it all along" : correct ? "Part of it, at least" : "Caught in the rain" }),
     explain("Each correct guess buys one answer, taken in order. Write the answers as true, then either start the next mystery or leave the case where it is."));
 
-  add(host, section("The cards",
-    el("div", { class: "hand" }, ...m.setAside.map((card) => cardFace(card, { flip: true }))),
+  const stage = el("div", { class: "reveal" });
+  m.setAside.forEach((card, i) => {
+    const face = cardFace(card, { flip: true });
+    face.style.setProperty("--turn", `${i * 260}ms`);
+    add(stage, face);
+  });
+  add(host, section("The cards", stage,
     ...(m.results || []).map((r, i) => row(`Guess ${i + 1}: ${r.guess.rank}${r.guess.suit}`,
       el("span", {}, r.correct ? pill("Correct", "ok") : pill(r.reason === "red herring" ? "Red herring" : "Wrong", "loss")))),
     row("Correct", `${correct} of 3`),
@@ -100,7 +105,7 @@ function renderOutcome(host, c, m) {
   for (let i = 0; i < correct; i++) {
     const q = SOLVE_QUESTIONS[i];
     add(answers, el("div", { class: "defrow" },
-      el("span", { class: "row-label", text: q }),
+      el("span", { class: "row-label question", text: q }),
       el("div", { class: "defrow-value" },
         el("p", { text: m.answers[i] || "Not answered yet." }),
         btn(m.answers[i] ? "Rewrite" : "Answer", async () => {

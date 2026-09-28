@@ -7,7 +7,7 @@ import * as D from "./derived.js";
 import { Store } from "./store.js";
 import { Settings } from "./settings.js";
 import { buildClueDeck, buildTruth } from "./deck.js";
-import { section, row, btn, optionBtn, explain, actionBar, showToast, promptModal } from "./ui.js";
+import { section, row, btn, seg, explain, actionBar, showToast, promptModal } from "./ui.js";
 import { go } from "./router.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());
@@ -22,18 +22,37 @@ const newDraft = () => ({
 
 const rollBtn = (label, fn) => btn(label, fn);
 
+/**
+ * What each step of the investigator wizard is called and what its button says.
+ * The guide reads this rather than keeping its own copy, so it can never name a
+ * control that is not on the screen you are looking at.
+ */
+export const WIZARD_STEPS = [
+  { name: "Attributes", action: "Next: obligation" },
+  { name: "Obligation", action: "Next: signature keyword" },
+  { name: "Signature", action: "Next: who they are" },
+  { name: "Identity", action: "Create the investigator" },
+];
+export const wizardStep = () => (draft ? draft.step : 0);
+
 export function renderWizard(host) {
   if (!draft) draft = newDraft();
   const steps = [stepAttributes, stepObligation, stepKeyword, stepIdentity];
   const step = steps[draft.step];
   add(host, el("h1", { text: "Create an investigator" }),
     explain("Four steps, in the book's order: spread 2/1/0 across your three attributes, take one obligation from the rest of your life, name the signature keyword you can lean on again and again, then say who this person is."));
-  add(host, section(`Step ${draft.step + 1} of 4`,
-    el("div", { class: "section-nav" }, ...["Attributes", "Obligation", "Signature", "Identity"].map((n, i) => {
-      if (i > draft.step) return el("span", { class: "section-step", "aria-disabled": "true", text: n });
-      return el("a", { href: "#/wizard", "aria-current": i === draft.step ? "page" : null,
-        onclick: (e) => { e.preventDefault(); if (i < draft.step) { draft.step = i; rerender(); } } }, n);
-    }))));
+  const bar = el("div", { class: "steps", role: "list", "aria-label": `Step ${draft.step + 1} of ${WIZARD_STEPS.length}` });
+  WIZARD_STEPS.forEach((st, i) => {
+    add(bar, el("button", {
+      class: `step-seg ${i === draft.step ? "now" : i < draft.step ? "done" : ""}`.trim(),
+      type: "button", role: "listitem",
+      "aria-label": `${st.name}${i === draft.step ? ", where you are" : i < draft.step ? ", done" : ", not reached"}`,
+      "aria-current": i === draft.step ? "step" : null,
+      disabled: i > draft.step,
+      onclick: () => { if (i < draft.step) { draft.step = i; rerender(); } },
+    }));
+  });
+  add(host, section(`Step ${draft.step + 1} of 4 \u00b7 ${WIZARD_STEPS[draft.step].name}`, bar));
   const out = step(host);
   return out;
 }
@@ -44,21 +63,22 @@ function stepAttributes(host) {
     el("p", { class: "small muted", text: "2 for what they are best at, 1 for the next, 0 for the last. Power is force and endurance, Insight is reasoning and noticing, Method is resourcefulness." }),
     ...ATTRIBUTES.map((a) => el("div", { class: "defrow" },
       el("span", { class: "row-label" }, a.name, " — ", el("small", { class: "muted", text: a.text })),
-      el("div", { class: "defrow-value btn-row" }, ...ATTRIBUTE_ARRAY.map((v) => {
-        const takenBy = Object.entries(draft.attributes).find(([k, val]) => val === v && k !== a.id);
-        return optionBtn(String(v), () => {
+      el("div", { class: "defrow-value" },
+        seg(ATTRIBUTE_ARRAY.map((v) => ({ value: v, label: String(v) })), draft.attributes[a.id], (v) => {
+          const takenBy = Object.entries(draft.attributes).find(([k, val]) => val === v && k !== a.id);
           if (takenBy) draft.attributes[takenBy[0]] = null;
           draft.attributes[a.id] = v;
           rerender();
-        }, draft.attributes[a.id] === v);
-      }))))));
+        }, a.name))))));
   const done = used.length === 3;
   return { action: actionBar("Next: obligation", () => { if (!done) { showToast("Assign all three values."); return; } draft.step = 1; rerender(); }, done ? "2 / 1 / 0 assigned" : "Assign all three") };
 }
 
 function genrePicker(onPick) {
-  return el("div", { class: "btn-row" }, ...GENRE_IDS.map((g) =>
-    optionBtn(GENRES[g].name, () => { draft.genre = g; onPick(); }, draft.genre === g)));
+  const g = seg(GENRE_IDS.map((id) => ({ value: id, label: GENRES[id].name })), draft.genre,
+    (id) => { draft.genre = id; onPick(); }, "Genre");
+  g.classList.add("grid");
+  return g;
 }
 
 function stepObligation(host) {
@@ -143,12 +163,16 @@ export function renderMysteryWizard(host) {
   add(host, el("h1", { text: "Set up a mystery" }),
     explain("A problem is a place, a thing, and something bad that happened to it. Roll all three, give your investigator a reason to care, and the decks are built for you."));
 
-  add(host, section("Genre", el("div", { class: "btn-row" }, ...GENRE_IDS.map((g) =>
-    optionBtn(GENRES[g].name, () => { mDraft.genre = g; rerender(); }, mDraft.genre === g))),
+  const genres = seg(GENRE_IDS.map((g) => ({ value: g, label: GENRES[g].name })), mDraft.genre,
+    (g) => { mDraft.genre = g; rerender(); }, "Genre");
+  genres.classList.add("grid");
+  add(host, section("Genre", genres,
     el("p", { class: "small muted", text: "This picks which set of tables the mystery rolls on." })));
 
-  add(host, section("Difficulty", el("div", { class: "btn-row" }, ...DIFFICULTIES.map((d) =>
-    optionBtn(d.name, () => { mDraft.difficulty = d.id; rerender(); }, mDraft.difficulty === d.id))),
+  const diffs = seg(DIFFICULTIES.map((d) => ({ value: d.id, label: d.name })), mDraft.difficulty,
+    (id) => { mDraft.difficulty = id; rerender(); }, "Difficulty");
+  diffs.classList.add("grid");
+  add(host, section("Difficulty", diffs,
     el("p", { class: "small muted", text: R.difficulty(mDraft.difficulty).text }),
     Settings.get("career")
       ? row("Experience bonus", `${R.difficulty(mDraft.difficulty).xpBonus >= 0 ? "+" : ""}${R.difficulty(mDraft.difficulty).xpBonus} XP`)
@@ -173,7 +197,7 @@ export function renderMysteryWizard(host) {
         Object.assign(mDraft, p);
         mDraft.secondObject = p.treachery.needsSecondObject ? R.rollGenre(mDraft.genre, "objects").value : null;
         rerender();
-      }, "primary"),
+      }),
       btn("Write it myself", async () => {
         const loc = await promptModal({ title: "Location", value: mDraft.location ? mDraft.location.value : "" });
         if (loc === null) return;

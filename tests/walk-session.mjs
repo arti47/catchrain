@@ -59,9 +59,9 @@ await seed(page, base, "fresh");
 
 // creation
 await page.goto(`${base}#/wizard`);
-await tap(page.getByRole("button", { name: "2", exact: true }).first(), "power 2");
-await tap(page.locator(".defrow").nth(1).getByRole("button", { name: "1", exact: true }), "insight 1");
-await tap(page.locator(".defrow").nth(2).getByRole("button", { name: "0", exact: true }), "method 0");
+await tap(page.getByRole("radio", { name: "2", exact: true }).first(), "power 2");
+await tap(page.locator(".defrow").nth(1).getByRole("radio", { name: "1", exact: true }), "insight 1");
+await tap(page.locator(".defrow").nth(2).getByRole("radio", { name: "0", exact: true }), "method 0");
 await tap(page.locator(".action-bar .btn"), "next");
 await tap(page.getByRole("button", { name: "Roll one" }), "roll obligation");
 await tap(page.locator(".action-bar .btn"), "next");

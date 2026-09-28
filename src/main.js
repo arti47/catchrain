@@ -26,10 +26,13 @@ R.setBlocked(Settings.get("blocked") || []);
 installPrompts();
 applyWakeLock();
 
+const noInvestigator = () => !Store.career || !Store.investigator;
+const noMystery = () => !Store.mystery;
+
 register("home", { title: "Case", group: "case", render: renderHome });
-register("sheet", { title: "Investigator", group: "case", render: renderSheet });
-register("case-sheet", { title: "Mystery", group: "case", render: renderMysterySheet });
-register("journal", { title: "Journal", group: "case", render: renderJournal });
+register("sheet", { title: "Investigator", group: "case", render: renderSheet, empty: noInvestigator });
+register("case-sheet", { title: "Mystery", group: "case", render: renderMysterySheet, empty: noMystery });
+register("journal", { title: "Journal", group: "case", render: renderJournal, empty: noInvestigator });
 register("play", { title: "Play", group: "play", render: renderPlay });
 register("clues", { title: "Clues", group: "clues", render: renderClues });
 register("solve", { title: "The solve", group: "clues", render: renderSolve });

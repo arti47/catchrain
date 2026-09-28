@@ -181,14 +181,6 @@ export const btn = (label, onClick, kind = "ghost", attrs = {}) =>
   el("button", { class: `btn ${kind}`, type: "button", onclick: onClick, ...attrs }, label);
 
 /**
- * One option out of a set. Chosen is not the same as primary: blue means the
- * action this screen wants from you, and if it also means "this is the one you
- * picked" then a screen with three of them has no primary at all.
- */
-export const optionBtn = (label, onClick, selected) =>
-  btn(label, onClick, selected ? "chosen" : "ghost", { "aria-pressed": selected ? "true" : "false" });
-
-/**
  * A set of options drawn as one control rather than a row of buttons: one
  * border, one moving indicator, and a radiogroup underneath so it is one stop
  * for a keyboard and one announcement for a screen reader.

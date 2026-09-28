@@ -194,6 +194,11 @@ export async function goScreen(s, name) {
 
 // --- what a player can see ----------------------------------------------------
 export async function readState(s) {
+  const folded = s.page.locator(".coach.compact .coach-toggle");
+  if (!(await s.page.locator(".modal-overlay").count()) && (await folded.count())) {
+    await folded.first().click();
+    await s.page.waitForTimeout(60);
+  }
   return s.page.evaluate(({ sel }) => {
     const norm = (t) => String(t || "").replace(/\s+/g, " ").trim();
     const save = JSON.parse(localStorage.getItem("citr:v1") || "{}");

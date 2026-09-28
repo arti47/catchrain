@@ -5,6 +5,7 @@ import { serve, launch, seed } from "./server.mjs";
 
 import { ROUTES } from "./routes.mjs";
 import { TAPPABLE_ALL } from "./controls.mjs";
+import { DRAWN, sweep } from "./floors.mjs";
 const WIDTHS = [320, 360, 390];
 let failures = [];
 const fail = (m) => { failures.push(m); console.log("  FAIL " + m); };
@@ -142,9 +143,9 @@ for (const width of WIDTHS) {
   const { ctx, page, errors } = await newPage();
   await withSeed(page, false);
   await page.goto(`${base}#/wizard`);
-  await page.getByRole("button", { name: "2", exact: true }).first().click();
-  await page.locator(".defrow").nth(1).getByRole("button", { name: "1", exact: true }).click();
-  await page.locator(".defrow").nth(2).getByRole("button", { name: "0", exact: true }).click();
+  await page.getByRole("radio", { name: "2", exact: true }).first().click();
+  await page.locator(".defrow").nth(1).getByRole("radio", { name: "1", exact: true }).click();
+  await page.locator(".defrow").nth(2).getByRole("radio", { name: "0", exact: true }).click();
   await page.locator(".action-bar .btn").click();
   await page.getByRole("button", { name: "Roll one" }).click();
   await page.locator(".action-bar .btn").click();
@@ -840,7 +841,7 @@ for (const width of WIDTHS) {
   const first = await page.locator(".action-bar .btn").innerText();
   if (!/start playing/i.test(first)) fail(`a blank app offers "${first.split("\n")[0]}" instead of a way straight in`);
   if (!(await page.locator(".coach").count())) fail("the guide is missing on the first screen of all");
-  const opening = await page.locator(".coach-say").innerText();
+  const opening = await page.locator(".coach-line, .coach-say").first().innerText();
   if (!/start playing/i.test(opening)) fail(`the guide opens with "${opening.replace(/\s+/g, " ").trim()}" instead of pointing at the way in`);
 
   await page.locator(".action-bar .btn").click();
@@ -1390,6 +1391,30 @@ for (const width of WIDTHS) {
   await c.close();
 }
 
+// 8x. the two floors, swept rather than sampled
+// Both were checked against a hand-written list of selectors, and both lists
+// were already stale: --ink-3 was measured on --panel, where it passes, and not
+// on --panel-2, where it was 3.85:1 under every table row's d66 index; the size
+// check named five selectors while .action-context sat under every action
+// button in the app at 10.6px. This walks every text node instead.
+{
+  const { ctx, page, errors } = await newPage();
+  const misses = new Map();
+  for (const theme of ["light", "dark"]) {
+    await seed(page, base, "stress", { theme, rivals: true });
+    for (const route of ROUTES) {
+      await page.goto(`${base}#/${route}`);
+      await page.waitForTimeout(160);
+      const bad = await page.evaluate(sweep, DRAWN);
+      for (const b of bad) if (!misses.has(b)) misses.set(b, `${theme}/${route}`);
+    }
+  }
+  for (const [what, where] of misses) fail(`${where}: ${what}`);
+  if (errors.length) fail(`console error during the sweep: ${errors[0].slice(0, 120)}`);
+  if (!failures.length) ok(`every text node on ${ROUTES.length} routes clears 11px and AA, in both themes`);
+  await ctx.close();
+}
+
 // 8r. the frame reads: contrast, size, and nothing cut off
 // The section nav never scrolled its current pill into view, so the tab you
 // were on was the one clipped by the right edge. --ink-3 carried every small
@@ -1587,7 +1612,7 @@ for (const width of WIDTHS) {
   const { ctx, page, errors } = await newPage();
   await seed(page, base, "stress");
 
-  for (const route of ["journal", "oracle", "settings", "tables", "clues", "play"]) {
+  for (const route of ROUTES) {
     await page.goto(`${base}#/${route}`);
     await page.waitForTimeout(320);
     const primaries = await page.evaluate(() =>
@@ -1780,6 +1805,141 @@ for (const width of WIDTHS) {
 
   if (errors.length) fail(`console error around the motion: ${errors[0].slice(0, 140)}`);
   if (!failures.length) ok("dialogs and screens arrive, and one setting stops all of it");
+  await ctx.close();
+}
+
+// 8y. the second audit: what the first pass left half-done
+{
+  const { ctx, page, errors } = await newPage();
+
+  // A blank app: one voice, and no tabs to screens with nothing on them.
+  await seed(page, base, "fresh");
+  await page.goto(`${base}#/home`);
+  await page.waitForTimeout(350);
+  const blank = await page.evaluate(() => ({
+    compact: !!document.querySelector(".coach.compact"),
+    full: !!document.querySelector(".coach:not(.compact)"),
+    nav: [...document.querySelectorAll("#screen .section-nav a")].map((a) => a.innerText.trim()),
+  }));
+  if (blank.full) fail("a blank app explains Start playing twice: the full guide and the onboarding card");
+  for (const empty of ["Investigator", "Mystery", "Journal"])
+    if (blank.nav.some((t) => new RegExp(empty, "i").test(t))) fail(`a blank app offers the ${empty} tab with nothing behind it`);
+
+  // The wizard: the guide names the button that is actually on the screen.
+  await page.goto(`${base}#/wizard`);
+  await page.waitForTimeout(350);
+  // Open the guide if it is folded, then read what it names.
+  const toggle = page.locator(".coach-toggle");
+  if (await toggle.count()) await toggle.click();
+  await page.waitForTimeout(150);
+  const wiz = await page.evaluate(() => {
+    const here = document.querySelector(".coach-here");
+    const bar = document.querySelector(".action-bar .btn span");
+    return {
+      names: here ? (here.innerText.match(/\u201c(.+?)\u201d/) || [])[1] : null,
+      bar: bar ? bar.innerText.trim() : null,
+      steps: document.querySelectorAll(".steps .step-seg").length,
+      navLookalike: !!document.querySelector("#screen .card .section-nav"),
+      radios: document.querySelectorAll("#screen .seg [role='radio']").length,
+      loose: document.querySelectorAll("#screen .btn.chosen, #screen .btn[aria-pressed]").length,
+    };
+  });
+  if (wiz.names && wiz.bar && wiz.names !== wiz.bar) fail(`the wizard's guide says press "${wiz.names}" while the button says "${wiz.bar}"`);
+  if (wiz.steps !== 4) fail(`the wizard's progress is drawn as ${wiz.steps} segments, not four`);
+  if (wiz.navLookalike) fail("the wizard's step rail still looks like the section nav");
+  if (wiz.radios < 9) fail(`the 2/1/0 picker is ${wiz.radios} radios, not three segmented controls of three`);
+  if (wiz.loose) fail(`the wizard still has ${wiz.loose} loose option buttons`);
+
+  // The opened note is a note on its own line, not a glyph on the heading.
+  await seed(page, base, "stress");
+  await page.goto(`${base}#/clues`);
+  await page.waitForTimeout(300);
+  await page.locator(".heading-row .explain summary").click();
+  await page.waitForTimeout(200);
+  const note = await page.evaluate(() => {
+    const h1 = document.querySelector(".heading-row h1").getBoundingClientRect();
+    const sum = document.querySelector(".heading-row .explain summary");
+    const r = sum.getBoundingClientRect();
+    const label = sum.querySelector(".vh");
+    return {
+      overlaps: !(r.top >= h1.bottom - 1 || r.bottom <= h1.top + 1 || r.left >= h1.right || r.right <= h1.left),
+      labelDrawn: label ? label.getBoundingClientRect().width > 4 : false,
+    };
+  });
+  if (note.overlaps) fail("the opened what-this-does note is drawn on top of the heading");
+  if (!note.labelDrawn) fail("the opened note is a bare ? with nothing to say what it is");
+
+  // The solve guides itself: no second voice at the climax.
+  await page.goto(`${base}#/solve`);
+  await page.waitForTimeout(300);
+  if (await page.locator(".coach").count()) fail("the solve still carries the guide's line about a scene you left");
+
+  // The reveal: three cards, on a stage, turned one after another.
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const m = s.careers[s.activeId].mystery;
+    m.ended = true; m.solved = true; m.endTrigger = "chosen";
+    m.results = m.setAside.map((c) => ({ guess: c, correct: true }));
+    m.correct = 3; m.answers = [];
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/solve`);
+  await page.waitForTimeout(400);
+  const reveal = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll(".reveal .pcard")];
+    return {
+      count: cards.length,
+      width: cards[0] ? Math.round(cards[0].getBoundingClientRect().width) : 0,
+      delays: cards.map((c) => getComputedStyle(c).animationDelay),
+    };
+  });
+  if (reveal.count !== 3) fail(`the reveal shows ${reveal.count} cards`);
+  if (reveal.width < 56) fail(`the reveal's cards are ${reveal.width}px, the size of a clue set`);
+  if (new Set(reveal.delays).size < 3) fail("the reveal turns all three cards over at once");
+
+  // Careers: a status is not a control beside a destructive one.
+  await page.goto(`${base}#/careers`);
+  await page.waitForTimeout(300);
+  const status = await page.evaluate(() =>
+    [...document.querySelectorAll("#screen .btn-row")].some((r) => r.querySelector(".pill") && r.querySelector(".btn.danger")));
+  if (status) fail("the Current pill still sits in a button row beside Delete");
+
+  if (errors.length) fail(`console error in the second audit: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("one voice on a blank app, the guide names what is there, the note opens cleanly, the reveal is staged");
+  await ctx.close();
+}
+
+// 8z. a message never sits on the button you came to press
+// The update toast was pinned at exactly the action bar's height, so a deploy
+// landing mid-scene covered "Get out" — found when one landed during this suite.
+{
+  const { ctx, page, errors } = await newPage();
+  await seed(page, base, "stress");
+  for (const route of ["play", "home", "clues"]) {
+    await page.goto(`${base}#/${route}`);
+    await page.waitForTimeout(300);
+    const hit = await page.evaluate(async () => {
+      const ui = await import("../src/ui.js");
+      ui.actionToast({ text: "Update available. Reloading keeps everything you have.", actionLabel: "Reload" });
+      ui.showToast("A plain message");
+      await new Promise((r) => setTimeout(r, 400));
+      const bar = document.querySelector(".action-bar");
+      if (!bar) return null;
+      const b = bar.getBoundingClientRect();
+      const over = (sel) => { const n = document.querySelector(sel); if (!n) return false;
+        const r = n.getBoundingClientRect();
+        return r.bottom > b.top + 1 && r.top < b.bottom - 1 && r.width > 0; };
+      const out = { action: over(".toast-action"), plain: over(".toast.show") };
+      ui.dismissActionToast && ui.dismissActionToast();
+      return out;
+    });
+    if (!hit) continue;
+    if (hit.action) fail(`${route}: the update toast sits on top of the action bar`);
+    if (hit.plain) fail(`${route}: a toast sits on top of the action bar`);
+  }
+  if (errors.length) fail(`console error around the toasts: ${errors[0].slice(0, 120)}`);
+  if (!failures.length) ok("a toast never covers the button you came to press");
   await ctx.close();
 }
 

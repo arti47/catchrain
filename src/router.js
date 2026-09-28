@@ -43,7 +43,9 @@ export function setBadges(fn) { badgeFn = fn; }
 export function sectionNav(current) {
   const def = routes.get(current);
   if (!def || !def.group) return null;
-  const siblings = [...routes.entries()].filter(([, d]) => d.group === def.group && !d.hidden);
+  const siblings = [...routes.entries()]
+    .filter(([, d]) => d.group === def.group && !d.hidden)
+    .filter(([name, d]) => name === current || !d.empty || !d.empty());
   if (siblings.length < 2) return null;
   const badges = badgeFn() || {};
   const nav = el("nav", { class: "section-nav", "aria-label": def.group });

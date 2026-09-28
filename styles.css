@@ -11,8 +11,8 @@
   --panel:    #fbfaf7;
   --panel-2:  #e9e5dd;
   --ink:      #1b1d21;
-  --ink-2:    #5d6470;
-  --ink-3:    #6b7280;   /* 4.6:1 on --panel: it carries every small label */
+  --ink-2:    #4b515b;   /* 6.4 on --panel-2: one clear step above --ink-3 */
+  --ink-3:    #5f6673;   /* measured: 4.6 on --panel-2, 4.9 on --paper, 5.5 on --panel */
   --line:     rgba(27, 29, 33, .13);
   --line-2:   rgba(27, 29, 33, .07);
 
@@ -198,11 +198,19 @@ h1, h2 { font-family: var(--serif); font-weight: 600; letter-spacing: -.01em; li
 }
 .heading-row .explain summary::before { content: "?"; font-size: .95rem; opacity: 1; }
 .heading-row .explain[open] {
-  position: relative; flex: 1 0 100%; order: 3;
+  flex: 1 0 100%; order: 3;
   border-left: 2px solid var(--line); margin-top: .2rem;
 }
 .heading-row .explain[open] summary {
-  width: 100%; border: 0; border-radius: 0; justify-content: flex-start; padding: .5rem .7rem;
+  width: auto; min-height: var(--tap); border: 0; border-radius: 0;
+  justify-content: flex-start; padding: .5rem .7rem; gap: .45rem;
+}
+/* The label is drawn once the note is open: there is room for it there, and a
+   lone "?" above a paragraph says nothing about what the paragraph is. */
+.heading-row .explain[open] summary .vh {
+  position: static; width: auto; height: auto; margin: 0;
+  overflow: visible; clip-path: none; white-space: normal;
+  font-size: .74rem; text-transform: uppercase; letter-spacing: .12em;
 }
 h1 { font-size: 1.45rem; }
 h2 { font-size: 1.15rem; }
@@ -297,7 +305,9 @@ b, strong { font-weight: 650; }
 .res.danger b { color: var(--danger); }
 .res.loss b { color: var(--loss); }
 .res.truth b { color: var(--accent); }
-.res.warn span { color: inherit; opacity: .85; }
+/* A number that is about to bite says so in the colour that means it, not by
+   fading its own label out. */
+.res.warn span { color: inherit; }
 .res.danger.warn span { color: var(--danger); }
 .res.loss.warn span { color: var(--loss); }
 .res.who {
@@ -435,8 +445,17 @@ b, strong { font-weight: 650; }
 .defrow { padding: .5rem 0; border-bottom: 1px solid var(--line-2); }
 .defrow:last-child { border-bottom: 0; }
 .defrow .row-label {
-  display: block; margin-bottom: .3rem; font-size: .66rem;
-  text-transform: uppercase; letter-spacing: .14em; color: var(--ink-3);
+  display: block; margin-bottom: .3rem; font-size: .72rem;
+  text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3);
+}
+/* A label can be shouted; a definition read in two lines of tracked capitals
+   cannot. Anything the label carries as prose stays in sentence case. */
+.defrow .row-label small { text-transform: none; letter-spacing: 0; font-size: .82rem; }
+/* The solve's three questions are what the whole case was asking. They are
+   read, not scanned: sentence case, in the serif the fiction is set in. */
+.defrow .row-label.question {
+  text-transform: none; letter-spacing: 0; font-family: var(--serif);
+  font-size: 1rem; font-weight: 600; color: var(--ink); margin-bottom: .35rem;
 }
 .defrow-value { width: 100%; }
 
@@ -468,7 +487,8 @@ b, strong { font-weight: 650; }
 .btn.big { min-height: 50px; font-size: .95rem; flex-direction: column; gap: 1px; }
 .btn[disabled] { opacity: .4; cursor: not-allowed; }
 .action-context {
-  font-weight: 400; font-size: .66rem; text-transform: uppercase; letter-spacing: .12em; opacity: .8;
+  font-weight: 400; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em;
+  color: color-mix(in srgb, var(--btn-ink) 82%, var(--btn));
 }
 /* A button sitting straight in a card is that card's action: give it the width. */
 .card > .btn, .empty > .btn { width: 100%; }
@@ -502,7 +522,7 @@ b, strong { font-weight: 650; }
   display: inline-flex; align-items: center; gap: .3rem;
   padding: .12rem .5rem; border-radius: 999px;
   background: var(--panel-2); border: 1px solid var(--line-2);
-  font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2);
+  font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 .pill.danger { background: var(--danger-dim); border-color: color-mix(in srgb, var(--danger) 30%, transparent); color: var(--danger); }
@@ -573,6 +593,24 @@ b, strong { font-weight: 650; }
 .clock .seg-off { fill: var(--panel-2); stroke: var(--line); }
 .clock .seg-on { fill: var(--accent); stroke: color-mix(in srgb, var(--accent) 70%, black); }
 
+/* Where you are in a four-step wizard, drawn as four lengths rather than four
+   pills: a pill row reads as navigation, and four step names do not fit a phone
+   without being cut in half. The step is named in the heading above this. */
+.steps { display: flex; gap: 4px; margin: -12px 0; }
+.step-seg {
+  flex: 1 1 0; height: var(--tap); padding: 0; border: 0; background: none;
+  position: relative; cursor: default;
+}
+.step-seg::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px;
+  border-radius: 999px; background: var(--panel-2);
+  box-shadow: inset 0 1px 2px rgba(20, 22, 26, .12);
+  transition: background .16s ease;
+}
+.step-seg.done { cursor: pointer; }
+.step-seg.done::before { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.step-seg.now::before { background: var(--accent); }
+
 .attr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
 .attr {
   position: relative; overflow: hidden;
@@ -606,6 +644,9 @@ button.chip:hover { border-color: var(--accent); }
   text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: var(--loss);
 }
 .chip.signature { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-dim); }
+/* Struck is the state that matters; being a signature is what it will be again
+   after a rest. Four marks at once on one chip is three too many. */
+.chip.signature.struck { background: transparent; border-color: var(--line); }
 
 /* -------------------------------------------------------- playing cards */
 .hand { display: flex; flex-wrap: wrap; gap: .3rem; perspective: 700px; }
@@ -617,8 +658,30 @@ button.chip:hover { border-color: var(--accent); }
   display: flex; align-items: center; justify-content: center;
   font-family: var(--serif); font-size: .9rem; font-weight: 600; line-height: 1;
 }
+/* The three cards the case was about, on a stage of their own: bigger than a
+   clue set, turned over one after another rather than all at once, and centred
+   because there is nothing else on this row to line them up against. */
+.reveal {
+  display: flex; justify-content: center; gap: .7rem;
+  padding: 1.1rem .4rem 1.3rem; margin-bottom: .6rem;
+  perspective: 900px;
+}
+.reveal .pcard {
+  width: 66px; height: 92px; border-radius: 8px;
+  box-shadow: var(--shadow-2), inset 0 1px 0 rgba(255, 255, 255, .8), inset 0 -5px 10px rgba(20, 22, 26, .1);
+}
+.reveal .pcard .rank { top: 5px; left: 7px; font-size: .92rem; }
+.reveal .pcard .pip { font-size: 2.1rem; }
+@media (max-width: 359px) { .reveal .pcard { width: 58px; height: 81px; } }
+
+/* The verdict is the sentence the case ends on: set like one. */
+.solve-verdict { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; margin: 0 0 .2rem; }
+
 /* The one moment the game turns a card over on purpose: the solve. */
 .pcard.flip { animation: card-turn .5s cubic-bezier(.22, .72, .28, 1) both; backface-visibility: hidden; }
+/* One after another. This has to out-rank the shorthand above, which would
+   otherwise reset every delay to nothing and turn all three at once. */
+.reveal .pcard.flip { animation-delay: var(--turn, 0ms); animation-duration: .62s; }
 @keyframes card-turn {
   from { transform: rotateY(-168deg) translateZ(26px); }
   to   { transform: none; }
@@ -849,8 +912,9 @@ label.opt .opt-text small { display: block; color: var(--ink-2); font-weight: 40
   transition: opacity .18s ease, transform .18s ease;
 }
 .to-top.show { opacity: 1; transform: none; pointer-events: auto; }
-.screen.has-action ~ #action-host + .to-top,
-body:has(.action-bar) .to-top { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 76px); }
+body:has(.action-bar) .to-top { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 84px); }
+/* An update waiting to be accepted outranks a shortcut to the top. */
+body:has(.toast-action) .to-top { opacity: 0; pointer-events: none; }
 .to-top::before {
   content: ""; width: 9px; height: 9px; margin-top: 3px;
   border-left: 1.6px solid currentColor; border-top: 1.6px solid currentColor;
@@ -866,6 +930,8 @@ body:has(.action-bar) .to-top { bottom: calc(var(--tabbar) + env(safe-area-inset
   pointer-events: none;
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
+body:has(.action-bar) .toast { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 84px); }
+body:has(.action-bar) .toast-action { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 82px); }
 
 .toast-action {
   position: fixed; left: var(--gutter); right: var(--gutter); z-index: 71;
@@ -936,7 +1002,7 @@ details.framing .ask li { font-size: .89rem; margin-bottom: .15rem; }
 .log-entry { padding: .5rem 0; border-bottom: 1px solid var(--line-2); font-size: .87rem; }
 .log-entry:last-child { border-bottom: 0; }
 .log-when {
-  font-size: .64rem; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-3);
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3);
   margin-bottom: .15rem;
 }
 

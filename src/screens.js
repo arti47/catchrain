@@ -501,8 +501,9 @@ export function renderCareers(host) {
       row(car.investigators.length > 1 ? "Party" : "Investigator", car.investigators.map((i) => i.name || "unnamed").join(", ")),
       row("Cases closed", String(car.history.length)),
       row("Experience", car.investigators.map((i) => `${i.name || "unnamed"} ${i.xp} XP`).join(" · ")),
+      car.id === (c && c.id) ? row("Playing", pill("Current", "ok")) : null,
       el("div", { class: "btn-row" },
-        car.id === (c && c.id) ? pill("Current", "ok") : btn("Switch to this", () => { resetDrafts(); Store.selectCareer(car.id); go("home"); }),
+        car.id === (c && c.id) ? null : btn("Switch to this", () => { resetDrafts(); Store.selectCareer(car.id); go("home"); }),
         btn("Delete", async () => {
           const ok = await confirmModal({ title: "Delete this career?", message: `This erases ${car.investigators.map((i) => i.name || "this investigator").join(", ")}, the journal, the decks and the history. It cannot be undone.`, confirmLabel: "Delete", danger: true });
           if (ok) { resetDrafts(); Store.deleteCareer(car.id); rerender(); }
@@ -516,7 +517,7 @@ export function renderCareers(host) {
     add(host, section(`Experience — ${who.name || "your investigator"}, ${who.xp} XP`,
       el("p", { class: "small muted", text: "Spend between mysteries. Two of these hand you a new obligation as well." }),
       ...DATA.XP_BENEFITS.map((b) => row(`${b.cost} XP · ${b.name}`,
-        btn("Spend", () => spendXP(b), b.cost <= who.xp ? "primary" : "ghost", { disabled: b.cost > who.xp || !!(Store.mystery && !Store.mystery.solved) }))),
+        btn("Spend", () => spendXP(b), b.cost <= who.xp ? "chosen" : "ghost", { disabled: b.cost > who.xp || !!(Store.mystery && !Store.mystery.solved) }))),
       Store.mystery && !Store.mystery.solved ? el("p", { class: "small", text: "Experience is spent between mysteries, not during one." }) : null,
       spendable.length === 0 ? el("p", { class: "small muted", text: "Nothing affordable yet." }) : null));
     add(host, section("Take on more",

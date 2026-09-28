@@ -15,6 +15,7 @@ export const TAPPABLE = [
   "#screen .seg-opt",
   "#screen .field-clear",
   "#screen .coach-toggle",
+  "#screen .step-seg",
 ].join(", ");
 
 /** The same, plus the chrome that lives outside the screen. */
