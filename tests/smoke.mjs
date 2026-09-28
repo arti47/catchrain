@@ -208,10 +208,9 @@ for (const width of WIDTHS) {
   await page.waitForTimeout(150);
   await page.locator(".action-bar .btn").click();            // take the clue
   await page.locator(".modal-overlay .choice").first().click(); // which attribute
-  const dice = page.locator(".modal-overlay .input").first();
-  await dice.waitFor({ timeout: 2000 });
-  await dice.fill("6 6");                                     // a certain success
-  await page.locator(".modal-actions .btn").first().click();
+  const dice = page.locator(".modal-overlay .dice-pick");
+  await dice.first().waitFor({ timeout: 2000 });
+  for (let r = 0; r < 2; r++) await dice.nth(r).locator(".die-choice[data-face='6']").click(); // a certain success
   const title = page.locator(".modal-title");
   await title.filter({ hasText: "joker" }).waitFor({ timeout: 4000 }).catch(() => {});
   const sawJoker = await page.locator(".modal-title", { hasText: "joker" }).count();
@@ -588,8 +587,13 @@ for (const width of WIDTHS) {
     const input = page.locator(".modal-overlay .input").first();
     const ch = page.locator(".modal-overlay .choice").first();
     const act = page.locator(".modal-actions .btn").first();
-    if (await input.count()) {
-      await input.fill(/Enter your dice/i.test(title) ? "1 1" : /Enter your die/i.test(title) ? "1" : "A line written at the table.");
+    const dicePick = page.locator(".modal-overlay .dice-pick");
+    if (await dicePick.count()) {
+      // Dice are tapped, not typed: one face per row, and the dialog closes itself.
+      const want = /Enter your dice/i.test(title) ? [1, 1] : [1];
+      for (let r = 0; r < want.length; r++) await dicePick.nth(r).locator(`.die-choice[data-face='${want[r]}']`).click();
+    } else if (await input.count()) {
+      await input.fill("A line written at the table.");
       await act.click();
     } else if (await ch.count()) await ch.click();
     else if (await act.count()) await act.click();
@@ -622,8 +626,13 @@ for (const width of WIDTHS) {
         const input = page.locator(".modal-overlay .input").first();
         const ch = page.locator(".modal-overlay .choice").first();
         const act = page.locator(".modal-actions .btn").first();
-        if (await input.count()) {
-          await input.fill(/Enter your dice/i.test(title) ? "6 6" : /Enter your die/i.test(title) ? "1" : "A line written at the table.");
+        const dicePick = page.locator(".modal-overlay .dice-pick");
+        if (await dicePick.count()) {
+          // Dice are tapped, not typed: one face per row, and the dialog closes itself.
+          const want = /Enter your dice/i.test(title) ? [6, 6] : [1];
+          for (let r = 0; r < want.length; r++) await dicePick.nth(r).locator(`.die-choice[data-face='${want[r]}']`).click();
+        } else if (await input.count()) {
+          await input.fill("A line written at the table.");
           await act.click();
         } else if (await ch.count()) await ch.click();
         else if (await act.count()) await act.click();
@@ -2078,10 +2087,11 @@ for (const width of WIDTHS) {
   const oracle = await q(() => ({ die: !!document.querySelector("#screen .die"), scale: !!document.querySelector("#screen .roll-scale") }));
   if (!oracle.die || !oracle.scale) fail("the yes/no answer is a line of text, with no die and no strip");
 
-  // The scene picker: a glyph on every scene.
+  // The scene picker: a glyph on every scene. The rolls above are live dice and
+  // can end the case, which puts the end card where the picker would be.
   await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem("citr:v1"));
-    const m = s.careers[s.activeId].mystery; m.scene = null; m.threats = [];
+    const m = s.careers[s.activeId].mystery; m.scene = null; m.threats = []; m.ended = false; m.endTrigger = null;
     localStorage.setItem("citr:v1", JSON.stringify(s));
   });
   await page.reload();
@@ -2234,6 +2244,263 @@ for (const width of WIDTHS) {
   if (again) fail(`re-rendering with nothing changed replayed ${again} animations`);
   if (errors.length) fail(`console error around the motion: ${errors[0].slice(0, 120)}`);
   if (!failures.length) ok("a mark is stamped, a segment sweeps and danger counts — once, when it changes");
+  await ctx.close();
+}
+
+// 8ad. the second graphics pass: the dialogs, the solve's picker, the dice you tap
+{
+  const { ctx, page, errors } = await newPage();
+  const q = (fn, arg) => page.evaluate(fn, arg);
+  const closeAll = () => q(() => { document.querySelectorAll(".modal-overlay").forEach((n) => n.remove()); });
+  await seed(page, base, "stress", { rivals: true });
+
+  // 2. the watermark: fainter, and thinning out toward the top
+  await page.goto(`${base}#/oracle`);
+  await page.waitForTimeout(300);
+  const wm = await q(() => { const n = document.querySelector(".genre-mark"); const cs = getComputedStyle(n);
+    return { op: parseFloat(cs.opacity), mask: cs.maskImage || cs.webkitMaskImage || "none" }; });
+  if (wm.op > 0.06) fail(`the genre watermark is drawn at ${wm.op} by day, loud on a short screen`);
+  if (!/linear-gradient/.test(wm.mask)) fail("the genre watermark does not thin out toward the top");
+
+  // 15. the subject oracle's words as tiles
+  await page.locator("#screen .btn", { hasText: /^Two words$/ }).click();
+  await page.waitForTimeout(300);
+  const tiles = await q(() => document.querySelectorAll("#screen .word-tile").length);
+  if (tiles !== 2) fail(`two oracle words are drawn as ${tiles} tiles`);
+
+  // 10. dice you tap: one die, two dice, the dialog closes itself
+  const one = await q(async () => {
+    const { getPrompts } = await import("../src/roller.js");
+    const p = getPrompts().enterDie("Rest");
+    await new Promise((r) => setTimeout(r, 120));
+    const faces = document.querySelectorAll(".modal-overlay .dice-pick .die-choice").length;
+    const typing = !!document.querySelector(".modal-overlay .input");
+    document.querySelector(".modal-overlay .die-choice[data-face='5']")?.click();
+    const v = await Promise.race([p, new Promise((r) => setTimeout(() => r("timeout"), 800))]);
+    return { faces, typing, v, open: !!document.querySelector(".modal-overlay") };
+  });
+  if (one.faces !== 6) fail(`a d6 is entered from ${one.faces} faces, not six`);
+  if (one.typing) fail("entering a die still opens a text field");
+  if (one.v !== 5) fail(`tapping the 5 entered ${one.v}`);
+  if (one.open) fail("the die dialog stays open after the only die is chosen");
+  const two = await q(async () => {
+    const ui = await import("../src/ui.js");
+    const p = ui.pickDice("Test", 2);
+    await new Promise((r) => setTimeout(r, 120));
+    const rows = document.querySelectorAll(".modal-overlay .dice-pick").length;
+    document.querySelectorAll(".modal-overlay .dice-pick")[0]?.querySelector(".die-choice[data-face='4']")?.click();
+    await new Promise((r) => setTimeout(r, 60));
+    const stillOpen = !!document.querySelector(".modal-overlay");
+    document.querySelectorAll(".modal-overlay .dice-pick")[1]?.querySelector(".die-choice[data-face='3']")?.click();
+    const v = await Promise.race([p, new Promise((r) => setTimeout(() => r("timeout"), 800))]);
+    return { rows, stillOpen, v };
+  });
+  if (two.rows !== 2) fail(`two dice are entered from ${two.rows} rows of faces`);
+  if (!two.stillOpen) fail("the dice dialog closed after only one of two dice");
+  if (JSON.stringify(two.v) !== "[4,3]") fail(`tapping 4 then 3 entered ${JSON.stringify(two.v)}`);
+
+  // 7, 8, 9. the joker, the doubles, the keyword gained
+  const faces = await q(async () => {
+    const { getPrompts } = await import("../src/roller.js");
+    const P = getPrompts();
+    const sets = [{ rank: "5", cards: [{ id: "a", rank: "5", suit: "S" }], description: "" }];
+    const a = P.pickFalseLead(sets);
+    await new Promise((r) => setTimeout(r, 120));
+    const joker = !!document.querySelector(".modal-overlay .pcard.joker");
+    document.querySelector(".modal-overlay .choice")?.click(); await a;
+    const b = P.randomEvent({ words: ["Reveal", "old"], dice: [3, 3] });
+    await new Promise((r) => setTimeout(r, 120));
+    const doubles = document.querySelectorAll(".modal-overlay .die.doubles").length;
+    document.querySelector(".modal-actions .btn")?.click(); await b;
+    const c = P.describeKeyword({ suggestion: "Backdoor", oracle: "Hide · old" });
+    await new Promise((r) => setTimeout(r, 120));
+    const tag = !!document.querySelector(".modal-overlay .chip.tag.new");
+    document.querySelector(".modal-actions .btn.ghost, .modal-actions .btn")?.click(); await c;
+    return { joker, doubles, tag };
+  });
+  if (!faces.joker) fail("a joker is announced with no joker drawn");
+  if (faces.doubles !== 2) fail(`doubles are announced with ${faces.doubles} dice showing`);
+  if (!faces.tag) fail("a keyword is gained with no tag drawn for it");
+  await closeAll();
+
+  // 16. the tutorial as a route
+  await page.goto(`${base}#/tutorial`);
+  await page.waitForTimeout(300);
+  const route = await q(() => ({ steps: document.querySelectorAll("#screen .route .route-step").length,
+    glyphs: document.querySelectorAll("#screen .route .route-step .glyph").length }));
+  if (route.steps !== 10 || route.glyphs !== 10) fail(`the tutorial's steps are a route of ${route.steps} with ${route.glyphs} glyphs`);
+
+  // 18. theme options carry their sun and moon
+  await page.goto(`${base}#/settings`);
+  await page.waitForTimeout(300);
+  const themeGlyphs = await q(() => document.querySelectorAll("#screen .seg[aria-label='Theme'] .glyph").length);
+  if (themeGlyphs !== 3) fail(`the theme options carry ${themeGlyphs} glyphs, not three`);
+
+  // 12, 19. the sheet: attribute pips out of three, keywords as tags, obligations housed
+  await page.goto(`${base}#/sheet`);
+  await page.waitForTimeout(300);
+  const sheet = await q(() => {
+    const tiles = [...document.querySelectorAll("#screen .attr")];
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const inv = s.careers[s.activeId].investigators[0];
+    return {
+      pips: tiles.map((t) => t.querySelectorAll(".attr-pips .on").length),
+      want: ["power", "insight", "method"].map((k) => inv.attributes[k]),
+      slots: tiles.map((t) => t.querySelectorAll(".attr-pips > *").length),
+      tags: document.querySelectorAll("#screen .chip.tag").length,
+      houses: document.querySelectorAll("#screen .chip .glyph-obligation").length,
+    };
+  });
+  if (JSON.stringify(sheet.pips) !== JSON.stringify(sheet.want)) fail(`attribute pips read ${sheet.pips} for values ${sheet.want}`);
+  if (sheet.slots.some((n) => n !== 3)) fail("an attribute is not drawn out of its three slots");
+  if (!sheet.tags) fail("keywords are chips, not tags");
+  if (!sheet.houses) fail("obligations carry no house");
+
+  // 13. careers: each benefit's cost as pips
+  await page.goto(`${base}#/careers`);
+  await page.waitForTimeout(300);
+  if (!(await page.locator("#screen .cost-pips").count())) fail("experience costs are text with no pips");
+
+  // 14. tables: every code as two dice, and a roll tumbles two
+  await page.goto(`${base}#/tables`);
+  await page.waitForTimeout(300);
+  const d66 = await q(() => { const c = document.querySelector("#screen .table-row .code"); const d = c && c.querySelector(".d66-die");
+    return { cls: c ? c.className : "", img: d ? getComputedStyle(d).backgroundImage : "none", dice: c ? c.querySelectorAll(".d66-die").length : 0 }; });
+  if (!/d66/.test(d66.cls) || !/radial-gradient/.test(d66.img) || d66.dice !== 2) fail("a d66 code is a numeral, not two dice");
+  await page.locator("#screen details.acc summary").first().click();
+  await page.locator("#screen .btn", { hasText: "Roll 1d66" }).first().click();
+  await page.waitForTimeout(400);
+  if ((await page.locator("#screen .card .die").count()) < 2) fail("a table roll lands with no dice");
+  // replaceChildren() writes a null out as the word "null"; a roll with no
+  // filter note printed "nullnull" under its result.
+  const rolled = await q(() => [...document.querySelectorAll("#screen .card")].find((c) => c.querySelector(".die"))?.innerText || "");
+  if (/null/.test(rolled)) fail(`a table roll prints its missing notes as text: ${JSON.stringify(rolled.slice(-40))}`);
+
+  // 17. the story: scenes open with their glyph
+  await page.goto(`${base}#/journal`);
+  await page.waitForTimeout(300);
+  if (!(await page.locator("#screen .story-scene .glyph").count())) fail("a scene in the story opens with no mark of what kind it was");
+
+  // 22. the active tab is drawn filled
+  const tabFill = await q(() => { const p = document.querySelector('.tab[aria-current="page"] svg'); return p ? getComputedStyle(p).fill : "none"; });
+  if (!tabFill || tabFill === "none") fail("the active tab's icon is drawn the same as the others");
+
+  // 21. the printed sheets carry the drawings
+  const printed = await q(async () => {
+    const paper = await import("../src/paper.js");
+    const { Store } = await import("../src/store.js");
+    const h = paper.sheetsHtml(Store.career, Store.investigator, Store.mystery);
+    return (h.match(/<svg/g) || []).length;
+  });
+  if (printed < 3) fail(`the printed sheets carry ${printed} drawings`);
+
+  // 3, 6. the investigation roll and the rest, drawn
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId]; const m = c.mystery; m.scene = null; m.threats = []; m.ended = false; m.endTrigger = null;
+    c.investigators[0].fatigue = 4; c.investigators[0].clock = 0;
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(300);
+  await page.locator(".action-bar .btn").click();
+  let inv = null;
+  for (let i = 0; i < 5 && !inv; i++) {
+    await page.waitForTimeout(250);
+    const t = await page.locator(".modal-title").innerText().catch(() => "");
+    if (/^Investigation$/.test(t.trim())) {
+      inv = await q(() => ({ die: !!document.querySelector(".modal-overlay .die"), strip: !!document.querySelector(".modal-overlay .roll-scale") }));
+      break;
+    }
+    const ch = page.locator(".modal-overlay .choice").first();
+    if (await ch.count()) await ch.click(); else break;
+  }
+  if (!inv || !inv.die || !inv.strip) fail("the investigation roll is a sum with no die and no strip");
+  await closeAll();
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId]; c.mystery.scene = null; c.mystery.threats = []; c.mystery.scenesPlayed = 3; c.mystery.ended = false;
+    c.investigators[0].fatigue = 4; c.investigators[0].clock = 0;
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(300);
+  await page.locator("#screen .choice", { hasText: /^Rest/ }).first().click();
+  await page.waitForTimeout(400);
+  const rest = await q(() => ({ die: !!document.querySelector(".modal-overlay .die"),
+    clearing: document.querySelectorAll(".modal-overlay .track .box.clearing").length }));
+  if (!rest.die || !rest.clearing) fail("a rest clears fatigue with no die and no boxes emptying");
+  await closeAll();
+
+  // 4. a truth scene turns its cards over
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const c = s.careers[s.activeId]; c.mystery.scene = null; c.mystery.threats = []; c.mystery.scenesPlayed = 3; c.mystery.ended = false;
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/clues`);
+  await page.waitForTimeout(300);
+  await page.locator(".action-bar .btn").click();
+  await page.waitForTimeout(250);
+  await page.locator(".modal-overlay .choice").first().click();
+  await page.waitForTimeout(350);
+  const turned = await q(() => ({ cards: document.querySelectorAll(".modal-overlay .reveal-row .pcard.flip").length,
+    delays: [...document.querySelectorAll(".modal-overlay .reveal-row .pcard")].map((c) => getComputedStyle(c).animationDelay) }));
+  if (!turned.cards) fail("a truth scene names its cards instead of turning them over");
+  else if (turned.cards > 1 && new Set(turned.delays).size < 2) fail("a truth scene turns its cards over all at once");
+  await closeAll();
+
+  // 1, 11. the solve: the grid is the picker, and nothing under "Still unseen" lies
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1"));
+    const m = s.careers[s.activeId].mystery; m.ended = true; m.endTrigger = "chosen"; m.guesses = [null, null, null];
+    localStorage.setItem("citr:v1", JSON.stringify(s));
+  });
+  await page.reload();
+  await page.goto(`${base}#/solve`);
+  await page.waitForTimeout(350);
+  const solve = await q(() => {
+    const know = [...document.querySelectorAll("#screen .card")].find((c) => /what you know/i.test(c.innerText));
+    return { liarHand: know ? !!know.querySelector(".hand") : false, selects: document.querySelectorAll("#screen select").length,
+      picks: document.querySelectorAll("#screen .face-grid.picker button").length };
+  });
+  if (solve.liarHand) fail("the ruled-out cards still sit under \"Still unseen\"");
+  if (solve.selects) fail(`the guesses are still ${solve.selects} dropdowns`);
+  if (solve.picks !== 12) fail(`the solve's card grid has ${solve.picks} cards to pick, not twelve`);
+  const unseen = page.locator("#screen .face-grid.picker button:not(.ruled)");
+  for (let i = 0; i < 3; i++) await unseen.nth(i).click();
+  await page.waitForTimeout(200);
+  const picked = await q(() => ({
+    badges: [...document.querySelectorAll("#screen .face-grid.picker .guess-no")].map((b) => b.textContent.trim()).sort().join(","),
+    stored: (() => { const s = JSON.parse(localStorage.getItem("citr:v1")); return s.careers[s.activeId].mystery.guesses.filter(Boolean).length; })(),
+    ready: /all three named/i.test(document.querySelector(".action-bar")?.innerText || ""),
+  }));
+  if (picked.badges !== "1,2,3") fail(`three taps numbered the cards ${picked.badges || "not at all"}`);
+  if (picked.stored !== 3) fail(`three taps stored ${picked.stored} guesses`);
+  if (!picked.ready) fail("three cards picked and the reveal still says to guess first");
+  await unseen.nth(1).click();
+  await page.waitForTimeout(200);
+  const back = await q(() => (() => { const s = JSON.parse(localStorage.getItem("citr:v1")); return s.careers[s.activeId].mystery.guesses.filter(Boolean).length; })());
+  if (back !== 2) fail(`tapping a picked card again left ${back} guesses, not two`);
+
+  if (errors.length) fail(`console error in the second graphics pass: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("the dialogs are drawn, the dice are tapped, and the solve is picked from its cards");
+  await ctx.close();
+}
+
+// 8ae. the first paint is the icon, not a blank screen
+{
+  const html = (await import("node:fs")).readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  if (!/class="splash"/.test(html)) fail("the app opens on a blank screen until its scripts load");
+  const { ctx, page } = await newPage();
+  await seed(page, base, "stress");
+  await page.goto(`${base}#/home`);
+  await page.waitForTimeout(400);
+  if (await page.locator("#screen .splash").count()) fail("the splash outlives the first render");
+  if (!failures.length) ok("launch shows the icon, and the first render replaces it");
   await ctx.close();
 }
 

@@ -14,8 +14,8 @@
 // nothing a screen reader is missing, so it is aria-hidden.
 
 import { el, add } from "./core.js";
-import { DECK, STAGES, TEST_OUTCOMES, CONSEQUENCES_SOLO, YES_NO } from "../data.js";
-import { cardFace } from "./ui.js";
+import { DECK, STAGES, TEST_OUTCOMES, CONSEQUENCES_SOLO, YES_NO, INVESTIGATION_ROLL, FATIGUE_BOXES } from "../data.js";
+import { cardFace, dieFace } from "./ui.js";
 
 const STROKE = 'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"';
 
@@ -51,6 +51,26 @@ const GLYPHS = {
   day: `<circle ${STROKE} cx="12" cy="12" r="8"/><path ${STROKE} d="M12 7.5V12l3 2"/>`,
   // The title bar's drop.
   drop: `<path ${STROKE} d="M12 3.5c3.2 4.3 5.5 7.4 5.5 10.2a5.5 5.5 0 0 1-11 0C6.5 10.9 8.8 7.8 12 3.5z"/>`,
+  // Light, dark, and the system's own choice between them.
+  sun: `<circle ${STROKE} cx="12" cy="12" r="4.2"/><path ${STROKE} d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>`,
+  moon: `<path ${STROKE} d="M19 14.6A7.6 7.6 0 1 1 9.4 5a6 6 0 0 0 9.6 9.6z"/>`,
+  system: `<circle ${STROKE} cx="12" cy="12" r="7.6"/><path d="M12 4.4a7.6 7.6 0 0 1 0 15.2z" fill="currentColor"/>`,
+  // Depth: a cube.
+  cube: `<path ${STROKE} d="M12 3.5 19.5 7.7v8.6L12 20.5l-7.5-4.2V7.7z"/><path ${STROKE} d="M4.5 7.7 12 12l7.5-4.3M12 12v8.5"/>`,
+  // A keyword: a tag on its string.
+  tag: `<path ${STROKE} d="M4 12.2V5.5A1.5 1.5 0 0 1 5.5 4h6.7L20 11.8 11.8 20z"/><circle ${STROKE} cx="8.4" cy="8.4" r="1.4"/>`,
+  // A case: the folder it is kept in.
+  folder: `<path ${STROKE} d="M3.5 7V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5V9a1.5 1.5 0 0 0-1.5-1.5h-7L10 5H5a1.5 1.5 0 0 0-1.5 1.5z"/>`,
+  // A clue: one card.
+  card: `<rect ${STROKE} x="6" y="3.5" width="12" height="17" rx="2"/><path ${STROKE} d="M12 9.5l2.2 2.5L12 14.5 9.8 12z"/>`,
+  // A threat: an eye in the dark, open.
+  threat: `<path ${STROKE} d="M2.8 12S6.2 6 12 6s9.2 6 9.2 6-3.4 6-9.2 6S2.8 12 2.8 12z"/><circle ${STROKE} cx="12" cy="12" r="2.6"/>`,
+  // Company: two chairs at one table, nobody in them.
+  chairs: `<path ${STROKE} d="M3 12h18M7 12v7M17 12v7"/><path ${STROKE} d="M4 12V6.5M4 9h3.5M20 12V6.5M20 9h-3.5"/>`,
+  // A single die, for the oracle's lines in the story.
+  die: `<rect ${STROKE} x="4.5" y="4.5" width="15" height="15" rx="3"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="15" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>`,
+  // The three set aside, turned over.
+  reveal: `<rect ${STROKE} x="2.5" y="6" width="7" height="11" rx="1.4" transform="rotate(-10 6 11.5)"/><rect ${STROKE} x="8.5" y="5" width="7" height="11" rx="1.4"/><rect ${STROKE} x="14.5" y="6" width="7" height="11" rx="1.4" transform="rotate(10 18 11.5)"/>`,
 };
 
 export const glyph = (name, size = 22, cls = "") =>
@@ -316,4 +336,77 @@ export function drawFigure(set, card, deckCount) {
   add(held, drawn);
   add(fig, held);
   return fig;
+}
+
+
+// --- The second pass: dialogs, the solve's picker, the sheet's small marks -----
+
+/** The investigation roll on its strip: quiet, something in the way, noticed. */
+export function investigationScale(total) {
+  const row = INVESTIGATION_ROLL.find((b) => total >= b.min && total <= b.max);
+  const band = (b) => (b.threatLevel === 0 ? "i-quiet" : b.threatLevel === 1 ? "i-way" : "i-noticed");
+  return scale({
+    lo: 1, hi: 9, bands: INVESTIGATION_ROLL, bandClass: band, total,
+    label: `Investigation roll ${total}: ${row ? row.text : ""}`,
+  });
+}
+
+/** A pair (or a single) of dice as they came up, small and still. */
+export function diceArt(dice, doubles = false) {
+  const pair = el("span", { class: "dice-art", role: "img", "aria-label": dice.join(" and ") });
+  for (const d of dice) add(pair, dieFace(d, `mini still${doubles ? " doubles" : ""}`));
+  return pair;
+}
+
+/** The joker's face: the card that turns a lead false. */
+export function jokerCard() {
+  const card = el("span", { class: "pcard joker", role: "img", "aria-label": "Joker" });
+  add(card, svg("0 0 24 24", `<path ${STROKE} d="M5 16 7 7l3.5 5L12 5l1.5 7L17 7l2 9z"/><path ${STROKE} d="M5 16h14v2.5H5z"/><circle cx="7" cy="6.2" r="1.3" fill="currentColor"/><circle cx="12" cy="4.2" r="1.3" fill="currentColor"/><circle cx="17" cy="6.2" r="1.3" fill="currentColor"/>`, { cls: "joker-mark", w: 22, h: 22 }));
+  return card;
+}
+
+/** Oracle words laid out as tiles, one word to a tile. */
+export function wordTiles(words) {
+  const row = el("div", { class: "word-tiles", role: "list" });
+  for (const w of words) add(row, el("span", { class: "word-tile", role: "listitem", text: w }));
+  return row;
+}
+
+/** An attribute out of its three slots. */
+export function attrPips(value, max = 3) {
+  const pips = el("span", { class: "attr-pips", "aria-hidden": "true" });
+  for (let i = 0; i < max; i++) add(pips, el("i", { class: i < value ? "on" : "off" }));
+  return pips;
+}
+
+/** What a benefit costs, as pips, lit as far as the experience you hold reaches. */
+export function costPips(cost, have) {
+  const inner = Array.from({ length: cost }, (_, i) =>
+    `<circle cx="${5 + i * 10}" cy="5" r="3.4" class="${i < have ? "on" : "off"}"/>`).join("");
+  return svg(`0 0 ${cost * 10} 10`, inner, { cls: "cost-pips", label: `Costs ${cost}; you hold ${have}`, w: cost * 10, h: 10 });
+}
+
+/** The fatigue track after a rest: what is left, and the boxes the die emptied. */
+export function clearingTrack(fatigue, cleared) {
+  const track = el("div", { class: "track still", role: "img", "aria-label": `Fatigue ${fatigue} of ${FATIGUE_BOXES}; ${cleared} cleared` });
+  for (let i = 0; i < FATIGUE_BOXES; i++) {
+    const cls = i < fatigue ? "on" : i < fatigue + cleared ? "clearing" : "";
+    const box = el("span", { class: `box ${cls}`.trim(), "aria-hidden": "true" });
+    if (cls === "clearing") box.style.setProperty("--turn", `${(fatigue + cleared - 1 - i) * 120}ms`);
+    add(track, box);
+  }
+  return track;
+}
+
+/**
+ * A d66 index drawn as the two dice that land on it. The numeral stays in the
+ * text, visually hidden, so the page's own find and a screen reader both read
+ * "41" where a player sees a four and a one.
+ */
+export function d66Code(code) {
+  const s = String(code);
+  const wrap = el("span", { class: "code d66", title: s });
+  for (const d of s) add(wrap, el("i", { class: "d66-die", "data-face": d, "aria-hidden": "true" }));
+  add(wrap, el("span", { class: "vh", text: s }));
+  return wrap;
 }

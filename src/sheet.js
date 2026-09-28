@@ -1,7 +1,7 @@
 // The investigator sheet and the persistent resource header.
 
 import { el, add, clear, clamp } from "./core.js";
-import { FATIGUE_BOXES, CLOCK_SEGMENTS, ATTRIBUTES, KEYWORD_ACTIONS } from "../data.js";
+import { FATIGUE_BOXES, CLOCK_SEGMENTS, ATTRIBUTES, KEYWORD_ACTIONS, ATTRIBUTE_MAX } from "../data.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
 import { rankName } from "./deck.js";
@@ -12,7 +12,7 @@ import { eventList } from "./prompts.js";
 import { go } from "./router.js";
 import { saveSheets } from "./paper.js";
 
-import { glyph, tick } from "./art.js";
+import { glyph, tick, attrPips } from "./art.js";
 const IN_PLAY = new Set(["home", "play", "sheet", "case-sheet", "clues", "solve", "journal"]);
 
 /**
@@ -80,7 +80,7 @@ export function renderResourceHeader(routeName) {
 const attrTile = (inv, a) => {
   const struck = D.isStruck(inv, a.id);
   return el("div", { class: `attr ${struck ? "struck" : ""}`, title: a.text },
-    el("b", { text: String(D.attrValue(inv, a.id)) }), el("span", { text: a.name }));
+    el("b", { text: String(D.attrValue(inv, a.id)) }), attrPips(D.attrValue(inv, a.id), ATTRIBUTE_MAX), el("span", { text: a.name }));
 };
 
 /**
@@ -219,9 +219,9 @@ export function renderSheet(host) {
   const kw = el("div", { class: "chip-list" });
   for (const k of inv.keywords) {
     add(kw, el("button", {
-      class: `chip ${k.struck ? "struck" : ""} ${k.signature ? "signature" : ""}`, type: "button",
+      class: `chip tag ${k.struck ? "struck" : ""} ${k.signature ? "signature" : ""}`, type: "button",
       onclick: () => { if (k.struck) { showToast(k.signature ? "Struck until you rest." : "Already spent."); return; } useKeywordFlow(k); },
-    }, k.signature ? glyph("seal", 16) : null, k.signature ? el("span", { class: "vh", text: "Signature: " }) : null, k.text));
+    }, glyph(k.signature ? "seal" : "tag", 16), k.signature ? el("span", { class: "vh", text: "Signature: " }) : null, k.text));
   }
   add(host, section(`Keywords (${D.usableKeywords(inv).length} ready)`,
     inv.keywords.length ? kw : el("p", { class: "muted small", text: "None yet. Failing a test is how most keywords arrive." }),
@@ -232,7 +232,7 @@ export function renderSheet(host) {
 
   const obs = el("div", { class: "chip-list" });
   for (const o of inv.obligations) {
-    add(obs, el("span", { class: `chip ${o.struck ? "struck" : ""}`, title: o.struck ? "Attended this day" : "Not yet attended" }, o.text));
+    add(obs, el("span", { class: `chip ${o.struck ? "struck" : ""}`, title: o.struck ? "Attended this day" : "Not yet attended" }, glyph("obligation", 16), el("span", { text: o.text })));
   }
   add(host, section("Obligations",
     inv.obligations.length ? obs : el("p", { class: "muted small", text: "No obligations." }),

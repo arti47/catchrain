@@ -1,30 +1,26 @@
 // Wires the engine's player decisions to real UI. Installed once at boot.
 
 import { el, add } from "./core.js";
-import { chooseModal, promptModal, modal, showToast } from "./ui.js";
+import { chooseModal, promptModal, modal, showToast, pickDice, dieFace } from "./ui.js";
 import { setPrompts } from "./roller.js";
 import { cardName, rankName } from "./deck.js";
 import { Settings } from "./settings.js";
 import { keepOracle } from "./framing.js";
 
-import { drawFigure } from "./art.js";
+import { drawFigure, jokerCard, glyph, wordTiles } from "./art.js";
 import { Store } from "./store.js";
 export function installPrompts() {
   setPrompts({
     async enterDie(label) {
-      const text = await promptModal({
-        title: "Enter your die",
-        message: `${label}: type the d6 face you rolled.`,
-        placeholder: "4",
-      });
-      const n = Number((text || "").trim());
-      return n >= 1 && n <= 6 ? n : 0; // anything else falls back to the app's dice
+      const n = await pickDice(label, 1);
+      return n >= 1 && n <= 6 ? n : 0; // a cancelled entry falls back to the app's dice
     },
 
     async pickFalseLead(sets) {
       const choice = await chooseModal({
         title: "A joker — one lead was never real",
         message: "Choose the clue set that turns out to be circumstantial. Its cards are discarded and that rank can never become a truth.",
+        figure: el("div", { class: "joker-figure" }, jokerCard()),
         allowCancel: false,
         options: sets.map((s) => ({
           value: s,
@@ -74,20 +70,22 @@ export function installPrompts() {
     async describeKeyword({ suggestion, oracle }) {
       return await promptModal({
         title: "You come away with something",
+        figure: el("div", { class: "tag-figure" }, el("span", { class: "chip tag new", "aria-hidden": "true" }, glyph("tag", 16), el("span", { text: suggestion }))),
         message: `Prompts: ${suggestion} — ${oracle}. Name the keyword in your own words, or keep the prompt.`,
         value: suggestion,
         confirmLabel: "Keep it",
       });
     },
 
-    async randomEvent({ words }) {
+    async randomEvent({ words, dice = null }) {
       keepOracle(`Doubles — a random event: ${words.join(" · ")}`);
       await new Promise((resolve) => {
         modal({
           title: "Doubles — something else happens",
           body: el("div", {},
             el("p", { class: "muted", text: "A random event cuts into the scene. It changes no numbers by itself: read it, and let it change what your investigator or the threats do next." }),
-            el("p", { class: "mono", text: words.join("  ·  ") })),
+            dice ? el("div", { class: "dice" }, ...dice.map((d) => dieFace(d, "doubles"))) : null,
+            wordTiles(words)),
           actions: [{ label: "Play it", onClick: () => resolve(true) }],
           onClose: () => resolve(true),
         });

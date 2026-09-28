@@ -19,13 +19,29 @@ export function initUpdates() {
   if (!("serviceWorker" in navigator) || !location.protocol.startsWith("http")) return;
   // A toast, not a modal: an update is worth a tap, not an interruption in the
   // middle of a scene. "Not now" means not now, so it is offered again later.
-  const offerUpdate = (apply) => actionToast({
-    text: "Update available. Reloading keeps everything you have saved.",
-    actionLabel: "Reload",
-    dismissLabel: "Not now",
-    onAction: apply,
-  });
-  const offerWaiting = (worker) => offerUpdate(() => { worker.postMessage("skip-waiting"); location.reload(); });
+  //
+  // One deploy is noticed twice — by the new worker arriving and by the shell
+  // check — so an offer is made once per load. A second report while the toast
+  // is up, or after the player said not now, changes nothing; only asking from
+  // Settings puts a declined offer back.
+  let showing = false, declined = false;
+  const offerUpdate = ({ asked = false } = {}) => {
+    if (!asked && (showing || declined)) return;
+    showing = true; declined = false;
+    actionToast({
+      text: "Update available. Reloading keeps everything you have saved.",
+      actionLabel: "Reload",
+      dismissLabel: "Not now",
+      onAction: () => { showing = false; apply(); },
+      onDismiss: () => { showing = false; declined = true; },
+    });
+  };
+  // Whichever source noticed it, a worker that is waiting is let in first.
+  const apply = () => {
+    const waiting = registration && registration.waiting;
+    if (waiting) waiting.postMessage("skip-waiting");
+    location.reload();
+  };
 
   let registration = null;
   let lastCheck = 0;
@@ -41,17 +57,17 @@ export function initUpdates() {
   });
 
   /** Ask both ways: is there a new worker, and did any shipped file change? */
-  Updates.check = async ({ force = false } = {}) => {
+  Updates.check = async ({ force = false, asked = false } = {}) => {
     if (!registration) return "unsupported";
     if (!force && Date.now() - lastCheck < 60000) return "throttled";
     lastCheck = Date.now();
     try { await registration.update(); } catch { /* offline */ }
     if (registration.waiting && navigator.serviceWorker.controller) {
-      offerWaiting(registration.waiting);
+      offerUpdate({ asked });
       return "update";
     }
     const reply = await ask("check-update");
-    if (reply && reply.type === "update-ready") { offerUpdate(() => location.reload()); return "update"; }
+    if (reply && reply.type === "update-ready") { offerUpdate({ asked }); return "update"; }
     if (reply && reply.type === "offline") return "offline";
     return reply ? "current" : "unknown";
   };
@@ -62,12 +78,12 @@ export function initUpdates() {
 
   navigator.serviceWorker.register("service-worker.js", { updateViaCache: "none" }).then((reg) => {
     registration = reg;
-    if (reg.waiting && navigator.serviceWorker.controller) offerWaiting(reg.waiting);
+    if (reg.waiting && navigator.serviceWorker.controller) offerUpdate();
     reg.addEventListener("updatefound", () => {
       const sw = reg.installing;
       if (!sw) return;
       sw.addEventListener("statechange", () => {
-        if (sw.state === "installed" && navigator.serviceWorker.controller) offerWaiting(sw);
+        if (sw.state === "installed" && navigator.serviceWorker.controller) offerUpdate();
       });
     });
     // The shell check covers a deploy that changed the app's files but not the worker.
@@ -93,6 +109,6 @@ export function initUpdates() {
 
   // The worker can also speak first, when a check it was running finishes.
   navigator.serviceWorker.addEventListener("message", (e) => {
-    if (e.data && e.data.type === "update-ready") offerUpdate(() => location.reload());
+    if (e.data && e.data.type === "update-ready") offerUpdate();
   });
 }

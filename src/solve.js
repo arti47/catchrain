@@ -32,33 +32,50 @@ export function renderSolve(host) {
   add(host, section("What you know",
     el("p", { class: "premise", text: R.problemText(m) }),
     row("Face cards ruled out", `${m.truthRevealed.length}`),
-    row("Still unseen", `${m.truthDeck.length + DECK.setAside}`),
-    m.truthRevealed.length ? el("div", { class: "hand" }, ...m.truthRevealed.map(cardFace)) : null));
+    row("Still unseen", `${m.truthDeck.length + DECK.setAside}`)));
 
+  // The twelve face cards are the picker: tap one to name it as your next
+  // guess, tap it again to take it back. Ruled-out cards are struck but can
+  // still be picked — the book never stops you guessing wrong.
   const ruledOut = new Set(m.truthRevealed.map((x) => x.rank + x.suit));
-  const guessGrid = el("div", {});
-  for (let i = 0; i < DECK.setAside; i++) {
-    const current = m.guesses[i];
-    const select = el("select", { class: "input", "aria-label": `Guess ${i + 1}`, onchange: (e) => {
-      const v = e.target.value;
-      Store.update("guess", () => { m.guesses[i] = v ? { rank: v[0] === "1" ? "10" : v.slice(0, -1), suit: v.slice(-1) } : null; });
-    } });
-    add(select, el("option", { value: "", text: "— choose a card —" }));
-    for (const rank of DECK.truthRanks) for (const suit of DECK.suits) {
-      const key = rank + suit;
-      const out = ruledOut.has(key);
-      add(select, el("option", {
-        value: key, text: `${rank} of ${SUIT_NAMES[suit]}${out ? " (ruled out)" : ""}`,
-        selected: current && current.rank === rank && current.suit === suit ? true : null,
-      }));
-    }
-    add(guessGrid, el("div", { class: "defrow" }, el("span", { class: "row-label", text: `Guess ${i + 1}` }), el("div", { class: "defrow-value" }, select)));
+  const slotOf = (rank, suit) => m.guesses.findIndex((g) => g && g.rank === rank && g.suit === suit);
+  const picker = el("div", { class: "face-grid picker", role: "group", "aria-label": "Pick three face cards" });
+  for (const rank of DECK.truthRanks) for (const suit of DECK.suits) {
+    const out = ruledOut.has(rank + suit);
+    const slot = slotOf(rank, suit);
+    const face = cardFace({ rank, suit });
+    if (out) face.classList.add("ruled");
+    face.setAttribute("aria-hidden", "true");
+    add(picker, el("button", {
+      class: `pick-card ${out ? "ruled" : ""} ${slot >= 0 ? "picked" : ""}`.replace(/\s+/g, " ").trim(), type: "button",
+      "aria-pressed": slot >= 0 ? "true" : "false",
+      "aria-label": `${rank} of ${SUIT_NAMES[suit]}${out ? ", ruled out" : ""}${slot >= 0 ? `, guess ${slot + 1}` : ""}`,
+      onclick: () => pickCard(rank, suit),
+    }, face, slot >= 0 ? el("span", { class: "guess-no", "aria-hidden": "true", text: String(slot + 1) }) : null));
   }
-  add(host, section("Your three guesses", guessGrid,
-    el("p", { class: "small muted", text: "Ruled-out cards are still selectable — the book never stops you guessing wrong." })));
+  const named = el("div", {});
+  for (let i = 0; i < DECK.setAside; i++) {
+    const g = m.guesses[i];
+    add(named, row(`Guess ${i + 1}`, g ? `${g.rank} of ${SUIT_NAMES[g.suit]}${ruledOut.has(g.rank + g.suit) ? " (ruled out)" : ""}` : "not named yet"));
+  }
+  add(host, section("Your three guesses", picker, named,
+    el("p", { class: "small muted", text: "Tap a card to name it; tap it again to take it back. Struck cards were ruled out in truth scenes, and can still be picked — the book never stops you guessing wrong." })));
 
   const ready = m.guesses.every((g) => g && g.rank);
   return { action: actionBar("Reveal the three cards", () => reveal(), ready ? "All three named" : "Guess all three first") };
+}
+
+function pickCard(rank, suit) {
+  const m = Store.mystery;
+  const at = m.guesses.findIndex((g) => g && g.rank === rank && g.suit === suit);
+  if (at >= 0) {
+    Store.update("guess", () => { m.guesses[at] = null; });
+  } else {
+    const free = m.guesses.findIndex((g) => !g || !g.rank);
+    if (free < 0) { showToast("Three are named. Tap one of them to take it back."); return; }
+    Store.update("guess", () => { m.guesses[free] = { rank, suit }; });
+  }
+  rerender();
 }
 
 async function reveal() {

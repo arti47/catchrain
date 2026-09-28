@@ -15,7 +15,7 @@
 //
 // Exits non-zero on a stall, a finding or a console error, so it works as a gate.
 
-import { open, doIt, choose, typeText, pick, goScreen, readState, startNew, makeInvestigator } from "./driver.mjs";
+import { open, doIt, choose, typeText, tapDice, tapCard, goScreen, readState, startNew, makeInvestigator } from "./driver.mjs";
 import { writeFileSync, mkdirSync } from "node:fs";
 
 const argv = process.argv.slice(2);
@@ -38,18 +38,26 @@ const note = (seed, beat, kind, text) => { findings.push({ seed, beat, kind, tex
 /** Answer whatever dialog is open, and keep answering: one press often chains. */
 async function settle(s, seed, beat, trail) {
   const chain = [];
-  for (let i = 0; i < 24; i++) {
+  // The budget counts what the app asks, not the dice a manual session rolls on
+  // the table: three threats acting on one test are five dialogs with dice and
+  // two without, so counting both called a long, legitimate chain a stall.
+  for (let i = 0, asked = 0; asked < 24 && i < 96; i++) {
     const st = await readState(s);
     if (!st.dialog) return st;
     const d = st.dialog;
+    if (!d.dice) asked++;
     chain.push(d.title);
+    if (d.dice) {
+      // A manual-dice session asks for faces: roll them here, in the driver's
+      // own stream, the way a player rolls them on the table, and tap them in.
+      const faces = Array.from({ length: d.dice }, () => 1 + Math.floor(s.rng() * 6)).join(" ");
+      const r = await tapDice(s, faces);
+      if (!r.ok) { note(seed, beat, "dead end", `“${d.title}” asked for dice and they could not be tapped: ${r.error}`); return st; }
+      trail.push(`dialog “${d.title}” ← ${faces}`);
+      continue;
+    }
     if (d.field) {
-      // A typed-dice session asks for faces, not prose: roll them here, in the
-      // driver's own stream, the way a player rolls them on the table.
-      const face = () => 1 + Math.floor(s.rng() * 6);
-      const answer = /enter your dice/i.test(d.title) ? `${face()} ${face()}`
-        : /enter your die/i.test(d.title) ? String(face())
-        : `Beat ${beat}: written at the table.`;
+      const answer = `Beat ${beat}: written at the table.`;
       await typeText(s, answer);
       const save = d.actions.find((a) => /save|done|confirm|keep/i.test(a)) || d.actions[0];
       if (!save) { note(seed, beat, "unanswerable prompt", `“${d.title}” asks for text and offers no way to submit it`); return st; }
@@ -133,9 +141,13 @@ async function playSeed(seed) {
       }
       if (sit.ended) {
         if (st.screen !== "solve") { await goScreen(s, "solve"); trail.push(`the mystery ended (${sit.endTrigger}) → the solve`); continue; }
-        for (let g = 1; g <= 3; g++) {
-          const card = `${RANKS[Math.floor(s.rng() * 3)]} of ${SUITS[Math.floor(s.rng() * 4)]}`;
-          const r = await pick(s, `Guess ${g} > ${card}`);
+        // Three different cards: tapping a named card again takes it back.
+        const named = new Set();
+        while (named.size < 3) named.add(`${RANKS[Math.floor(s.rng() * 3)]} of ${SUITS[Math.floor(s.rng() * 4)]}`);
+        let g = 0;
+        for (const card of named) {
+          g++;
+          const r = await tapCard(s, card);
           if (!r.ok) { note(seed, beat, "STALL", `guess ${g} could not be named: ${r.error}`); break; }
         }
         trail.push("named three cards");

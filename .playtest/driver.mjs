@@ -11,6 +11,8 @@
 //   choose "<option>"      answer the dialog that is open
 //   type "<text>"          fill the focused field
 //   pick "<row> > <option>"  choose an option in a dropdown
+//   roll "<faces>"         tap the faces you rolled, in a dice dialog: "4 3"
+//   card "<name>"          tap a face card on the solve: "J of Spades"
 //   write "<prose>"        add a note in the app's own journal
 //   journal                the whole record, oldest first
 //   repl                   hold the browser open and read commands from stdin,
@@ -163,6 +165,31 @@ export async function typeText(s, text) {
   return { ok: true, typed: text };
 }
 
+/** Typed dice are tapped: one face per die, found by the number it reads as. */
+export async function tapDice(s, faces) {
+  const want = String(faces).trim().split(/\s+/).map(Number);
+  const rows = s.page.locator(".modal-overlay .dice-pick");
+  const n = await rows.count();
+  if (!n) return { ok: false, error: "no dice are waiting to be entered" };
+  if (want.length !== n) return { ok: false, error: `the dialog asks for ${n} dice, not ${want.length}` };
+  for (let i = 0; i < n; i++) {
+    const face = rows.nth(i).getByRole("radio", { name: String(want[i]), exact: true });
+    if (!(await face.count())) return { ok: false, error: `no face reads ${want[i]}` };
+    await face.click();
+  }
+  await s.page.waitForTimeout(140);
+  return { ok: true, rolled: want.join(" ") };
+}
+
+/** The solve's cards are the picker: tap one by the name it is read as. */
+export async function tapCard(s, name) {
+  const card = s.page.locator(`#screen button[aria-label^="${String(name).replace(/"/g, "")}"]:has(.pcard)`);
+  if (!(await card.count())) return { ok: false, error: `no card reads “${name}”` };
+  await card.first().click();
+  await s.page.waitForTimeout(140);
+  return { ok: true, tapped: name };
+}
+
 /** A dropdown is a control too: "Guess 1 > J of Spades". */
 export async function pick(s, spec) {
   const [head, want] = spec.split(" > ");
@@ -243,6 +270,7 @@ export async function readState(s) {
         options: [...overlay.querySelectorAll(".choice")].map((n) => norm(n.innerText)),
         actions: [...overlay.querySelectorAll(".modal-actions .btn")].map((n) => norm(n.innerText)),
         field: !!overlay.querySelector(".input"),
+        dice: overlay.querySelectorAll(".dice-pick").length,
       };
     } else {
       const heading = norm((document.querySelector("#screen h1") || {}).textContent);
@@ -266,6 +294,7 @@ export async function readState(s) {
         const holder = n.closest(".defrow, .row, label");
         return `${norm((holder && holder.querySelector(".row-label") || {}).textContent) || n.getAttribute("aria-label") || "?"}: ${norm(n.options[n.selectedIndex] ? n.options[n.selectedIndex].textContent : "")} (${n.options.length} options)`;
       });
+      out.cards = [...document.querySelectorAll("#screen .pick-card")].map((n) => n.getAttribute("aria-label"));
       out.controls = [...document.querySelectorAll(`#screen ${sel}, #action-host ${sel}`)]
         .filter(visible).map((n) => norm(n.innerText) + (n.getAttribute("aria-disabled") === "true" || n.disabled ? " [dimmed]" : ""))
         .filter(Boolean);
@@ -350,6 +379,8 @@ export async function runVerbs(s, argv, show) {
     else if (verb === "choose") show(await choose(s, argv.shift()));
     else if (verb === "type") show(await typeText(s, argv.shift()));
     else if (verb === "pick") show(await pick(s, argv.shift()));
+    else if (verb === "roll") show(await tapDice(s, argv.shift()));
+    else if (verb === "card") show(await tapCard(s, argv.shift()));
     else if (verb === "write") {
       await goScreen(s, "journal");
       const a = await doIt(s, "Add a note"); if (!a.ok) { show(a); continue; }
@@ -409,6 +440,8 @@ if (isMain) {
     else if (verb === "choose") { const r = await choose(s, argv.shift()); show(r); if (!r.ok) bad = true; }
     else if (verb === "type") { const r = await typeText(s, argv.shift()); show(r); if (!r.ok) bad = true; }
     else if (verb === "pick") { const r = await pick(s, argv.shift()); show(r); if (!r.ok) bad = true; }
+    else if (verb === "roll") { const r = await tapDice(s, argv.shift()); show(r); if (!r.ok) bad = true; }
+    else if (verb === "card") { const r = await tapCard(s, argv.shift()); show(r); if (!r.ok) bad = true; }
     else if (verb === "write") {
       await goScreen(s, "journal");
       const a = await doIt(s, "Add a note"); if (!a.ok) { show(a); bad = true; break; }

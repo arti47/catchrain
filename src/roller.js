@@ -273,7 +273,7 @@ export async function attributeTest(opts) {
   if (doubles && !m.ended) {
     const subject = R.rollSubject(true);
     events.push({ t: "random_event", words: R.subjectWords(subject) });
-    await prompts.randomEvent({ words: R.subjectWords(subject), context: "scene" });
+    await prompts.randomEvent({ words: R.subjectWords(subject), context: "scene", dice });
   }
 
   // 4. rolled under danger: a new threat, and danger is halved

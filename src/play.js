@@ -17,9 +17,9 @@ import { recapCard } from "./coach.js";
 import { SCENE_FRAMING } from "../data.js";
 const SCENE_FRAMING_NOTE = SCENE_FRAMING.note;
 import { go } from "./router.js";
-import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace } from "./ui.js";
+import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace, pickDice, cardFace } from "./ui.js";
 
-import { illustration, glyph, stagePath, markBoxes, levelBars, testScale, consequenceScale, caseFile, dangerGauge } from "./art.js";
+import { illustration, glyph, stagePath, markBoxes, levelBars, testScale, consequenceScale, caseFile, dangerGauge, investigationScale, diceArt, clearingTrack } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 
 // --- Result presentation ------------------------------------------------------
@@ -55,20 +55,8 @@ function showResult(title, res, extraEvents = [], onReroll, onAgain) {
 }
 
 // --- Dice input ---------------------------------------------------------------
-async function manualDicePair(label) {
-  const text = await promptModal({
-    title: "Enter your dice", message: `${label}: type the two d6 faces you rolled, e.g. 4 3.`, placeholder: "4 3",
-  });
-  if (!text) return null;
-  const parts = text.split(/[^1-6]+/).filter(Boolean).map(Number).slice(0, 2);
-  if (parts.length !== 2) { showToast("Enter two numbers from 1 to 6."); return null; }
-  return parts;
-}
-async function manualDie(label) {
-  const text = await promptModal({ title: "Enter your die", message: `${label}: type the d6 face you rolled.`, placeholder: "4" });
-  const n = Number((text || "").trim());
-  return n >= 1 && n <= 6 ? n : null;
-}
+const manualDicePair = (label) => pickDice(label, 2);
+const manualDie = (label) => pickDice(label, 1);
 
 // --- Choosing an attribute ----------------------------------------------------
 async function chooseAttribute(purpose, who) {
@@ -229,8 +217,8 @@ async function rerollFlow({ attrId, label, againstThreatId, stageTest, first, ac
     title: "Which outcome stands?",
     allowCancel: false,
     options: [
-      { value: "second", label: `New: ${second.dice.join(" + ")}${second.attrValue ? ` + ${second.attrValue}` : ""} = ${second.total}`, note: second.outcome.name },
-      { value: "first", label: `First: ${first.dice.join(" + ")}${first.attrValue ? ` + ${first.attrValue}` : ""} = ${first.total}`, note: first.outcome.name },
+      { value: "second", art: diceArt(second.dice), label: `New: ${second.dice.join(" + ")}${second.attrValue ? ` + ${second.attrValue}` : ""} = ${second.total}`, note: second.outcome.name },
+      { value: "first", art: diceArt(first.dice), label: `First: ${first.dice.join(" + ")}${first.attrValue ? ` + ${first.attrValue}` : ""} = ${first.total}`, note: first.outcome.name },
     ],
   });
   const dice = keep === "first" ? first.dice : second.dice;
@@ -272,8 +260,11 @@ async function startInvestigation() {
   Store.commit();
   modal({
     title: "Investigation",
-    body: el("div", {}, el("p", { text: out.row.text }),
-      el("p", { class: "math", text: `1d6 ${out.die} + danger ${out.danger} = ${out.total}` }),
+    body: el("div", {},
+      el("div", { class: "dice" }, dieFace(out.die),
+        el("span", { class: "math", text: `1d6 ${out.die} + danger ${out.danger} = ${out.total}` })),
+      investigationScale(out.total),
+      el("p", { text: out.row.text }),
       eventList(out.events)),
     actions: [{ label: "Set the scene" }],
   });
@@ -292,10 +283,17 @@ async function startRest() {
   Store.commit();
   modal({
     title: "Rest",
-    body: el("div", {}, el("p", { class: "muted", text: `Describe how ${who.name} unwinds.` }), framingLines(who.name), eventList(events)),
+    body: el("div", {}, restFigure(events), el("p", { class: "muted", text: `Describe how ${who.name} unwinds.` }), framingLines(who.name), eventList(events)),
     actions: [framingAction(who.name), { label: "Done" }].filter(Boolean),
   });
   await afterIndividualScene();
+}
+
+/** The rest's die and the boxes it empties, right to left. */
+function restFigure(events) {
+  const r = events.find((e) => e.t === "rest");
+  if (!r) return null;
+  return el("div", { class: "rest-figure" }, dieFace(r.die), clearingTrack(r.fatigue, r.cleared));
 }
 
 async function startObligation() {
@@ -356,8 +354,15 @@ export async function startTruth() {
   Store.mystery.scene.participants = Store.party.map((i) => i.id); // everyone works it out together
   const out = Life.truthScene(rank);
   Store.mystery.scene.done = true;
+  const turned = el("div", { class: "reveal-row" });
+  out.drawn.forEach((card, i) => {
+    const face = cardFace(card, { flip: true });
+    face.style.setProperty("--turn", `${i * 220}ms`);
+    add(turned, face);
+  });
   const text = await promptModal({
     title: "What connection does your investigator make?",
+    figure: out.drawn.length ? turned : null,
     message: `Revealed: ${out.drawn.map((c) => `${c.rank}${c.suit}`).join(", ") || "nothing left to reveal"}. Add it to the clue description.`,
     multiline: true,
   });

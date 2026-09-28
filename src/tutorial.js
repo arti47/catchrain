@@ -3,6 +3,10 @@
 import { el, add } from "./core.js";
 import { section, btn, explain } from "./ui.js";
 import { go } from "./router.js";
+import { glyph } from "./art.js";
+
+// Each step's mark, in the order the steps are played.
+const MARKS = ["seal", "folder", "die", "investigation", "card", "threat", "dawn", "truth", "chairs", "reveal"];
 
 const STEPS = [
   ["Make your investigator", [
@@ -64,10 +68,10 @@ export function renderTutorial(host) {
     explain("A walkthrough of one whole session, in the order you will play it. It is a screen, not a pop-up — come back to it mid-game whenever you are unsure what the app wants next."));
   add(host, section("You do not have to read this",
     el("p", { text: "The line at the top of every screen already says what to do next and what it will cost you, and the Why? beside it explains the moment you are in. This page is here for when you want the whole shape of a session at once." })));
-  const wrap = el("div", {});
+  const wrap = el("div", { class: "route" });
   STEPS.forEach(([title, paras], i) => {
-    const det = el("details", { class: "acc", open: i === 0 ? true : null });
-    add(det, el("summary", { text: `${i + 1}. ${title}` }),
+    const det = el("details", { class: "acc route-step", open: i === 0 ? true : null });
+    add(det, el("summary", {}, glyph(MARKS[i] || "drop", 18), el("span", { text: `${i + 1}. ${title}` })),
       el("div", { class: "acc-body" }, ...paras.map((p) => el("p", { class: "small", text: p }))));
     add(wrap, det);
   });

@@ -17,7 +17,7 @@ import { readiness } from "./coach.js";
 import { section, row, pill, explain, emptyState, cardFace, showToast, actionBar } from "./ui.js";
 import { go } from "./router.js";
 
-import { illustration, caseFile, dangerGauge } from "./art.js";
+import { illustration, caseFile, dangerGauge, glyph } from "./art.js";
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // --- The mystery sheet, on screen ---------------------------------------------
@@ -98,9 +98,22 @@ export function renderMysterySheet(host) {
  * the mystery it describes.
  */
 export function sheetsHtml(career, inv, m) {
-  const attr = (a) => `<div class="cell"><span class="k">${esc(a.name)}</span><span class="v">${D.attrValue(inv, a.id)}${D.isStruck(inv, a.id) ? " &#10007;" : ""}</span></div>`;
+  const attr = (a) => `<div class="cell"><span class="k">${esc(a.name)}</span><span class="v">${D.attrValue(inv, a.id)}${D.isStruck(inv, a.id) ? " &#10007;" : ""}</span>${pips(D.attrValue(inv, a.id))}</div>`;
   const boxes = (n, of) => Array.from({ length: of }, (_, i) => `<span class="box${i < n ? " on" : ""}"></span>`).join("");
   const card = (c2) => `<span class="pc${c2.suit === "H" || c2.suit === "D" ? " red" : ""}">${esc(c2.rank)}&nbsp;${{ S: "&#9824;", H: "&#9829;", D: "&#9830;", C: "&#9827;" }[c2.suit] || "?"}</span>`;
+  // The sheet's drawings, as the app draws them: pips for an attribute out of
+  // three, the clock as a disc of four wedges, and the title's drop.
+  const pips = (v) => `<svg class="pips" width="34" height="10" viewBox="0 0 34 10" aria-hidden="true">${[0, 1, 2].map((i) =>
+    `<circle cx="${5 + i * 12}" cy="5" r="3.6" ${i < v ? 'fill="currentColor"' : 'fill="none" stroke="currentColor" stroke-width="1.1"'}/>`).join("")}</svg>`;
+  const disc = (n, of) => {
+    const pt = (deg) => { const r = ((deg - 90) * Math.PI) / 180; return `${(12 + 10 * Math.cos(r)).toFixed(2)},${(12 + 10 * Math.sin(r)).toFixed(2)}`; };
+    const wedges = Array.from({ length: of }, (_, i) => {
+      const a = (360 / of) * i, b = a + 360 / of;
+      return `<path d="M12,12 L${pt(a)} A10,10 0 0 1 ${pt(b)} Z" fill="${i < n ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1"/>`;
+    }).join("");
+    return `<svg class="disc" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">${wedges}</svg>`;
+  };
+  const drop = glyph("drop", 18).innerHTML;
   const list = (items, empty) => (items.length ? `<ul>${items.join("")}</ul>` : `<p class="muted">${empty}</p>`);
 
   const sets = m ? D.clueSetList(m).sort((a, b) => DECK.clueRanks.indexOf(a.rank) - DECK.clueRanks.indexOf(b.rank)) : [];
@@ -124,6 +137,8 @@ export function sheetsHtml(career, inv, m) {
   .cell .v{font-size:22px;font-variant-numeric:tabular-nums}
   .box{display:inline-block;width:16px;height:16px;border:1px solid var(--ink);margin-right:5px;border-radius:3px}
   .box.on{background:var(--ink)}
+  .pips{display:block;margin-top:4px} .disc{vertical-align:middle;margin-right:6px}
+  .sub svg{width:14px;height:14px;vertical-align:-2px;margin-right:6px}
   .premise{font-size:17px;font-style:italic;margin:6px 0 12px}
   table{width:100%;border-collapse:collapse;font-size:13px}
   td{border-bottom:1px solid var(--rule);padding:5px 8px 5px 0;vertical-align:top}
@@ -142,7 +157,7 @@ export function sheetsHtml(career, inv, m) {
          font-family:"Helvetica Neue",Arial,sans-serif;font-size:9px;color:var(--dim)}
 </style></head><body>
 
-<div class="sub">Caught in the Rain &middot; investigator</div>
+<div class="sub">${drop}Caught in the Rain &middot; investigator</div>
 <h1>${esc(inv.name) || "Unnamed"}</h1>
 <p class="premise">${esc(inv.trait)}</p>
 
@@ -152,7 +167,7 @@ export function sheetsHtml(career, inv, m) {
 <h2>Fatigue and time</h2>
 <table>
   <tr><td class="k">Fatigue</td><td>${boxes(inv.fatigue, FATIGUE_BOXES)} ${inv.fatigue}/${FATIGUE_BOXES}</td></tr>
-  <tr><td class="k">Clock</td><td>${boxes(inv.clock, CLOCK_SEGMENTS)} ${inv.clock}/${CLOCK_SEGMENTS}</td></tr>
+  <tr><td class="k">Clock</td><td>${disc(inv.clock, CLOCK_SEGMENTS)} ${inv.clock}/${CLOCK_SEGMENTS}</td></tr>
   <tr><td class="k">Day</td><td>${inv.day}</td></tr>
   ${Settings.get("career") ? `<tr><td class="k">Experience</td><td>${inv.xp} XP</td></tr>` : ""}
 </table>

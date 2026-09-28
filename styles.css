@@ -623,10 +623,12 @@ b, strong { font-weight: 650; }
 /* Struck is a mark through the number, not a fade: transparency on top of
    muted ink is how a state ends up under the contrast floor. */
 .attr.struck { background: var(--loss-dim); border-color: color-mix(in srgb, var(--loss) 30%, transparent); }
-.attr.struck b { color: var(--loss); position: relative; }
+.attr.struck b { color: var(--loss); position: relative; align-self: center; }
 .attr.struck span { color: var(--loss); }
-.attr.struck::after {
-  content: ""; position: absolute; left: 12%; right: 12%; top: 52%;
+/* Through the number itself, so it stays on the number now the tile also
+   carries its pips. */
+.attr.struck b::after {
+  content: ""; position: absolute; left: -.45em; right: -.45em; top: 52%;
   height: 2px; border-radius: 2px; background: var(--loss);
   transform: rotate(-9deg);
 }
@@ -1288,10 +1290,14 @@ details.framing .ask li { font-size: .89rem; margin-bottom: .15rem; }
 .genre-mark {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background-repeat: no-repeat; background-position: right -14vw bottom 7vh;
-  background-size: min(118vw, 560px) auto; opacity: .08;
+  background-size: min(118vw, 560px) auto; opacity: .05;
+  /* Thins out toward the top, where the header and the first lines of a screen
+     sit: the mark is felt at the foot of a page, not read behind its title. */
+  -webkit-mask-image: linear-gradient(to top, #000 30%, transparent 88%);
+  mask-image: linear-gradient(to top, #000 30%, transparent 88%);
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .genre-mark { opacity: .1; } }
-:root[data-theme="dark"] .genre-mark { opacity: .1; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .genre-mark { opacity: .07; } }
+:root[data-theme="dark"] .genre-mark { opacity: .07; }
 :root[data-depth="off"] .genre-mark { display: none; }
 
 /* Marks that just happened arrive; everything else simply stands. */
@@ -1306,3 +1312,142 @@ details.framing .ask li { font-size: .89rem; margin-bottom: .15rem; }
 /* A row whose value carries a drawing lines up on the drawing's middle, not on
    a text baseline the drawing does not have. */
 .row:has(.stacked), .row:has(.gauged), .row:has(.rival-name) { align-items: center; }
+
+/* --- The second graphics pass -------------------------------------------------- */
+
+/* Launch: the icon, until the first render replaces it. */
+.splash { min-height: 60vh; display: grid; place-items: center; }
+.splash img { width: 72px; height: 72px; border-radius: 16px; opacity: .9; }
+
+/* The tab you are on is drawn filled, not only coloured. Open paths stay open. */
+.tab[aria-current="page"] .tab-icon svg { fill: color-mix(in srgb, var(--accent) 18%, transparent); }
+.tab[aria-current="page"] .tab-icon svg path { fill: none; }
+
+/* A die that is shown rather than rolled: no tumble. */
+.die.still .tumble { animation: none; }
+/* Small dice beside a label: the cube drawn at 60%, in the room that takes. */
+.dice-art { display: inline-flex; gap: 2px; flex: 0 0 auto; }
+.dice-art .die { transform: scale(.6); margin: -7.6px; }
+
+/* Dice you tap: six faces to a row, one row per die. */
+.dice-pick {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .3rem;
+  margin: .5rem 0 .7rem;
+}
+@media (max-width: 359px) { .dice-pick { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.die-choice {
+  min-height: 48px; min-width: 44px; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2);
+  cursor: pointer; padding: 0;
+}
+.die-choice .die { transform: scale(.82); }
+.die-choice:hover { border-color: var(--accent); }
+.die-choice[aria-checked="true"] { border-color: var(--accent); background: var(--accent-dim); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* The investigation roll and the rest, drawn in their dialogs. */
+.modal .roll-scale { margin: .2rem 0 .6rem; }
+.rest-figure { display: flex; align-items: center; gap: .8rem; margin: 0 0 .7rem; }
+.track.still .box { cursor: default; }
+/* A box the rest just emptied: dashed, and drained of its colour as you watch. */
+.box.clearing::before { border-style: dashed; border-color: var(--loss); }
+:root:not([data-depth="off"]) .box.clearing::before { animation: box-clear .7s ease-in calc(.25s + var(--turn, 0ms)) both; }
+@keyframes box-clear { from { background: var(--loss); } to { background: var(--panel-2); } }
+
+/* A truth scene turns its cards over, one after another. */
+.reveal-row { display: flex; gap: .6rem; justify-content: center; margin: .2rem 0 .8rem; perspective: 600px; }
+.reveal-row .pcard.flip { animation-delay: var(--turn, 0ms); }
+
+/* The joker, and the keyword you came away with. */
+.joker-figure, .tag-figure { display: flex; justify-content: center; margin: .1rem 0 .7rem; }
+.pcard.joker { color: var(--loss); display: inline-grid; place-items: center; }
+.pcard.joker .joker-mark { display: block; }
+.chip.tag.new { font-family: var(--serif); font-size: 1rem; border-color: var(--accent); background: var(--accent-dim); }
+@keyframes tag-swing { from { transform: rotate(-9deg) translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
+:root:not([data-depth="off"]) .chip.tag.new { transform-origin: 12px 50%; animation: tag-swing .5s cubic-bezier(.2, .8, .3, 1) both; }
+
+/* Keywords as tags, obligations with the house they are kept in. */
+.chip .glyph-tag, .chip .glyph-obligation { margin: -2px -.05rem -2px -.15rem; color: var(--ink-2); }
+.chip { display: inline-flex; align-items: center; gap: .3rem; }
+
+/* An attribute out of its three slots. */
+.attr .attr-pips { display: flex; justify-content: center; gap: 4px; margin: .35rem 0 .15rem; text-transform: none; letter-spacing: 0; }
+.attr-pips i { width: 7px; height: 7px; border-radius: 50%; border: 1.2px solid var(--ink-2); }
+.attr-pips i.on { background: var(--ink); border-color: var(--ink); }
+.attr.struck .attr-pips i.on { background: var(--loss); border-color: var(--loss); }
+
+/* What a benefit costs, as pips lit to what you hold. */
+.cost-label { display: inline-flex; align-items: center; gap: .55rem; }
+.cost-pips circle.on { fill: currentColor; }
+.cost-pips circle.off { fill: none; stroke: currentColor; stroke-width: 1.1; }
+.row:has(.cost-label) { align-items: center; }
+
+/* Oracle words as tiles. */
+.word-tiles { display: flex; flex-wrap: wrap; gap: .45rem; margin: .3rem 0 .6rem; }
+.word-tile {
+  font-family: var(--serif); font-size: 1.1rem; padding: .35rem .75rem;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2);
+  box-shadow: 0 1px 0 var(--line);
+}
+@keyframes tile-in { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+:root:not([data-depth="off"]) .word-tile { animation: tile-in .3s ease-out both; }
+:root:not([data-depth="off"]) .word-tile:nth-child(2) { animation-delay: .08s; }
+:root:not([data-depth="off"]) .word-tile:nth-child(3) { animation-delay: .16s; }
+
+/* A d66 index, drawn as its two dice. The numeral is still there to be read. */
+.code.d66 { display: inline-flex; gap: 2px; align-items: center; }
+.d66-die {
+  --pip: radial-gradient(circle closest-side, var(--ink-2) 80%, transparent 100%);
+  width: 13px; height: 13px; border-radius: 3px; border: 1px solid var(--line);
+  background-color: var(--panel); background-repeat: no-repeat; background-size: 3.4px 3.4px;
+  background-image: var(--pip);
+}
+.d66-die[data-face="1"] { background-position: 50% 50%; }
+.d66-die[data-face="2"] { background-image: var(--pip), var(--pip); background-position: 15% 15%, 85% 85%; }
+.d66-die[data-face="3"] { background-image: var(--pip), var(--pip), var(--pip); background-position: 15% 15%, 50% 50%, 85% 85%; }
+.d66-die[data-face="4"] { background-image: var(--pip), var(--pip), var(--pip), var(--pip); background-position: 15% 15%, 85% 15%, 15% 85%, 85% 85%; }
+.d66-die[data-face="5"] { background-image: var(--pip), var(--pip), var(--pip), var(--pip), var(--pip); background-position: 15% 15%, 85% 15%, 50% 50%, 15% 85%, 85% 85%; }
+.d66-die[data-face="6"] { background-image: var(--pip), var(--pip), var(--pip), var(--pip), var(--pip), var(--pip); background-position: 15% 15%, 85% 15%, 15% 50%, 85% 50%, 15% 85%, 85% 85%; }
+
+/* The tutorial as a route: one line through the ten steps, a mark at each. */
+/* The line runs behind the steps, so it shows in the gaps between them: a
+   route from one mark to the next, never a rule across the text. */
+.route { position: relative; }
+.route::before {
+  content: ""; position: absolute; z-index: 0; left: 22px; top: 22px; bottom: 22px; width: 2px;
+  background: var(--line); border-radius: 2px;
+}
+.route .route-step { position: relative; z-index: 1; }
+.route-step summary { display: flex; align-items: center; gap: .7rem; }
+.route-step summary .glyph {
+  position: relative; z-index: 1; flex: 0 0 auto; color: var(--ink-2);
+  background: var(--panel); border-radius: 50%; box-shadow: 0 0 0 4px var(--panel);
+}
+.route-step[open] summary .glyph { color: var(--accent); }
+
+/* Theme and depth options carry their marks. */
+.seg-with-glyph { display: inline-flex; align-items: center; gap: .35rem; }
+
+/* The story: a scene opens with its kind, and the oracle's lines with a die. */
+.story-scene {
+  display: flex; align-items: center; gap: .45rem; margin: .9rem 0 .2rem;
+  font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2);
+}
+.story-oracle { display: flex; align-items: flex-start; gap: .4rem; }
+.story-oracle .glyph { flex: 0 0 auto; margin-top: 1px; color: var(--ink-2); }
+
+/* The solve: the twelve face cards are the picker. */
+.face-grid.picker { grid-template-columns: repeat(4, minmax(44px, 64px)); gap: .45rem; justify-content: start; }
+.pick-card {
+  position: relative; min-height: 60px; min-width: 44px; display: grid; place-items: center;
+  border: 1px solid transparent; border-radius: 8px; background: none; padding: 4px; cursor: pointer;
+}
+.pick-card:hover { border-color: var(--line); }
+.pick-card.picked { border-color: var(--accent); background: var(--accent-dim); }
+.pick-card .guess-no {
+  position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 999px; display: grid; place-items: center;
+  background: var(--btn); color: var(--btn-ink); font-size: .75rem; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes pick-in { from { transform: translateY(-5px) scale(.97); } to { transform: none; } }
+:root:not([data-depth="off"]) .pick-card.picked .pcard { animation: pick-in .22s ease-out both; }

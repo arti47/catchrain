@@ -14,7 +14,7 @@ import { Updates } from "./updates.js";
 import { section, row, defRow, btn, seg, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState, dieFace } from "./ui.js";
 import { go } from "./router.js";
 
-import { illustration, glyph, resultPips, yesNoScale, caseFile, dangerGauge } from "./art.js";
+import { illustration, glyph, resultPips, yesNoScale, caseFile, dangerGauge, wordTiles, costPips, d66Code as d66Dice } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 
 // --- Home ---------------------------------------------------------------------
@@ -161,12 +161,15 @@ export function renderTables(host) {
   add(host, resultHost);
   const showRoll = (name, r) => {
     resultHost.hidden = false;
-    resultHost.replaceChildren(
+    // replaceChildren() would write a null out as the word "null".
+    resultHost.replaceChildren(...[
       el("h3", { text: name }),
-      el("p", { class: "mono", text: `d66 ${r.code} — ${r.value}` }),
+      el("div", { class: "dice" }, ...String(r.code).split("").map((d) => dieFace(Number(d))),
+        el("span", { class: "math", text: `d66 ${r.code}` })),
+      el("p", { class: "premise", text: r.value }),
       r.redirected ? el("p", { class: "small", text: `Your content filter moved this roll ${houseAidLabel("contentFilter")}: ${r.dice.join("")} was a row you blocked.` }) : null,
       r.allBlocked ? el("p", { class: "small", text: `Every row of this table is filtered, so the roll stands ${houseAidLabel("contentFilter")}.` }) : null,
-    );
+    ].filter(Boolean));
   };
 
   const search = el("input", { class: "input", type: "search", placeholder: "Search every table", "aria-label": "Search every table" });
@@ -181,8 +184,8 @@ export function renderTables(host) {
     const det = el("details", { class: "acc" });
     const body = el("div", { class: "acc-body" });
     const grid = el("div", { class: "table-grid" });
-    table.forEach((v, i) => add(grid, el("div", { class: "table-row", dataset: { value: v.toLowerCase() } },
-      el("span", { class: "code", text: d66Code(i) }), el("span", { text: v }))));
+    table.forEach((v, i) => add(grid, el("div", { class: "table-row", dataset: { value: `${d66Code(i)} ${v.toLowerCase()}` } },
+      d66Dice(d66Code(i)), el("span", { text: v }))));
     add(body, el("div", { class: "btn-row" }, btn("Roll 1d66", () => showRoll(name, R.rollTable(table)))), grid);
     add(det, el("summary", {}, name, " ", el("span", { class: "pill", text: "36" })), body);
     return det;
@@ -286,7 +289,7 @@ export function renderOracle(host) {
     const words = R.subjectWords(s);
     out.hidden = false;
     out.replaceChildren(el("h3", { text: "Subject oracle" }),
-      el("p", { class: "mono", text: words.join("  ·  ") }),
+      wordTiles(words),
       el("p", { class: "small muted", text: [s.action && `action ${s.action.code}`, s.descriptor && `descriptor ${s.descriptor.code}`, s.focus && `focus ${s.focus.code}`].filter(Boolean).join(" · ") }));
     remember(`Subject: ${words.join(" · ")}`);
   }
@@ -387,14 +390,22 @@ export function renderJournal(host) {
       if (shown.length < all.length) {
         add(listHost, btn(`Show ${Math.min(STORY_PAGE, all.length - shown.length)} earlier`, () => { page++; paint(); }));
       }
-      let day = null, opened = false;
+      let day = null, opened = false, scene;
       for (const e of shown) {
         if ((e.day || 1) !== day) {
-          day = e.day || 1; opened = false;
+          day = e.day || 1; opened = false; scene = undefined;
           add(listHost, el("h3", { class: "card-title story-day" }, glyph("day", 16), el("span", { text: `Day ${day}` })));
         }
+        // A scene's first line carries the mark of what kind of scene it was.
+        if (e.scene && e.scene !== scene && DATA.SCENE_TYPES.some((t) => t.id === e.scene)) {
+          add(listHost, el("p", { class: "story-scene" }, glyph(e.scene, 16),
+            el("span", { text: DATA.SCENE_TYPES.find((t) => t.id === e.scene).name })));
+        }
+        scene = e.scene || scene;
         const prose = e.kind !== "oracle";
-        add(listHost, el("p", { class: prose ? `story-line${opened ? "" : " opens"}` : "mono small", text: e.text }));
+        add(listHost, prose
+          ? el("p", { class: `story-line${opened ? "" : " opens"}`, text: e.text })
+          : el("p", { class: "story-oracle mono small" }, glyph("die", 14), el("span", { text: e.text })));
         if (prose) opened = true;
       }
       if (!all.length) add(listHost, el("p", { class: "muted small", text: "Nothing written yet. Whatever you write in a scene, and every answer the oracle gives, lands here." }));
@@ -525,7 +536,7 @@ export function renderCareers(host) {
     const spendable = DATA.XP_BENEFITS.filter((b) => b.cost <= who.xp);
     add(host, section(`Experience — ${who.name || "your investigator"}, ${who.xp} XP`,
       el("p", { class: "small muted", text: "Spend between mysteries. Two of these hand you a new obligation as well." }),
-      ...DATA.XP_BENEFITS.map((b) => row(`${b.cost} XP · ${b.name}`,
+      ...DATA.XP_BENEFITS.map((b) => row(el("span", { class: "cost-label" }, costPips(b.cost, who.xp), el("span", { text: `${b.cost} XP · ${b.name}` })),
         btn("Spend", () => spendXP(b), b.cost <= who.xp ? "chosen" : "ghost", { disabled: b.cost > who.xp || !!(Store.mystery && !Store.mystery.solved) }))),
       Store.mystery && !Store.mystery.solved ? el("p", { class: "small", text: "Experience is spent between mysteries, not during one." }) : null,
       spendable.length === 0 ? el("p", { class: "small muted", text: "Nothing affordable yet." }) : null));
@@ -631,12 +642,12 @@ export function renderSettings(host) {
   add(host, section("Rules and play", toggles));
 
   add(host, section("Appearance",
-    defRow("Theme", seg(["system", "light", "dark"].map((t) => ({ value: t, label: t[0].toUpperCase() + t.slice(1) })),
+    defRow("Theme", seg([["system", "system"], ["light", "sun"], ["dark", "moon"]].map(([t, g]) => ({ value: t, label: el("span", { class: "seg-with-glyph" }, glyph(g, 16), el("span", { text: t[0].toUpperCase() + t.slice(1) })) })),
       Settings.get("theme"), (t) => { Settings.set("theme", t); applyTheme(); rerender(); }, "Theme")),
     defRow("Text size", seg([90, 100, 115, 130].map((sz) => ({ value: sz, label: `${sz}%` })),
       Settings.get("textScale"), (sz) => { Settings.set("textScale", sz); applyTextScale(); rerender(); }, "Text size")),
     defRow("Depth", el("div", {},
-      seg([{ value: true, label: "On" }, { value: false, label: "Off" }],
+      seg([{ value: true, label: el("span", { class: "seg-with-glyph" }, glyph("cube", 16), el("span", { text: "On" })) }, { value: false, label: "Off" }],
         Settings.get("depth") !== false, (v) => { Settings.set("depth", v); applyDepth(); rerender(); }, "Depth"),
       el("small", { class: "muted", text: "Dice land as cubes, the solve turns its cards over, the dial is a disc and the night rain falls. Drawn by the stylesheet, so it costs no download; off is the plain thing. If your device already asks for less motion, nothing moves either way." })))));
 
@@ -687,7 +698,7 @@ export function renderSettings(host) {
     el("div", { class: "btn-row" },
       btn("Check for updates", async () => {
         showToast("Checking\u2026");
-        const result = await Updates.check({ force: true });
+        const result = await Updates.check({ force: true, asked: true });
         if (result === "update") return;                       // the update toast is already up
         if (result === "current") showToast("You are on the latest version.");
         else if (result === "offline") showToast("No connection \u2014 try again when you are online.");

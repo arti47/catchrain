@@ -68,6 +68,10 @@ if (!failures.length) {
     await page.locator(".toast-action .icon-btn").click();
     await page.waitForTimeout(150);
     if (await page.locator(".toast-action").count()) fail("dismissing the update toast left it on screen");
+    // Both the waiting worker and the shell check notice the same deploy. The
+    // second one to report must not put back a toast the player just declined.
+    await page.waitForTimeout(3000);
+    if (await page.locator(".toast-action").count()) fail("a declined update toast came back on the same load");
     await page.reload();
     await page.waitForTimeout(1500);
     const offeredAgain = await page.locator(".toast-action", { hasText: "Update available" })
@@ -101,11 +105,16 @@ if (!failures.length) {
   if (!found) fail("a deploy that did not touch the worker was never noticed");
   else {
     await page.locator(".toast-action .btn").first().click();
-    await page.waitForTimeout(1200);
-    const applied = await page.evaluate(async () => {
-      const res = await fetch("styles.css");
-      return (await res.text()).includes(".042em");
-    });
+    // The click reloads the page; a fixed wait raced that reload on a loaded
+    // machine, so poll across it instead of guessing how long it takes.
+    let applied = false;
+    for (let i = 0; i < 12 && !applied; i++) {
+      await page.waitForTimeout(500);
+      applied = await page.evaluate(async () => {
+        const res = await fetch("styles.css");
+        return (await res.text()).includes(".042em");
+      }).catch(() => false);
+    }
     if (!applied) fail("the changed file was found but never served");
     else console.log("  ok   a deploy that leaves the worker untouched is still found and applied");
   }

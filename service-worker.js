@@ -7,7 +7,7 @@
 // cache forever. So the page can ask this worker to go and look — checkShell()
 // re-fetches every shell file past the HTTP cache, compares it with what is
 // cached, replaces anything that changed, and tells the page.
-const CACHE_VERSION = "citr-v19";
+const CACHE_VERSION = "citr-v20";
 const SHELL = [
   "./", "./index.html", "./styles.css", "./manifest.json", "./icon.svg", "./icon-maskable.svg", "./data.js", "./data-house.js",
   "./src/main.js", "./src/core.js", "./src/ui.js", "./src/rules.js", "./src/derived.js",

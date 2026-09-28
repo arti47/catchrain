@@ -126,10 +126,10 @@ if (!(await state()).ended) {
 }
 await page.goto(`${base}#/solve`);
 await page.waitForTimeout(120);
-const selects = page.locator("#screen select");
-const n = await selects.count();
-if (n !== 3) findings.push(`the solve offers ${n} guess pickers, expected 3`);
-for (let i = 0; i < n; i++) { await selects.nth(i).selectOption({ index: 1 + i }); taps++; }
+const cards = page.locator("#screen .face-grid.picker .pick-card");
+const n = await cards.count();
+if (n !== 12) findings.push(`the solve offers ${n} cards to pick from, expected 12`);
+for (let i = 0; i < 3 && i < n; i++) { await cards.nth(i * 4).click(); taps++; }
 await tap(page.locator(".action-bar .btn"), "reveal");
 await clearDialogs();
 await log("after the solve");

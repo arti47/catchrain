@@ -90,7 +90,7 @@ export function promptModal({ title, message, value = "", placeholder = "", mult
   });
 }
 
-export function chooseModal({ title, message, options, allowCancel = true }) {
+export function chooseModal({ title, message, options, allowCancel = true, figure = null }) {
   return new Promise((resolve) => {
     // closeModal() fires onClose, so the choice must be recorded before the
     // dialog closes or the cancel path resolves first and the pick is lost.
@@ -101,14 +101,61 @@ export function chooseModal({ title, message, options, allowCancel = true }) {
       add(list, el("button", {
         class: "choice", type: "button",
         onclick: () => { settle(o.value); closeModal(); },
-      }, el("span", { class: "choice-label", text: o.label }), o.note ? el("span", { class: "choice-note", text: o.note }) : null));
+      }, o.art || null,
+         el("span", { class: o.art ? "choice-text" : "" },
+           el("span", { class: "choice-label", text: o.label }), o.note ? el("span", { class: "choice-note", text: o.note }) : null)));
+      if (o.art) list.lastChild.classList.add("with-glyph");
     });
     modal({
       title,
-      body: el("div", {}, message ? el("p", { class: "muted", text: message }) : null, list),
+      body: el("div", {}, figure, message ? el("p", { class: "muted", text: message }) : null, list),
       dismissable: allowCancel,
       onClose: () => settle(null),
       actions: allowCancel ? [{ label: "Cancel", kind: "ghost", onClick: () => settle(null) }] : [],
+    });
+  });
+}
+
+/**
+ * The faces you rolled on the table, tapped: one row of six drawn faces per die.
+ * The dialog closes itself once every die has a face, so entering a roll is as
+ * many taps as there are dice and nothing else. Resolves to the faces in order
+ * (a number for one die, an array for more), or null if the player cancels.
+ */
+export function pickDice(label, count = 1) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (v) => { if (!settled) { settled = true; resolve(v); } };
+    const chosen = Array(count).fill(null);
+    const rows = [];
+    const done = () => {
+      if (chosen.every((v) => v !== null)) {
+        finish(count === 1 ? chosen[0] : chosen.slice());
+        closeModal();
+      }
+    };
+    for (let d = 0; d < count; d++) {
+      const row = el("div", { class: "dice-pick", role: "radiogroup", "aria-label": count > 1 ? `Die ${d + 1}` : "Your die" });
+      for (let f = 1; f <= 6; f++) {
+        add(row, el("button", {
+          class: "die-choice", type: "button", role: "radio", "aria-checked": "false",
+          "aria-label": `${f}`, dataset: { face: String(f) },
+          onclick: (e) => {
+            chosen[d] = f;
+            for (const b of row.children) b.setAttribute("aria-checked", b === e.currentTarget ? "true" : "false");
+            done();
+          },
+        }, dieFace(f, "mini still")));
+      }
+      rows.push(row);
+    }
+    modal({
+      title: count > 1 ? "Enter your dice" : "Enter your die",
+      body: el("div", {},
+        el("p", { class: "muted", text: count > 1 ? `${label}: tap the ${count} faces you rolled.` : `${label}: tap the face you rolled.` }),
+        ...rows),
+      onClose: () => finish(null),
+      actions: [{ label: "Cancel", kind: "ghost", onClick: () => finish(null) }],
     });
   });
 }
@@ -129,7 +176,7 @@ export function showToast(text, kind = "") {
  * the way a modal does. Used for the update prompt.
  */
 let actionToastEl = null;
-export function actionToast({ text, actionLabel, onAction, dismissLabel = "Dismiss" }) {
+export function actionToast({ text, actionLabel, onAction, onDismiss, dismissLabel = "Dismiss" }) {
   dismissActionToast();
   const act = el("button", {
     class: "btn primary", type: "button",
@@ -137,7 +184,7 @@ export function actionToast({ text, actionLabel, onAction, dismissLabel = "Dismi
   }, actionLabel);
   const close = el("button", {
     class: "icon-btn", type: "button", "aria-label": dismissLabel, title: dismissLabel,
-    onclick: () => dismissActionToast(),
+    onclick: () => { dismissActionToast(); if (onDismiss) onDismiss(); },
   }, "\u2715");
   actionToastEl = el("div", { class: "toast-action", role: "status", "aria-live": "polite" },
     el("span", { class: "toast-text", text }), act, close);
