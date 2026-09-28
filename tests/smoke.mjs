@@ -2053,7 +2053,7 @@ for (const width of WIDTHS) {
   await page.waitForTimeout(350);
   const home = await q(() => ({
     pips: document.querySelectorAll("#screen .result-pips").length,
-    rivalDice: document.querySelectorAll("#screen .rival-die .die").length,
+    rivalDice: document.querySelectorAll("#screen .rival-die .d66-die").length,
     rivals: (() => { const s = JSON.parse(localStorage.getItem("citr:v1")); return s.careers[s.activeId].rivals.length; })(),
   }));
   if (!home.pips) fail("closed cases show their result as text only");
@@ -2489,6 +2489,171 @@ for (const width of WIDTHS) {
   if (errors.length) fail(`console error in the second graphics pass: ${errors[0].slice(0, 140)}`);
   if (!failures.length) ok("the dialogs are drawn, the dice are tapped, and the solve is picked from its cards");
   await ctx.close();
+}
+
+// 8af. the third graphics pass: typed glyphs drawn, the same state drawn the same way everywhere
+{
+  const { ctx, page, errors } = await newPage();
+  const q = (fn, arg) => page.evaluate(fn, arg);
+  const at = async (route, ms = 350) => { await page.goto(`${base}#/${route}`); await page.waitForTimeout(ms); };
+  await seed(page, base, "stress", { rivals: true, career: true, theme: "light" });
+  const n = (sel) => q((s) => document.querySelectorAll(s).length, sel);
+
+  // 1, 19, 20. home: rival dice drawn flat, closed cases as tabs, the investigator drawn
+  await at("home");
+  const home = await q(() => {
+    const s = JSON.parse(localStorage.getItem("citr:v1")); const c = s.careers[s.activeId];
+    return { rivals: c.rivals.length, history: Math.min(5, c.history.length),
+      flat: [...document.querySelectorAll("#screen .rival-die .d66-die")].filter((d) => d.getBoundingClientRect().width >= 16).length,
+      cubes: document.querySelectorAll("#screen .rival-die .die").length,
+      tabs: document.querySelectorAll("#screen .case-tab").length,
+      pips: document.querySelectorAll("#screen .inv-card .attr-pips").length,
+      track: document.querySelectorAll("#screen .inv-card .fatigue-mini").length,
+      clock: document.querySelectorAll("#screen .inv-card .clock").length };
+  });
+  if (home.flat !== home.rivals || home.cubes) fail(`rival slots: ${home.flat} flat dice drawn at size and ${home.cubes} broken cubes for ${home.rivals} rivals`);
+  if (home.tabs !== home.history) fail(`closed cases: ${home.tabs} case tabs for ${home.history} cases`);
+  if (home.pips !== 3 || !home.track || !home.clock) fail("the home investigator card is text, not pips, a track and a clock");
+
+  // 6, 7, 8, 9. the frame: drawn header buttons, drawn disclosure, deck and card in the numbers, a toast with its mark
+  const frame = await q(() => ({
+    undo: !!document.querySelector("#undo-btn svg"), theme: !!document.querySelector("#theme-btn .glyph-sun"),
+    typed: /[↶◑◗]/.test(document.querySelector(".header-tools").textContent),
+    mark: !!document.querySelector(".coach-mark svg"),
+    deck: !!document.querySelector("#resource-header .deck-stack"), card: !!document.querySelector("#resource-header .pcard"),
+  }));
+  if (!frame.undo || !frame.theme || frame.typed) fail("the header's undo and theme buttons are typed characters");
+  if (!frame.mark) fail("the guide's mark is a typed ›");
+  if (!frame.deck || !frame.card) fail("the clue deck and truths in the numbers are bare figures");
+  await page.locator("#theme-btn").click();
+  await page.waitForTimeout(150);
+  if (!(await n("#theme-btn .glyph-moon"))) fail("the theme button does not show the theme it switched to");
+  await page.locator("#theme-btn").click(); await page.locator("#theme-btn").click();
+  await page.waitForTimeout(150);
+  if (!(await n("#toast .glyph"))) fail("a toast is a line of text with no mark");
+
+  // 10, 11, 12, 13, 3. play
+  await at("play");
+  const play = await q(() => ({
+    nodes: document.querySelectorAll("#screen .stage-path .node .glyph").length,
+    eyes: document.querySelectorAll("#screen .threat .threat-head .glyph-threat").length,
+    threats: document.querySelectorAll("#screen .threat").length,
+    h1: !!document.querySelector("#screen h1 .glyph"),
+    framing: document.querySelectorAll("#screen .framing .btn .glyph").length,
+    kw: [...document.querySelectorAll("#screen .card")].filter((c) => /keywords ready/i.test(c.querySelector(".card-title, h2, h3")?.textContent || ""))
+      .flatMap((c) => [...c.querySelectorAll(".chip")]).map((c) => !!c.querySelector(".glyph")),
+  }));
+  if (play.nodes !== 4) fail(`the stage path draws ${play.nodes} of four stage marks`);
+  if (!play.threats || play.eyes !== play.threats) fail("a threat card carries no mark of what it is");
+  if (!play.h1) fail("the scene heading carries no scene mark");
+  if (play.framing < 3) fail(`the framing buttons carry ${play.framing} glyphs`);
+  if (!play.kw.length || play.kw.some((x) => !x)) fail("a keyword ready to spend is a bare chip");
+  const disclosure = await q(() => { const s = document.querySelector("#screen details.acc > summary"); return s ? getComputedStyle(s, "::after").content : "none"; });
+  if (/[+–]/.test(disclosure)) fail(`an accordion still opens on a typed ${disclosure}`);
+
+  // 5. clues: a false lead shows the rank it was
+  await at("clues");
+  const torn = await q(() => [...document.querySelectorAll("#screen .clue-set.false")].map((s) => s.querySelector(".pcard.torn .rank")?.textContent || ""));
+  if (!torn.length || torn.some((t) => !t)) fail("a false lead is a blank torn shape with no rank");
+
+  // 4. the mystery sheet draws what the other screens draw
+  await at("case-sheet");
+  const sheet = await q(() => ({ marks: document.querySelectorAll("#screen .marks").length, bars: document.querySelectorAll("#screen .level-bars").length,
+    rivalDice: document.querySelectorAll("#screen .d66-die").length, stacks: document.querySelectorAll("#screen .deck-stack").length }));
+  if (!sheet.marks || !sheet.bars || !sheet.rivalDice || sheet.stacks < 3) fail(`the mystery sheet draws ${JSON.stringify(sheet)}`);
+
+  // 21. careers
+  await at("careers");
+  if (!(await n("#screen .xp-tokens")) || !(await n("#screen .glyph-seal"))) fail("experience is a number and Current is a pill");
+
+  // 22. oracles, before anything is asked
+  await at("oracle");
+  if ((await n("#screen .word-tile.blank")) < 2 || !(await n("#screen .idle-die"))) fail("the oracles show nothing until asked");
+
+  // 23, 24. rules and tables
+  await at("rules");
+  const rules = await q(() => [...document.querySelectorAll("#screen .card")].filter((c) => c.querySelector("details.acc")).map((c) => !!c.querySelector(".card-title .glyph, h2 .glyph, h3 .glyph")));
+  if (!rules.length || rules.some((x) => !x)) fail("a rules section has no mark");
+  await at("tables");
+  const tbl = await q(() => [...document.querySelectorAll("#screen details.acc > summary")].slice(0, 6).map((s) => !!s.querySelector(".glyph")));
+  if (tbl.some((x) => !x)) fail("a genre table's header has no mark of what it holds");
+
+  // 25, 26. journal: rolls as dice, the distribution as bars, the cast as cards
+  await q(() => { const s = JSON.parse(localStorage.getItem("citr:v1")); s.careers[s.activeId].cast = [{ id: "p1", name: "The night supervisor", note: "Saw the van." }]; localStorage.setItem("citr:v1", JSON.stringify(s)); });
+  await page.reload();
+  await at("journal");
+  if (!(await n("#screen .log-entry .dice-art"))) fail("the roll log writes its dice out as sums");
+  if (!(await n("#screen .cast-card"))) fail("people and places are rows, not cards");
+  await page.locator("#screen details.acc summary", { hasText: /Roll log/ }).click();
+  await page.locator("#screen .btn", { hasText: "Face distribution" }).click();
+  await page.waitForTimeout(200);
+  const dist = await q(() => ({ bars: document.querySelectorAll(".modal-overlay .dist-bar").length, text: document.querySelector(".modal-overlay")?.innerText || "" }));
+  if (dist.bars !== 6) fail(`the face distribution is ${dist.bars} bars, not six`);
+  if (/typed in/.test(dist.text)) fail("the face distribution still says dice are typed in");
+  await q(() => document.querySelectorAll(".modal-overlay").forEach((x) => x.remove()));
+
+  // 2, 27, 28. settings
+  await at("settings");
+  const set = await q(() => ({ rows: document.querySelectorAll("#screen .opt.switch").length, glyphs: document.querySelectorAll("#screen .opt.switch .glyph").length,
+    typeCopy: /Type the faces/.test(document.querySelector("#screen").innerText),
+    data: [...document.querySelectorAll("#screen .btn")].filter((b) => /Export backup|Import backup/.test(b.innerText)).map((b) => !!b.querySelector(".glyph")) }));
+  if (set.typeCopy) fail("Manual dice still says to type the faces");
+  if (!set.rows || set.glyphs !== set.rows) fail(`${set.glyphs} of ${set.rows} switches carry their mark`);
+  if (set.data.length !== 2 || set.data.some((x) => !x)) fail("export and import have no arrows");
+
+  // 29. the printed mystery sheet
+  const printed = await q(async () => { const p = await import("../src/paper.js"); const { Store } = await import("../src/store.js"); return p.sheetsHtml(Store.career, Store.investigator, Store.mystery); });
+  if (!/class="case-file"/.test(printed) || !/class="mk/.test(printed)) fail("the printed mystery sheet has no case file and no marks");
+
+  // 30. the guide's sentence arrives when it changes, and only then
+  await at("play");
+  const arrive = await q(async () => {
+    const r = await import("../src/router.js"); const { Store } = await import("../src/store.js");
+    await r.render(); const still = !!document.querySelector(".coach-say.arrive");
+    Store.update("test", () => { Store.mystery.scene = null; Store.mystery.threats = []; });
+    await r.render(); const moved = !!document.querySelector(".coach-say.arrive");
+    await r.render(); const again = !!document.querySelector(".coach-say.arrive");
+    return { still, moved, again };
+  });
+  if (arrive.still || arrive.again) fail("the guide's sentence moves on a re-render that changed nothing");
+  if (!arrive.moved) fail("a new step in the guide lands without arriving");
+
+  // 14. the reveal stamps each turned card
+  await q(() => { const s = JSON.parse(localStorage.getItem("citr:v1")); const m = s.careers[s.activeId].mystery;
+    const a = m.setAside; m.ended = true; m.solved = true; m.guesses = [a[0], { rank: "J", suit: "S" }, a[2]];
+    m.results = m.guesses.map((g, i) => ({ guess: g, correct: i !== 1 })); m.correct = 2;
+    localStorage.setItem("citr:v1", JSON.stringify(s)); });
+  await page.reload();
+  await at("solve");
+  const stamps = await q(() => ({ all: document.querySelectorAll("#screen .reveal .stamp").length, hit: document.querySelectorAll("#screen .reveal .stamp.hit").length }));
+  if (stamps.all !== 3) fail(`the reveal stamps ${stamps.all} of three cards`);
+  await ctx.close();
+
+  // 15, 16, 17, 18. the wizards, from a blank app
+  const w = await newPage();
+  await seed(w.page, base, "fresh");
+  await w.page.goto(`${base}#/wizard`); await w.page.waitForTimeout(300);
+  const wz = await w.page.evaluate(() => ({ card: !!document.querySelector("#screen .index-card"), pips: document.querySelectorAll("#screen .seg .attr-pips").length }));
+  if (!wz.card) fail("the investigator wizard has no index card filling in");
+  if (wz.pips !== 9) fail(`the attribute choices draw ${wz.pips} pip sets, not nine`);
+  await w.page.evaluate(async () => { const r = await import("../src/wizard.js"); r.expressStart(); });
+  await w.page.goto(`${base}#/mystery`); await w.page.waitForTimeout(300);
+  const put = await w.page.evaluate(async () => { const { Store } = await import("../src/store.js"); Store.update("drop", () => { Store.career.mystery = null; }); });
+  void put;
+  await w.page.goto(`${base}#/home`); await w.page.goto(`${base}#/mystery`); await w.page.waitForTimeout(300);
+  const mz = await w.page.evaluate(() => ({ genre: document.querySelectorAll("#screen .seg[aria-label='Genre'] .glyph").length,
+    preview: document.querySelectorAll("#screen .truth-preview .pcard").length, blanks: document.querySelectorAll("#screen .blank").length }));
+  if (mz.genre !== 4) fail(`the genre options carry ${mz.genre} marks`);
+  if (!mz.preview) fail("the difficulty is words, with no truth deck drawn");
+  if (mz.blanks < 3) fail(`an unrolled problem shows ${mz.blanks} blanks`);
+  await w.page.locator("#screen .btn", { hasText: "Roll all three" }).click();
+  await w.page.waitForTimeout(250);
+  if ((await w.page.locator("#screen .d66-die").count()) < 6) fail("a rolled problem lands with no dice");
+  if (w.errors.length) fail(`console error in the wizards: ${w.errors[0].slice(0, 140)}`);
+  await w.ctx.close();
+
+  if (errors.length) fail(`console error in the third graphics pass: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("typed glyphs are drawn, and the same state is drawn the same way everywhere");
 }
 
 // 8ae. the first paint is the icon, not a blank screen

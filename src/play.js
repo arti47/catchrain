@@ -19,8 +19,14 @@ const SCENE_FRAMING_NOTE = SCENE_FRAMING.note;
 import { go } from "./router.js";
 import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace, pickDice, cardFace } from "./ui.js";
 
-import { illustration, glyph, stagePath, markBoxes, levelBars, testScale, consequenceScale, caseFile, dangerGauge, investigationScale, diceArt, clearingTrack } from "./art.js";
+import { illustration, glyph, stagePath, markBoxes, levelBars, testScale, consequenceScale, caseFile, dangerGauge, investigationScale, diceArt, clearingTrack, flatDie } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
+
+/** The slot a returning rival holds, which is the die face it comes back on. */
+const rivalSlot = (rivalId) => {
+  const i = (Store.career.rivals || []).findIndex((r) => r.id === rivalId);
+  return i < 0 ? 0 : i + 1;
+};
 
 // --- Result presentation ------------------------------------------------------
 function diceRow(dice, attrValue, total, doubles) {
@@ -472,7 +478,7 @@ export function renderPlay(host) {
   const scene = m.scene;
   const inScene = scene && !scene.done;
 
-  add(host, el("h1", { text: inScene ? R.sceneType(scene.type).name : "Next scene" }),
+  add(host, el("h1", {}, inScene ? glyph(scene.type, 24, "heading-glyph") : null, inScene ? R.sceneType(scene.type).name : "Next scene"),
     explain(inScene
       ? "Play the scene out. Each stage needs one successful test; failure and success-at-a-cost both bring consequences, and every threat that you did not act against gets a roll of its own."
       : "Pick the scene that fits what your investigator needs: clues, certainty, recovery, or the rest of their life. Ending a scene marks the clock; four scenes make a day."));
@@ -628,7 +634,8 @@ function renderInvestigation(host, m, scene) {
   for (const t of threats) {
     add(tl, el("div", { class: "threat" },
       el("div", { class: "threat-head" },
-        el("strong", { text: t.name }),
+        el("strong", { class: "threat-name" }, glyph("threat", 16),
+          t.rivalId && rivalSlot(t.rivalId) ? flatDie(rivalSlot(t.rivalId), "rival") : null, el("span", { text: t.name })),
         el("span", { class: "threat-meters" },
           el("span", { class: "pill loss" }, levelBars(t.level), `Level ${t.level}`), " ",
           el("span", { class: "pill" }, markBoxes(t.marks || 0, t.level), `${t.marks || 0}/${t.level} marks`))),
@@ -646,8 +653,8 @@ function renderInvestigation(host, m, scene) {
   if (ready.length) {
     const chips = el("div", { class: "chip-list" });
     for (const k of ready) {
-      add(chips, el("button", { class: `chip ${k.signature ? "signature" : ""}`, type: "button", onclick: () => useKeywordFlow(k).then(rerender) },
-        k.signature ? glyph("seal", 16) : null, k.signature ? el("span", { class: "vh", text: "Signature: " }) : null, k.text));
+      add(chips, el("button", { class: `chip tag ${k.signature ? "signature" : ""}`, type: "button", onclick: () => useKeywordFlow(k).then(rerender) },
+        glyph(k.signature ? "seal" : "tag", 16), k.signature ? el("span", { class: "vh", text: "Signature: " }) : null, k.text));
     }
     add(host, section(`Keywords ready (${ready.length})`, chips,
       el("p", { class: "small muted", text: "Spend one to re-roll a test, strengthen a clue, or remove a threat outright." })));

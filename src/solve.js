@@ -10,7 +10,7 @@ import { scoreGuesses } from "./deck.js";
 import { section, row, btn, pill, explain, promptModal, confirmModal, actionBar, emptyState, showToast, cardFace } from "./ui.js";
 import { go } from "./router.js";
 
-import { illustration } from "./art.js";
+import { illustration, stamp } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 const SUIT_NAMES = { S: "Spades", H: "Hearts", D: "Diamonds", C: "Clubs" };
 
@@ -107,10 +107,13 @@ function renderOutcome(host, c, m) {
     explain("Each correct guess buys one answer, taken in order. Write the answers as true, then either start the next mystery or leave the case where it is."));
 
   const stage = el("div", { class: "reveal" });
+  // Each card turns over, and once it has landed it is stamped: named by one of
+  // your guesses, or missed. The rows below still say it in words.
   m.setAside.forEach((card, i) => {
-    const face = cardFace(card, { flip: true });
-    face.style.setProperty("--turn", `${i * 260}ms`);
-    add(stage, face);
+    const hit = (m.results || []).some((r) => r.correct && r.guess && r.guess.rank === card.rank && r.guess.suit === card.suit);
+    const slot = el("span", { class: "reveal-slot" }, cardFace(card, { flip: true }), stamp(hit));
+    slot.style.setProperty("--turn", `${i * 260}ms`);
+    add(stage, slot);
   });
   add(host, section("The cards", stage,
     ...(m.results || []).map((r, i) => row(`Guess ${i + 1}: ${r.guess.rank}${r.guess.suit}`,

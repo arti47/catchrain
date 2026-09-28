@@ -70,6 +70,38 @@ const GLYPHS = {
   // A single die, for the oracle's lines in the story.
   die: `<rect ${STROKE} x="4.5" y="4.5" width="15" height="15" rx="3"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="15" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>`,
   // The three set aside, turned over.
+  // --- The third pass ---
+  // Undo: the arrow that goes back on itself.
+  undo: `<path ${STROKE} d="M9 5 4.5 9.5 9 14"/><path ${STROKE} d="M4.5 9.5H14a5 5 0 0 1 0 10h-3"/>`,
+  // An update: the arrows that come round again.
+  refresh: `<path ${STROKE} d="M19.5 12a7.5 7.5 0 0 1-13.2 4.9M4.5 12a7.5 7.5 0 0 1 13.2-4.9"/><path ${STROKE} d="M18.2 3.6v3.7h-3.7M5.8 20.4v-3.7h3.7"/>`,
+  // The guide's mark: a signpost's arrow.
+  arrow: `<path ${STROKE} d="M5 12h13M13 7l5 5-5 5"/>`,
+  // The four stages: a key, a lens, a hand-held card, a door with the way out.
+  key: `<circle ${STROKE} cx="8" cy="12" r="3.6"/><path ${STROKE} d="M11.6 12H20M17 12v3M20 12v2.4"/>`,
+  lens: `<circle ${STROKE} cx="10.5" cy="10.5" r="5.5"/><path ${STROKE} d="M14.6 14.6 20 20"/>`,
+  take: `<rect ${STROKE} x="8" y="3.5" width="9" height="13" rx="1.6" transform="rotate(10 12.5 10)"/><path ${STROKE} d="M4 20.5c2.5-2.2 5-2.6 8-2.2l4.5.6"/>`,
+  exit: `<path ${STROKE} d="M13.5 4H6v16h7.5"/><path ${STROKE} d="M11 12h9.5M17 8.5l3.5 3.5-3.5 3.5"/>`,
+  // Writing it down.
+  pen: `<path ${STROKE} d="M4.5 19.5 5.6 15 16.2 4.4a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L9 18.4z"/><path ${STROKE} d="M14.6 6 18 9.4M4.5 19.5h15"/>`,
+  // Oracle words: two tiles.
+  tiles: `<rect ${STROKE} x="3" y="8" width="8" height="8" rx="1.5"/><rect ${STROKE} x="13" y="8" width="8" height="8" rx="1.5"/>`,
+  // Leaving and arriving: the backup's two directions.
+  out: `<path ${STROKE} d="M12 15V3.5M7.5 8 12 3.5 16.5 8"/><path ${STROKE} d="M4.5 13v5.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V13"/>`,
+  in: `<path ${STROKE} d="M12 3.5V15M7.5 10.5 12 15l4.5-4.5"/><path ${STROKE} d="M4.5 13v5.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V13"/>`,
+  // A filter: the shield in front of what you asked not to see.
+  shield: `<path ${STROKE} d="M12 3.5 19 6v5.5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6z"/>`,
+  // A lamp kept on.
+  lamp: `<path ${STROKE} d="M8 4.5h8l2.5 7h-13z"/><path ${STROKE} d="M12 11.5v6M8.5 20.5h7M12 17.5v3"/>`,
+  // A thing: a parcel tied with string.
+  parcel: `<path ${STROKE} d="M4 8.5 12 4.5l8 4v8l-8 4-8-4z"/><path ${STROKE} d="M4 8.5 12 12.5l8-4M12 12.5v8"/>`,
+  // A name: a card with a line on it.
+  label: `<rect ${STROKE} x="3.5" y="6.5" width="17" height="11" rx="2"/><path ${STROKE} d="M7 10.5h10M7 13.5h6"/>`,
+  // The four genres, each from its own watermark: blinds, a tower, a door, a trace.
+  noir: `<rect ${STROKE} x="4" y="4" width="16" height="16" rx="1.5"/><path ${STROKE} d="M4 8.5h16M4 12h16M4 15.5h16"/>`,
+  fantasy: `<path ${STROKE} d="M7 20.5V11l-1.5-1.5V6h2.5v1.8h2V6h4v1.8h2V6h2.5v3.5L17 11v9.5z"/><path ${STROKE} d="M12 6V2.8l3.5 1.2L12 5.2"/>`,
+  horror: `<path ${STROKE} d="M6.5 20.5 7.2 4l10.3.8-.4 15.7"/><circle cx="14" cy="12.5" r="1" fill="currentColor"/><path ${STROKE} d="M14 13.5v2"/>`,
+  scifi: `<path ${STROKE} d="M3.5 7h6l3 3h8M3.5 15h9l2.5 2.5h5"/><circle ${STROKE} cx="20.5" cy="10" r="1"/><circle ${STROKE} cx="20.5" cy="17.5" r="1"/>`,
   reveal: `<rect ${STROKE} x="2.5" y="6" width="7" height="11" rx="1.4" transform="rotate(-10 6 11.5)"/><rect ${STROKE} x="8.5" y="5" width="7" height="11" rx="1.4"/><rect ${STROKE} x="14.5" y="6" width="7" height="11" rx="1.4" transform="rotate(10 18 11.5)"/>`,
 };
 
@@ -227,8 +259,11 @@ function scale({ lo, hi, bands, bandClass, total, danger = null, label }) {
     const row = bands.find((b) => v >= b.min && v <= b.max) || bands[bands.length - 1];
     inner += `<rect x="${(v - lo) * cell + 1}" y="10" width="${cell - 2}" height="10" rx="2" class="band ${bandClass(row)}${v === total ? " hit" : ""}"/>`;
   }
-  const at = (Math.min(Math.max(total, lo), hi) - lo) * cell + cell / 2;
-  inner += `<path d="M${at - 5} 1h10l-5 7z" class="marker"/>`;
+  // No total yet (an oracle not asked): the bands alone, waiting for a marker.
+  if (total !== null) {
+    const at = (Math.min(Math.max(total, lo), hi) - lo) * cell + cell / 2;
+    inner += `<path d="M${at - 5} 1h10l-5 7z" class="marker"/>`;
+  }
   if (danger !== null && danger >= lo && danger <= hi + 1) {
     const dx = (Math.min(danger, hi + 1) - lo) * cell;
     inner += `<path d="M${dx} 8v15" class="danger-line"/>`;
@@ -257,7 +292,7 @@ export function yesNoScale(die) {
   const row = YES_NO.find((b) => die >= b.min && die <= b.max);
   return scale({
     lo: 1, hi: 6, bands: YES_NO, bandClass: (b) => `yn-${b.id}`, total: die,
-    label: `Rolled ${die}: ${row ? row.name.toLowerCase() : ""}.`,
+    label: die === null ? `The yes/no bands: ${YES_NO.map((b) => `${b.min}\u2013${b.max} ${b.name.toLowerCase()}`).join(", ")}.` : `Rolled ${die}: ${row ? row.name.toLowerCase() : ""}.`,
   });
 }
 
@@ -282,7 +317,7 @@ export function stagePath(scene) {
     const state = i < 0 ? "skipped" : i < scene.index ? "done" : st.id === nowId ? "now" : "ahead";
     const words = { skipped: "not part of this scene", done: "done", now: "where you are", ahead: "ahead" }[state];
     add(path, el("li", { class: `stage-step ${state}`, "aria-current": state === "now" ? "step" : null },
-      el("span", { class: "node", "aria-hidden": "true" }),
+      el("span", { class: "node", "aria-hidden": "true" }, glyph(STAGE_GLYPHS[st.id] || "drop", 12)),
       el("span", { class: state === "now" ? "stage-name" : "stage-name vh", text: st.name }),
       el("span", { class: "vh", text: `, ${words}` })));
   }
@@ -409,4 +444,90 @@ export function d66Code(code) {
   for (const d of s) add(wrap, el("i", { class: "d66-die", "data-face": d, "aria-hidden": "true" }));
   add(wrap, el("span", { class: "vh", text: s }));
   return wrap;
+}
+
+// --- The third pass: one drawing per piece of state, wherever it is shown -------
+
+/** A die drawn flat in CSS pips — small enough for a row, and no cube to shear. */
+export const flatDie = (n, cls = "") => el("i", { class: `d66-die ${cls}`.trim(), "data-face": String(n), "aria-hidden": "true" });
+
+/** What each stage looks like on the flowchart. */
+export const STAGE_GLYPHS = { infiltration: "key", discovery: "lens", acquisition: "take", escape: "exit" };
+
+/** A label with its mark in front: for buttons and options. */
+export const withGlyph = (name, text, size = 16) =>
+  el("span", { class: "with-glyph" }, glyph(name, size), el("span", { text }));
+
+/** A false lead: the rank it was, torn across. */
+export function tornCard(rank) {
+  return el("span", { class: "pcard torn", role: "img", "aria-label": `The ${rank}s, a false lead` },
+    el("span", { class: "rank", text: rank }), el("span", { class: "pip torn-rank", text: rank }));
+}
+
+/** The fatigue track in small, for a row that is not the sheet. */
+export function fatigueMini(fatigue) {
+  // Not .box: that is the sheet's control, and this one is only a picture of it.
+  const track = el("span", { class: "fatigue-mini", role: "img", "aria-label": `Fatigue ${fatigue} of ${FATIGUE_BOXES}` });
+  for (let i = 0; i < FATIGUE_BOXES; i++) add(track, el("i", { class: i < fatigue ? "on" : "" }));
+  return track;
+}
+
+/** Experience as tokens: one per point, the tail counted once it runs long. */
+export function xpTokens(xp, max = 12) {
+  const shown = Math.min(xp, max);
+  const inner = Array.from({ length: shown }, (_, i) => `<circle cx="${5 + i * 9}" cy="5" r="3.3"/>`).join("");
+  const wrap = el("span", { class: "xp-tokens", role: "img", "aria-label": `${xp} experience` });
+  if (shown) add(wrap, svg(`0 0 ${shown * 9 + 1} 10`, inner, { w: shown * 9 + 1, h: 10 }));
+  if (xp > max) add(wrap, el("span", { class: "small", text: `+${xp - max}` }));
+  return wrap;
+}
+
+/**
+ * The truth deck a difficulty builds: the twelve face cards, with the ones it
+ * reveals turned up and the red herrings it adds drawn in after them.
+ */
+export function truthPreview(diff) {
+  const total = DECK.truthRanks.length * DECK.suits.length;
+  const wrap = el("div", { class: "truth-preview", role: "img",
+    "aria-label": `${total} face cards${diff.revealTruths ? `, ${diff.revealTruths} revealed at the start` : ""}${diff.redHerrings ? `, ${diff.redHerrings} red herrings added` : ""}` });
+  for (let i = 0; i < total; i++) {
+    const up = i < diff.revealTruths;
+    add(wrap, up ? el("span", { class: "pcard mini ruled", "aria-hidden": "true" }) : cardBack("mini"));
+  }
+  for (let i = 0; i < diff.redHerrings; i++) add(wrap, cardBack("mini herring"));
+  return wrap;
+}
+
+/** A blank on the form: nothing rolled here yet. */
+export const blank = (what = "not rolled yet") =>
+  el("span", { class: "blank" }, el("span", { class: "vh", text: what }));
+
+/** A rolled table entry with the two dice it came from. */
+export function rolledValue(value, code) {
+  return el("span", { class: "rolled" },
+    code ? d66Code(code) : null,
+    el("span", { class: "rolled-value", text: value }));
+}
+
+/** The face distribution: six bars, each under the face it counts. */
+export function distribution(counts) {
+  const n = counts.reduce((a, b) => a + b, 0);
+  const top = Math.max(1, ...counts);
+  const wrap = el("div", { class: "dist", role: "img",
+    "aria-label": counts.map((v, i) => `${i + 1}: ${v}`).join(", ") });
+  counts.forEach((v, i) => {
+    add(wrap, el("div", { class: "dist-col" },
+      el("span", { class: "dist-n", text: `${n ? Math.round((v / n) * 100) : 0}%` }),
+      el("span", { class: "dist-bar", style: `--h:${Math.round((v / top) * 100)}%` }),
+      flatDie(i + 1, "big")));
+  });
+  return wrap;
+}
+
+/** A stamp on a turned card: named, or missed. */
+export function stamp(hit) {
+  const inner = hit
+    ? `<path ${STROKE} d="M5 12.5 10 17.5 19 7"/>`
+    : `<path ${STROKE} d="M6.5 6.5 17.5 17.5M17.5 6.5 6.5 17.5"/>`;
+  return svg("0 0 24 24", inner, { cls: `stamp ${hit ? "hit" : "miss"}`, label: hit ? "Named" : "Missed", w: 22, h: 22 });
 }

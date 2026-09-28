@@ -14,7 +14,9 @@ import { Updates } from "./updates.js";
 import { section, row, defRow, btn, seg, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState, dieFace } from "./ui.js";
 import { go } from "./router.js";
 
-import { illustration, glyph, resultPips, yesNoScale, caseFile, dangerGauge, wordTiles, costPips, d66Code as d66Dice } from "./art.js";
+import { illustration, glyph, resultPips, yesNoScale, caseFile, dangerGauge, wordTiles, costPips, d66Code as d66Dice,
+  flatDie, attrPips, fatigueMini, xpTokens, withGlyph, distribution, diceArt } from "./art.js";
+import { clockTrack } from "./sheet.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 
 // --- Home ---------------------------------------------------------------------
@@ -47,13 +49,14 @@ export function renderHome(host) {
       el("p", { class: "small muted", text: "One mystery, one clock, one danger track. Fatigue, keywords and obligations are each investigator's own." })));
   }
 
-  add(host, section(c.investigators.length > 1 ? `Investigator — ${inv.name}` : "Investigator",
+  const invCard = section(c.investigators.length > 1 ? `Investigator — ${inv.name}` : "Investigator",
     row("Name", inv.name),
     row("Trait", inv.trait || "—"),
     row("Attributes", el("span", { class: "chip-list" }, ...DATA.ATTRIBUTES.map((a) =>
-      pill(`${a.name} ${D.attrValue(inv, a.id)}${D.isStruck(inv, a.id) ? " \u2715" : ""}`, D.isStruck(inv, a.id) ? "loss" : "")))),
-    row("Fatigue", `${inv.fatigue}/${DATA.FATIGUE_BOXES}`),
-    row("Day", `${inv.day} · clock ${inv.clock}/${DATA.CLOCK_SEGMENTS}`),
+      el("span", { class: `pill ${D.isStruck(inv, a.id) ? "loss" : ""}`.trim() }, attrPips(D.attrValue(inv, a.id), DATA.ATTRIBUTE_MAX),
+        `${a.name} ${D.attrValue(inv, a.id)}${D.isStruck(inv, a.id) ? " \u2715" : ""}`)))),
+    row("Fatigue", el("span", { class: "stacked" }, fatigueMini(inv.fatigue), el("span", { text: `${inv.fatigue}/${DATA.FATIGUE_BOXES}` }))),
+    row("Day", el("span", { class: "stacked" }, clockTrack(inv, 22), el("span", { text: `${inv.day} · clock ${inv.clock}/${DATA.CLOCK_SEGMENTS}` }))),
     el("div", { class: "btn-row" },
       btn("Open the sheet", () => go("sheet")),
       Settings.get("multiplayer")
@@ -93,7 +96,9 @@ export function renderHome(host) {
             const ok = await confirmModal({ title: `Remove ${person.name}?`, message: `Their sheet, keywords, obligations and experience go with them. The mystery, the decks and the journal stay.`, confirmLabel: "Remove", danger: true });
             if (ok) { Store.removeInvestigator(id); rerender(); }
           }, "danger")
-        : null)));
+        : null));
+  invCard.classList.add("inv-card");
+  add(host, invCard);
 
   if (!m) {
     add(host, section("Next step",
@@ -114,13 +119,17 @@ export function renderHome(host) {
 
   if (Settings.get("rivals") && c.rivals.length) {
     add(host, section("Rivals",
-      ...c.rivals.map((r, i) => row(el("span", { class: "rival-name" }, el("span", { class: "rival-die" }, dieFace(i + 1, "mini")), r.name), el("span", {}, pill(`Level ${r.level}`, "loss"), " ",
+      ...c.rivals.map((r, i) => row(el("span", { class: "rival-name" }, el("span", { class: "rival-die" }, flatDie(i + 1, "rival")), r.name), el("span", {}, pill(`Level ${r.level}`, "loss"), " ",
         btn("Remove", () => { Store.update("remove rival", () => { c.rivals.splice(i, 1); }); rerender(); }))))));
   }
 
   if (c.history.length) {
+    // Each closed case is the folder it went into: the date on its tab.
     add(host, section("Closed cases", ...c.history.slice(-5).reverse().map((h) =>
-      defRow(new Date(h.closedAt).toLocaleDateString(), el("div", {}, el("p", { class: "small", text: h.problem }), el("span", { class: `pill ${h.correct === 3 ? "ok" : h.correct ? "" : "loss"}`.trim() }, resultPips(h.correct), `${h.correct}/3 correct`))))));
+      el("div", { class: "closed-case" },
+        el("span", { class: "case-tab", text: new Date(h.closedAt).toLocaleDateString() }),
+        el("p", { class: "small", text: h.problem }),
+        el("span", { class: `pill ${h.correct === 3 ? "ok" : h.correct ? "" : "loss"}`.trim() }, resultPips(h.correct), `${h.correct}/3 correct`)))));
   }
 
   const label = m.ended ? "Resolve the mystery" : (m.scene && !m.scene.done) ? "Back to the scene" : "Play the next scene";
@@ -180,14 +189,14 @@ export function renderTables(host) {
   }, el("span", { "aria-hidden": "true" }, "\u00d7"));
   add(host, section("Find a row", el("div", { class: "field" }, search, clearBtn), count));
 
-  const tableBlock = (name, table) => {
+  const tableBlock = (name, table, mark = null) => {
     const det = el("details", { class: "acc" });
     const body = el("div", { class: "acc-body" });
     const grid = el("div", { class: "table-grid" });
     table.forEach((v, i) => add(grid, el("div", { class: "table-row", dataset: { value: `${d66Code(i)} ${v.toLowerCase()}` } },
       d66Dice(d66Code(i)), el("span", { text: v }))));
     add(body, el("div", { class: "btn-row" }, btn("Roll 1d66", () => showRoll(name, R.rollTable(table)))), grid);
-    add(det, el("summary", {}, name, " ", el("span", { class: "pill", text: "36" })), body);
+    add(det, el("summary", {}, mark ? glyph(mark, 16) : null, el("span", { text: name }), " ", el("span", { class: "pill", text: "36" })), body);
     return det;
   };
 
@@ -196,7 +205,7 @@ export function renderTables(host) {
   const genreBtns = el("div", { class: "seg-host" });
   const paintGenres = () => genreBtns.replaceChildren(
     (() => {
-      const g = seg(DATA.GENRE_IDS.map((id) => ({ value: id, label: DATA.GENRES[id].name })), current,
+      const g = seg(DATA.GENRE_IDS.map((id) => ({ value: id, label: withGlyph(id, DATA.GENRES[id].name) })), current,
         (id) => { current = id; paint(); }, "Genre");
       g.classList.add("grid");
       return g;
@@ -205,7 +214,7 @@ export function renderTables(host) {
     genreWrap.replaceChildren();
     for (const kind of DATA.TABLE_KINDS) {
       const label = kind[0].toUpperCase() + kind.slice(1);
-      add(genreWrap, tableBlock(`${DATA.GENRES[current].name} · ${label}`, DATA.GENRES[current][kind]));
+      add(genreWrap, tableBlock(`${DATA.GENRES[current].name} · ${label}`, DATA.GENRES[current][kind], TABLE_GLYPHS[kind]));
     }
     paintGenres();
     filter();
@@ -213,9 +222,9 @@ export function renderTables(host) {
   add(host, section("Genre tables", genreBtns, genreWrap));
 
   const oracleWrap = el("div", {},
-    tableBlock("Oracle · Action", DATA.ORACLE_ACTION),
-    tableBlock("Oracle · Descriptor", DATA.ORACLE_DESCRIPTOR),
-    tableBlock("Oracle · Focus", DATA.ORACLE_FOCUS));
+    tableBlock("Oracle · Action", DATA.ORACLE_ACTION, "tiles"),
+    tableBlock("Oracle · Descriptor", DATA.ORACLE_DESCRIPTOR, "tiles"),
+    tableBlock("Oracle · Focus", DATA.ORACLE_FOCUS, "tiles"));
   add(host, section("Subject oracles", oracleWrap));
 
   // Rolled once a mystery, or once an investigator: last.
@@ -268,9 +277,20 @@ export function renderOracle(host) {
     if (Store.mystery) Store.journal("oracle", text);
   };
 
+  // Before anything is asked, each oracle shows where its answer will land:
+  // the die at rest over its bands, and the tiles the words will fill.
+  const idle = [];
+  const idleYn = el("div", { class: "dice idle" }, el("span", { class: "idle-die" }, glyph("die", 34)), yesNoScale(null));
+  const idleWords = el("div", { class: "word-tiles idle", "aria-hidden": "true" },
+    el("span", { class: "word-tile blank" }), el("span", { class: "word-tile blank" }), el("span", { class: "word-tile blank optional" }));
+  idle.push(idleYn, idleWords);
+  const settle = () => { for (const n of idle) n.remove(); };
+
   add(host, section("Yes or no",
     el("p", { class: "small muted", text: "1d6. Extreme answers exaggerate the result rather than just answering it." }),
+    idleYn,
     btn("Ask", () => {
+      settle();
       const r = R.rollYesNo();
       out.hidden = false;
       out.replaceChildren(el("h3", { text: "Yes or no" }),
@@ -280,11 +300,13 @@ export function renderOracle(host) {
     }, "primary")));
 
   add(host, section("Subject oracle",
+    idleWords,
     el("div", { class: "btn-row" },
       btn("Two words", () => ask(false)),
       btn("Three words", () => ask(true)))));
 
   function ask(withFocus) {
+    settle();
     const s = R.rollSubject(withFocus);
     const words = R.subjectWords(s);
     out.hidden = false;
@@ -299,6 +321,14 @@ export function renderOracle(host) {
 }
 
 // --- Rules library ------------------------------------------------------------
+/** Each part of the rules library, marked with what it is about. */
+const RULE_GLYPHS = {
+  "Setting up": "folder", "Playing solo": "pen", "The shape of a session": "day",
+  "Investigating": "investigation", "Clues and truths": "card", "Ending it": "reveal", "Optional rules": "tag",
+};
+/** Each kind of genre table, marked with what it holds. */
+const TABLE_GLYPHS = { locations: "investigation", objects: "parcel", clues: "card", keywords: "tag", obligations: "obligation", threats: "threat" };
+
 export function renderRules(host) {
   add(host, el("h1", { text: "Rules" }),
     explain("Every rule the app automates, in the app's own words and in the order play uses them. Search opens the matching entries. Where a screen automates something, it links back here."));
@@ -314,7 +344,7 @@ export function renderRules(host) {
           el("p", { class: "small muted", text: entry.cite })));
       add(inner, det);
     }
-    add(wrap, section(group.name, inner));
+    add(wrap, section(withGlyph(RULE_GLYPHS[group.name] || "card", group.name, 14), inner));
   }
   add(host, wrap);
   search.addEventListener("input", () => {
@@ -437,15 +467,15 @@ export function renderJournal(host) {
   const paintCast = () => {
     cast.replaceChildren();
     if (!c.cast.length) add(cast, el("p", { class: "muted small", text: "Nobody yet. Add the people and places you invent, so they are still here next week." }));
+    // An index card each: the name on the top line, what they are to the case below.
     for (const person of c.cast) {
-      add(cast, el("div", { class: "row" },
-        el("span", { class: "row-label", text: person.name }),
-        el("span", { class: "row-value" },
-          el("span", { class: "small", text: person.note || "" }), " ",
-          btn("Forget", () => {
-            Store.update("forget someone", () => { c.cast = c.cast.filter((x) => x.id !== person.id); });
-            paintCast();
-          }))));
+      add(cast, el("div", { class: "cast-card" },
+        el("span", { class: "cast-name", text: person.name }),
+        person.note ? el("span", { class: "cast-note", text: person.note }) : null,
+        btn("Forget", () => {
+          Store.update("forget someone", () => { c.cast = c.cast.filter((x) => x.id !== person.id); });
+          paintCast();
+        })));
     }
   };
   paintCast();
@@ -480,7 +510,9 @@ export function renderJournal(host) {
   const logBody = el("div", { class: "acc-body" },
     log.length ? el("div", {}, ...log.map((r) => el("div", { class: "log-entry" },
       el("div", { class: "log-when", text: `${fmtTime(r.ts)} · ${r.kind}${r.manual ? " · entered by hand" : ""}` }),
-      el("div", { class: "mono small", text: `${(r.dice || []).join(" + ")}${r.attrValue ? ` + ${r.attrValue}` : ""}${r.total !== undefined ? ` = ${r.total}` : ""} ${r.outcome || ""} ${r.label || ""}` }))))
+      el("div", { class: "log-roll" },
+        (r.dice || []).length ? diceArt(r.dice.filter((d) => d >= 1 && d <= 6)) : null,
+        el("span", { class: "mono small", text: `${(r.dice || []).join(" + ")}${r.attrValue ? ` + ${r.attrValue}` : ""}${r.total !== undefined ? ` = ${r.total}` : ""} ${r.outcome || ""} ${r.label || ""}` })))))
       : el("p", { class: "muted small", text: "No rolls yet." }),
     c.rollLog.length > 40 ? el("p", { class: "small muted", text: `Showing the most recent 40 of ${c.rollLog.length}.` }) : null,
     el("div", { class: "btn-row" },
@@ -496,7 +528,8 @@ function showDistribution(c) {
   let n = 0;
   for (const r of c.rollLog) for (const d of r.dice || []) if (d >= 1 && d <= 6) { counts[d - 1]++; n++; }
   const body = el("div", {},
-    el("p", { class: "small muted", text: `Every d6 face this career has rolled in the app (${n} dice). Physically rolled dice you typed in are counted too.` }),
+    el("p", { class: "small muted", text: `Every d6 face this career has rolled in the app (${n} dice). Physically rolled dice you tapped in are counted too.` }),
+    distribution(counts),
     ...counts.map((v, i) => row(`${i + 1}`, `${v}${n ? ` · ${Math.round((v / n) * 100)}%` : ""}`)));
   modal({ title: "Face distribution", body, actions: [{ label: "Close" }] });
 }
@@ -520,8 +553,9 @@ export function renderCareers(host) {
     add(list, el("div", { class: "card" },
       row(car.investigators.length > 1 ? "Party" : "Investigator", car.investigators.map((i) => i.name || "unnamed").join(", ")),
       row("Cases closed", String(car.history.length)),
-      row("Experience", car.investigators.map((i) => `${i.name || "unnamed"} ${i.xp} XP`).join(" · ")),
-      car.id === (c && c.id) ? row("Playing", pill("Current", "ok")) : null,
+      row("Experience", el("span", { class: "xp-list" }, ...car.investigators.map((i) =>
+        el("span", { class: "stacked" }, xpTokens(i.xp), el("span", { text: `${i.name || "unnamed"} ${i.xp} XP` }))))),
+      car.id === (c && c.id) ? row("Playing", el("span", { class: "pill ok" }, glyph("seal", 14), "Current")) : null,
       el("div", { class: "btn-row" },
         car.id === (c && c.id) ? null : btn("Switch to this", () => { resetDrafts(); Store.selectCareer(car.id); go("home"); }),
         btn("Delete", async () => {
@@ -629,6 +663,12 @@ async function spendXP(benefit) {
 }
 
 // --- Settings -----------------------------------------------------------------
+/** Each switch's mark: what the rule is about, in the tab icons' hand. */
+const TOGGLE_GLYPHS = {
+  career: "folder", rivals: "threat", multiplayer: "chairs", manualDice: "die", coach: "arrow",
+  sceneFraming: "pen", autoOracle: "tiles", safetyFilter: "shield", wakeLock: "lamp",
+};
+
 export function renderSettings(host) {
   add(host, el("h1", { text: "Settings" }),
     explain("Optional rules from Chapter 3, how the app handles dice, and your data. Everything here is off unless the book's own default is on."));
@@ -637,7 +677,7 @@ export function renderSettings(host) {
   for (const t of TOGGLES) {
     const input = el("input", { type: "checkbox", checked: Settings.get(t.key) ? true : null,
       onchange: (e) => { Settings.set(t.key, e.target.checked); if (t.key === "wakeLock") applyWakeLock(); rerender(); } });
-    add(toggles, el("label", { class: "opt switch" }, input, el("span", { class: "opt-text" }, t.name, el("small", { text: t.text })), el("span", { class: "switch-track", "aria-hidden": "true" })));
+    add(toggles, el("label", { class: "opt switch" }, input, glyph(TOGGLE_GLYPHS[t.key] || "drop", 20), el("span", { class: "opt-text" }, t.name, el("small", { text: t.text })), el("span", { class: "switch-track", "aria-hidden": "true" })));
   }
   add(host, section("Rules and play", toggles));
 
@@ -667,13 +707,13 @@ export function renderSettings(host) {
   add(host, section("Your data",
     el("p", { class: "small muted", text: "Everything lives on this device as plain JSON. Export it before you clear your browser, or to move to another phone." }),
     el("div", { class: "btn-row" },
-      btn("Export backup", () => {
+      btn(withGlyph("out", "Export backup"), () => {
         const blob = new Blob([Store.exportJSON()], { type: "application/json" });
         const a = el("a", { href: URL.createObjectURL(blob), download: "caught-in-the-rain-backup.json" });
         document.body.append(a); a.click(); a.remove();
         showToast("Backup saved.");
       }, "primary"),
-      btn("Import backup", async () => {
+      btn(withGlyph("in", "Import backup"), async () => {
         const input = el("input", { type: "file", accept: "application/json" });
         input.addEventListener("change", async () => {
           const file = input.files[0];
@@ -758,6 +798,9 @@ export function applyTheme() {
   const t = Settings.get("theme");
   if (t === "system") document.documentElement.removeAttribute("data-theme");
   else document.documentElement.setAttribute("data-theme", t);
+  // The header button shows the theme you are on, drawn, not a typed half-moon.
+  const b = document.querySelector("#theme-btn");
+  if (b) b.replaceChildren(glyph({ system: "system", light: "sun", dark: "moon" }[t] || "system", 20));
   paintBrowserChrome();
 }
 /**

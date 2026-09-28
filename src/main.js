@@ -17,7 +17,7 @@ import { renderWizard, renderMysteryWizard } from "./wizard.js";
 import { renderTutorial } from "./tutorial.js";
 import { showToast, installBackToTop } from "./ui.js";
 import { initUpdates } from "./updates.js";
-import { motifUrl } from "./art.js";
+import { motifUrl, glyph } from "./art.js";
 
 Store.init();
 applyTheme();
@@ -60,6 +60,7 @@ setBadges(() => {
 
 // Header controls
 const undoBtn = $("#undo-btn");
+undoBtn.replaceChildren(glyph("undo", 20));
 undoBtn.addEventListener("click", () => {
   const label = Store.undo();
   const left = Store.undoDepth();

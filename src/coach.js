@@ -14,6 +14,7 @@ import { Store } from "./store.js";
 import { Settings } from "./settings.js";
 import { WIZARD_STEPS, wizardStep } from "./wizard.js";
 import { btn, modal, section, defRow } from "./ui.js";
+import { glyph } from "./art.js";
 
 const go = (name) => import("./router.js").then((m) => m.go(name));
 
@@ -208,17 +209,22 @@ const PLAY_SURFACES = new Set(["home", "sheet", "case-sheet", "play", "clues", "
 const SILENT = new Set(["solve"]);
 /** Opened on a reference screen, it stays open as long as the app is open. */
 let openedOnReference = false;
+/** What the guide last said, so a new step arrives and a re-render does not. */
+let lastSay = null;
 
 export function coachBar(currentRoute) {
   if (!Settings.get("coach") || SILENT.has(currentRoute)) return null;
   const step = nextStep(currentRoute);
   const here = step.route === currentRoute;
+  const arrive = lastSay !== null && lastSay !== step.say;
+  lastSay = step.say;
+  const mark = () => el("span", { class: "coach-mark", "aria-hidden": "true" }, glyph("arrow", 15));
   const wrap = el("div", { class: `coach ${step.tone || ""}`.trim(), role: "status" });
   const full = () => {
     wrap.classList.remove("compact");
     clear(wrap);
     add(wrap,
-      el("p", { class: "coach-say" }, el("span", { class: "coach-mark", "aria-hidden": "true" }, "›"), el("span", { text: step.say })),
+      el("p", { class: `coach-say${arrive ? " arrive" : ""}` }, mark(), el("span", { text: step.say })),
       step.warn ? el("p", { class: "coach-warn", text: step.warn }) : null,
       here
         ? el("p", { class: "coach-here", text: `Press \u201c${step.press}” on this screen.` })
@@ -234,8 +240,8 @@ export function coachBar(currentRoute) {
       class: "coach-toggle", type: "button", "aria-expanded": "false",
       "aria-label": `Next step: ${step.say}. Open the guide`,
       onclick: () => { openedOnReference = true; full(); },
-    }, el("span", { class: "coach-mark", "aria-hidden": "true" }, "›"),
-       el("span", { class: "coach-line", text: step.say }),
+    }, mark(),
+       el("span", { class: `coach-line${arrive ? " arrive" : ""}`, text: step.say }),
        el("span", { class: "coach-chevron", "aria-hidden": "true" })));
   };
   const blank = !Store.career || !Store.investigator;

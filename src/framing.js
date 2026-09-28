@@ -7,6 +7,7 @@ import * as R from "./rules.js";
 import { Store } from "./store.js";
 import { Settings } from "./settings.js";
 import { btn, promptModal, showToast } from "./ui.js";
+import { withGlyph } from "./art.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());
 
@@ -27,7 +28,7 @@ export function framingCard(scene, opts = {}) {
   const oracle = el("p", { class: "mono small", text: "" });
   add(body, oracle);
   add(body, el("div", { class: "btn-row" },
-    btn(written ? "Rewrite it" : "Write it down", async () => {
+    btn(withGlyph("pen", written ? "Rewrite it" : "Write it down"), async () => {
       const text = await promptModal({
         title: "Set the scene",
         message: `${SCENE_FRAMING.questions.join("  ")}  ${SCENE_FRAMING.note}`,
@@ -39,12 +40,12 @@ export function framingCard(scene, opts = {}) {
       if (text) Store.journal("scene", text, { framing: true });
       rerender();
     }, "ghost"),
-    btn("Ask the oracle", () => {
+    btn(withGlyph("tiles", "Ask the oracle"), () => {
       const words = R.subjectWords(R.rollSubject(true));
       oracle.textContent = words.join("  ·  ");
       keepOracle(`Asked the oracle: ${words.join(" · ")}`);
     }),
-    btn("Yes or no", () => {
+    btn(withGlyph("die", "Yes or no"), () => {
       const r = R.rollYesNo();
       oracle.textContent = `d6 ${r.die} — ${r.row.name}`;
       keepOracle(`Asked yes or no: d6 ${r.die} — ${r.row.name}`);
@@ -81,12 +82,12 @@ export function framingLines(who) {
     el("p", { class: "small muted", text: who ? `${who} is at the centre of it. ${SCENE_FRAMING.note}` : SCENE_FRAMING.note }),
     oracle,
     el("div", { class: "btn-row" },
-      btn("Ask the oracle", () => {
+      btn(withGlyph("tiles", "Ask the oracle"), () => {
         const words = R.subjectWords(R.rollSubject(true));
         oracle.textContent = words.join("  ·  ");
         keepOracle(`Asked the oracle: ${words.join(" · ")}`);
       }),
-      btn("Yes or no", () => {
+      btn(withGlyph("die", "Yes or no"), () => {
         const r = R.rollYesNo();
         oracle.textContent = `d6 ${r.die} — ${r.row.name}`;
         keepOracle(`Asked yes or no: d6 ${r.die} — ${r.row.name}`);

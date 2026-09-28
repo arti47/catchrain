@@ -9,6 +9,7 @@ import { Settings } from "./settings.js";
 import { buildClueDeck, buildTruth } from "./deck.js";
 import { section, row, btn, seg, explain, actionBar, showToast, promptModal } from "./ui.js";
 import { go } from "./router.js";
+import { glyph, attrPips, withGlyph, truthPreview, blank, rolledValue } from "./art.js";
 
 const rerender = () => import("./router.js").then((m) => m.render());
 
@@ -53,8 +54,27 @@ export function renderWizard(host) {
     }));
   });
   add(host, section(`Step ${draft.step + 1} of 4 \u00b7 ${WIZARD_STEPS[draft.step].name}`, bar));
+  add(host, indexCard());
   const out = step(host);
   return out;
+}
+
+/**
+ * The investigator as an index card, filling in as you choose: a name on the
+ * top line, the trait under it, the three attributes as pips, the obligation
+ * under its roof and the signature keyword under its seal. No face (decision 9).
+ */
+function indexCard() {
+  const line = (mark, value, what) => el("div", { class: "index-line" }, glyph(mark, 16),
+    value ? el("span", { text: value }) : blank(`${what} not chosen yet`));
+  return el("div", { class: "index-card", role: "group", "aria-label": "The investigator so far" },
+    el("div", { class: "index-name" }, draft.name ? el("span", { text: draft.name }) : blank("no name yet")),
+    el("div", { class: "index-trait" }, draft.trait ? el("span", { text: draft.trait }) : blank("no trait yet")),
+    el("div", { class: "index-attrs" }, ...ATTRIBUTES.map((a) => el("span", { class: "index-attr" },
+      el("span", { class: "index-attr-name", text: a.name }),
+      draft.attributes[a.id] === null ? blank(`${a.name} not assigned`) : attrPips(draft.attributes[a.id])))),
+    line("obligation", draft.obligation, "Obligation"),
+    line("seal", draft.signature, "Signature keyword"));
 }
 
 function stepAttributes(host) {
@@ -64,7 +84,7 @@ function stepAttributes(host) {
     ...ATTRIBUTES.map((a) => el("div", { class: "defrow" },
       el("span", { class: "row-label" }, a.name, " — ", el("small", { class: "muted", text: a.text })),
       el("div", { class: "defrow-value" },
-        seg(ATTRIBUTE_ARRAY.map((v) => ({ value: v, label: String(v) })), draft.attributes[a.id], (v) => {
+        seg(ATTRIBUTE_ARRAY.map((v) => ({ value: v, label: el("span", { class: "seg-with-glyph" }, attrPips(v), el("span", { text: String(v) })) })), draft.attributes[a.id], (v) => {
           const takenBy = Object.entries(draft.attributes).find(([k, val]) => val === v && k !== a.id);
           if (takenBy) draft.attributes[takenBy[0]] = null;
           draft.attributes[a.id] = v;
@@ -75,7 +95,7 @@ function stepAttributes(host) {
 }
 
 function genrePicker(onPick) {
-  const g = seg(GENRE_IDS.map((id) => ({ value: id, label: GENRES[id].name })), draft.genre,
+  const g = seg(GENRE_IDS.map((id) => ({ value: id, label: withGlyph(id, GENRES[id].name) })), draft.genre,
     (id) => { draft.genre = id; onPick(); }, "Genre");
   g.classList.add("grid");
   return g;
@@ -86,35 +106,35 @@ function stepObligation(host) {
     el("p", { class: "small muted", text: "Pick the genre whose tables you want to roll on. You can mix genres later." })));
   add(host, section("Your obligation",
     el("p", { class: "small muted", text: "Something your investigator owes the rest of their life. Neglect it and the day costs you fatigue." }),
-    el("p", { class: "mono", text: draft.obligation || "—" }),
+    el("p", { class: "mono" }, draft.obligation ? rolledValue(draft.obligation, draft.obligationCode) : blank()),
     el("div", { class: "btn-row" },
-      rollBtn("Roll one", () => { const r = R.rollGenre(draft.genre, "obligations"); draft.obligation = r.value; showToast(`d66 ${r.code}`); rerender(); }),
-      btn("Write my own", async () => { const t = await promptModal({ title: "Obligation", value: draft.obligation }); if (t) { draft.obligation = t; rerender(); } }))));
+      rollBtn("Roll one", () => { const r = R.rollGenre(draft.genre, "obligations"); draft.obligation = r.value; draft.obligationCode = r.code; rerender(); }),
+      btn("Write my own", async () => { const t = await promptModal({ title: "Obligation", value: draft.obligation }); if (t) { draft.obligation = t; draft.obligationCode = null; rerender(); } }))));
   return { action: actionBar("Next: signature keyword", () => { if (!draft.obligation) { showToast("Take an obligation first."); return; } draft.step = 2; rerender(); }) };
 }
 
 function stepKeyword(host) {
   add(host, section("Signature keyword",
     el("p", { class: "small muted", text: "The thing they always have: a revolver, a photograph, a way with people. Unlike other keywords it comes back every time you rest." }),
-    el("p", { class: "mono", text: draft.signature || "—" }),
+    el("p", { class: "mono" }, draft.signature ? rolledValue(draft.signature, draft.signatureCode) : blank()),
     el("div", { class: "btn-row" },
-      rollBtn("Roll one", () => { const r = R.rollGenre(draft.genre, "keywords"); draft.signature = r.value; showToast(`d66 ${r.code}`); rerender(); }),
-      btn("Write my own", async () => { const t = await promptModal({ title: "Signature keyword", value: draft.signature }); if (t) { draft.signature = t; rerender(); } }))));
+      rollBtn("Roll one", () => { const r = R.rollGenre(draft.genre, "keywords"); draft.signature = r.value; draft.signatureCode = r.code; rerender(); }),
+      btn("Write my own", async () => { const t = await promptModal({ title: "Signature keyword", value: draft.signature }); if (t) { draft.signature = t; draft.signatureCode = null; rerender(); } }))));
   return { action: actionBar("Next: who they are", () => { if (!draft.signature) { showToast("Name a signature keyword."); return; } draft.step = 3; rerender(); }) };
 }
 
 function stepIdentity(host) {
   add(host, section("Name",
-    el("p", { class: "mono", text: draft.name || "—" }),
+    el("p", { class: "mono" }, draft.name ? el("span", { text: draft.name }) : blank("no name yet")),
     el("div", { class: "btn-row" },
       rollBtn("Roll a name", () => { draft.name = R.rollName("tables").name; rerender(); }),
       rollBtn("Roll from affixes", () => { draft.name = R.rollName("affix").name; rerender(); }),
       btn("Type it", async () => { const t = await promptModal({ title: "Name", value: draft.name }); if (t) { draft.name = t; rerender(); } }))));
   add(host, section("Trait",
-    el("p", { class: "mono", text: draft.trait || "—" }),
+    el("p", { class: "mono" }, draft.trait ? rolledValue(draft.trait, draft.traitCode) : blank()),
     el("div", { class: "btn-row" },
-      rollBtn("Roll a trait", () => { const r = R.randomTrait(); draft.trait = r.value; showToast(`d66 ${r.code}`); rerender(); }),
-      btn("Write my own", async () => { const t = await promptModal({ title: "Trait", value: draft.trait }); if (t) { draft.trait = t; rerender(); } }))));
+      rollBtn("Roll a trait", () => { const r = R.randomTrait(); draft.trait = r.value; draft.traitCode = r.code; rerender(); }),
+      btn("Write my own", async () => { const t = await promptModal({ title: "Trait", value: draft.trait }); if (t) { draft.trait = t; draft.traitCode = null; rerender(); } }))));
   add(host, section("Anything else", el("p", { class: "small muted", text: "Optional notes: how they carry themselves, who they were before." }),
     btn(draft.notes ? "Edit notes" : "Add notes", async () => { const t = await promptModal({ title: "Notes", value: draft.notes, multiline: true }); if (t !== null) { draft.notes = t; rerender(); } })));
   return { action: actionBar("Create the investigator", finishInvestigator, draft.name ? draft.name : "Name them first") };
@@ -163,7 +183,7 @@ export function renderMysteryWizard(host) {
   add(host, el("h1", { text: "Set up a mystery" }),
     explain("A problem is a place, a thing, and something bad that happened to it. Roll all three, give your investigator a reason to care, and the decks are built for you."));
 
-  const genres = seg(GENRE_IDS.map((g) => ({ value: g, label: GENRES[g].name })), mDraft.genre,
+  const genres = seg(GENRE_IDS.map((g) => ({ value: g, label: withGlyph(g, GENRES[g].name) })), mDraft.genre,
     (g) => { mDraft.genre = g; rerender(); }, "Genre");
   genres.classList.add("grid");
   add(host, section("Genre", genres,
@@ -174,22 +194,23 @@ export function renderMysteryWizard(host) {
   diffs.classList.add("grid");
   add(host, section("Difficulty", diffs,
     el("p", { class: "small muted", text: R.difficulty(mDraft.difficulty).text }),
+    row("Truth deck", truthPreview(R.difficulty(mDraft.difficulty))),
     Settings.get("career")
       ? row("Experience bonus", `${R.difficulty(mDraft.difficulty).xpBonus >= 0 ? "+" : ""}${R.difficulty(mDraft.difficulty).xpBonus} XP`)
       : null));
 
-  const line = (label, value, onRoll) => el("div", { class: "defrow" },
+  const line = (label, value, onRoll, code = null) => el("div", { class: "defrow" },
     el("span", { class: "row-label", text: label }),
-    el("div", { class: "defrow-value" }, el("p", { class: "mono", text: value || "—" }), btn("Roll", onRoll)));
+    el("div", { class: "defrow-value" }, el("p", { class: "mono" }, value ? rolledValue(value, code) : blank()), btn("Roll", onRoll)));
 
   add(host, section("The problem",
-    line("Location", mDraft.location && mDraft.location.value, () => { mDraft.location = R.rollGenre(mDraft.genre, "locations"); rerender(); }),
-    line("Object", mDraft.object && mDraft.object.value, () => { mDraft.object = R.rollGenre(mDraft.genre, "objects"); rerender(); }),
+    line("Location", mDraft.location && mDraft.location.value, () => { mDraft.location = R.rollGenre(mDraft.genre, "locations"); rerender(); }, mDraft.location && mDraft.location.code),
+    line("Object", mDraft.object && mDraft.object.value, () => { mDraft.object = R.rollGenre(mDraft.genre, "objects"); rerender(); }, mDraft.object && mDraft.object.code),
     line("Treachery", mDraft.treachery && mDraft.treachery.value, () => {
       mDraft.treachery = R.rollTreachery();
       mDraft.secondObject = mDraft.treachery.needsSecondObject ? R.rollGenre(mDraft.genre, "objects").value : null;
       rerender();
-    }),
+    }, mDraft.treachery && mDraft.treachery.code),
     mDraft.treachery && mDraft.treachery.needsSecondObject ? line("Second object", mDraft.secondObject, () => { mDraft.secondObject = R.rollGenre(mDraft.genre, "objects").value; rerender(); }) : null,
     el("div", { class: "btn-row" },
       btn("Roll all three", () => {
@@ -217,10 +238,10 @@ export function renderMysteryWizard(host) {
 
   add(host, section("Motivation",
     el("p", { class: "small muted", text: "Why does your investigator walk into this?" }),
-    el("p", { class: "mono", text: mDraft.motivation || "—" }),
+    el("p", { class: "mono" }, mDraft.motivation ? rolledValue(mDraft.motivation, mDraft.motivationCode) : blank()),
     el("div", { class: "btn-row" },
-      btn("Roll one", () => { const r = R.randomMotivation(); mDraft.motivation = r.value; rerender(); }),
-      btn("Write my own", async () => { const t = await promptModal({ title: "Motivation", value: mDraft.motivation }); if (t) { mDraft.motivation = t; rerender(); } }))));
+      btn("Roll one", () => { const r = R.randomMotivation(); mDraft.motivation = r.value; mDraft.motivationCode = r.code; rerender(); }),
+      btn("Write my own", async () => { const t = await promptModal({ title: "Motivation", value: mDraft.motivation }); if (t) { mDraft.motivation = t; mDraft.motivationCode = null; rerender(); } }))));
 
   if (Settings.get("career") && Store.career.questions.length) {
     add(host, section("Lingering questions",

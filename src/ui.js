@@ -165,7 +165,9 @@ export function showToast(text, kind = "") {
   let host = document.querySelector("#toast");
   if (!host) { host = el("div", { id: "toast", class: "toast", role: "status", "aria-live": "polite" }); document.body.append(host); }
   host.className = `toast show ${kind}`;
-  host.textContent = text;
+  // Imported late: art.js draws with ui.js, so ui.js cannot import it up front.
+  host.replaceChildren(el("span", { text }));
+  import("./art.js").then(({ glyph }) => { if (host.firstChild && host.lastChild.textContent === text) host.prepend(glyph(kind === "loss" ? "threat" : "drop", 16)); });
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { host.className = "toast"; }, 3200);
 }
@@ -176,7 +178,7 @@ export function showToast(text, kind = "") {
  * the way a modal does. Used for the update prompt.
  */
 let actionToastEl = null;
-export function actionToast({ text, actionLabel, onAction, onDismiss, dismissLabel = "Dismiss" }) {
+export function actionToast({ text, actionLabel, onAction, onDismiss, dismissLabel = "Dismiss", mark = "refresh" }) {
   dismissActionToast();
   const act = el("button", {
     class: "btn primary", type: "button",
@@ -186,8 +188,10 @@ export function actionToast({ text, actionLabel, onAction, onDismiss, dismissLab
     class: "icon-btn", type: "button", "aria-label": dismissLabel, title: dismissLabel,
     onclick: () => { dismissActionToast(); if (onDismiss) onDismiss(); },
   }, "\u2715");
+  const toastText = el("span", { class: "toast-text" }, el("span", { text }));
+  import("./art.js").then(({ glyph }) => { if (mark) toastText.prepend(glyph(mark, 18)); });
   actionToastEl = el("div", { class: "toast-action", role: "status", "aria-live": "polite" },
-    el("span", { class: "toast-text", text }), act, close);
+    toastText, act, close);
   document.body.append(actionToastEl);
   return { dismiss: dismissActionToast };
 }
@@ -215,7 +219,9 @@ export function actionBar(label, onClick, context) {
 }
 
 export const section = (title, ...children) =>
-  el("section", { class: "card" }, title ? el("h3", { class: "card-title", text: title }) : null, ...children);
+  el("section", { class: "card" },
+    !title ? null : typeof title === "string" ? el("h3", { class: "card-title", text: title }) : el("h3", { class: "card-title" }, title),
+    ...children);
 
 export const row = (label, value) =>
   el("div", { class: "row" },

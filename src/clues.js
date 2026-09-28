@@ -12,7 +12,7 @@ import { readiness } from "./coach.js";
 import { section, row, btn, pill, explain, promptModal, emptyState, actionBar, cardFace, showToast } from "./ui.js";
 import { go } from "./router.js";
 
-import { illustration, faceGrid, deckStack, cardBack } from "./art.js";
+import { illustration, faceGrid, deckStack, tornCard } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 
 
@@ -26,7 +26,7 @@ function setBlock(m, s) {
     el("div", { class: "threat-head" },
       el("strong", { text: `The ${rankName(s.rank)}` }),
       s.truth ? pill("Truth", "truth") : s.falseLead ? pill("False lead", "loss") : pill(`${s.cards.length} card${s.cards.length === 1 ? "" : "s"}`)),
-    s.cards.length ? hand : s.falseLead ? el("div", { class: "hand" }, cardBack("torn")) : null,
+    s.cards.length ? hand : s.falseLead ? el("div", { class: "hand" }, tornCard(s.rank)) : null,
     el("p", { class: "small", text: s.description || "No description yet." }),
     // The words the game offered when each card was drawn. Without these a set
     // left undescribed is a bare rank, and the prompt that would have told you

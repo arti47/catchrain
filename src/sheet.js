@@ -12,7 +12,7 @@ import { eventList } from "./prompts.js";
 import { go } from "./router.js";
 import { saveSheets } from "./paper.js";
 
-import { glyph, tick, attrPips } from "./art.js";
+import { glyph, tick, attrPips, deckStack } from "./art.js";
 const IN_PLAY = new Set(["home", "play", "sheet", "case-sheet", "clues", "solve", "journal"]);
 
 /**
@@ -69,8 +69,13 @@ export function renderResourceHeader(routeName) {
     el("div", { class: "res dialled" },
       el("div", { class: "res-stack" }, el("b", { text: String(inv.day) }), el("span", { text: "day" })),
       clockTrack(inv, 20)),
-    res("Truths", `${m.truthRevealed.length}/${m.truthRevealed.length + m.truthDeck.length}`, "truth"),
-    res("Clue deck", m.clueDeck.length, "", m.clueDeck.length <= 5),
+    // The two decks are drawn as what they are, the way the clock beside them is.
+    el("div", { class: "res dialled truth" },
+      el("div", { class: "res-stack" }, el("b", { text: `${m.truthRevealed.length}/${m.truthRevealed.length + m.truthDeck.length}` }), el("span", { text: "Truths" })),
+      el("span", { class: "pcard mini res-card", "aria-hidden": "true" })),
+    el("div", { class: `res dialled ${m.clueDeck.length <= 5 ? "warn" : ""}`.trim() },
+      el("div", { class: "res-stack" }, el("b", { text: String(m.clueDeck.length) }), el("span", { text: "Clue deck" })),
+      deckStack(m.clueDeck.length, "Clue deck")),
     D.allAttributesStruck(inv) ? res("Struck", "all", "loss", true) : null,
   );
   edgeFade(host);

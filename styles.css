@@ -1451,3 +1451,169 @@ details.framing .ask li { font-size: .89rem; margin-bottom: .15rem; }
 }
 @keyframes pick-in { from { transform: translateY(-5px) scale(.97); } to { transform: none; } }
 :root:not([data-depth="off"]) .pick-card.picked .pcard { animation: pick-in .22s ease-out both; }
+
+/* --- The third graphics pass ---------------------------------------------------- */
+
+/* A die drawn flat: the d66 pips at a size a row can hold. No cube to shear. */
+/* An <i>: inline by default, which drops its size outside a flex row. */
+.d66-die { display: inline-block; flex: 0 0 auto; vertical-align: middle; }
+.d66-die.rival { width: 19px; height: 19px; background-size: 4.4px 4.4px; }
+.d66-die.big { width: 22px; height: 22px; background-size: 5px 5px; }
+.rival-die { width: auto; height: auto; }
+
+/* Closed cases: each the folder it went into, with the date on its tab. */
+.closed-case {
+  position: relative; margin: 1.35rem 0 .6rem; padding: .6rem .75rem .65rem;
+  border: 1px solid var(--line); border-radius: 0 var(--r-sm) var(--r-sm) var(--r-sm); background: var(--panel-2);
+}
+.closed-case .small { margin: 0 0 .45rem; }
+.case-tab {
+  position: absolute; left: -1px; bottom: 100%; padding: .12rem .6rem;
+  border: 1px solid var(--line); border-bottom: 0; border-radius: 6px 6px 0 0; background: var(--panel-2);
+  font-size: .72rem; letter-spacing: .08em; color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+
+/* The home investigator card: the same pips, track and clock as the sheet. */
+.inv-card .pill .attr-pips { display: inline-flex; margin: 0 .35rem 0 0; vertical-align: middle; }
+.pill .attr-pips i { width: 6px; height: 6px; }
+.fatigue-mini { display: inline-flex; gap: 3px; flex-wrap: nowrap; }
+.fatigue-mini i { width: 10px; height: 13px; border-radius: 2px; border: 1px solid var(--line); background: var(--panel-2); }
+.fatigue-mini i.on { background: var(--loss); border-color: color-mix(in srgb, var(--loss) 75%, black); }
+
+/* The header's two buttons, drawn. */
+.header-tools .icon-btn .glyph { display: block; }
+.header-tools .icon-btn svg { width: 20px; height: 20px; display: block; }
+
+/* The guide's mark, drawn; and a new step arrives, once. */
+.coach-mark { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.coach-say .coach-mark { height: 1.4em; }
+.coach-mark svg { width: 15px; height: 15px; display: block; }
+@keyframes say-arrive { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+:root:not([data-depth="off"]) .coach-say.arrive, :root:not([data-depth="off"]) .coach-line.arrive { animation: say-arrive .35s ease-out both; }
+
+/* The decks in the numbers: a stack and a card beside the figure. */
+.res .deck-stack, .res .pcard { display: inline-block; margin: 0; flex: 0 0 auto; }
+.res .deck-stack .pcard { display: block; }
+.res-card { width: 14px; height: 20px; border-radius: 2.5px; border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* A toast carries its mark. */
+.toast { display: inline-flex; align-items: center; gap: .45rem; }
+.toast .glyph svg, .toast-text .glyph svg { display: block; }
+.toast-text { display: inline-flex; align-items: center; gap: .5rem; }
+
+/* The stages each carry their mark inside the node. */
+.stage-path .node { display: grid; place-items: center; }
+.stage-path .node .glyph svg { display: block; width: 12px; height: 12px; }
+.stage-path .done .node, .stage-path .now .node { color: #fff; }
+.stage-path .ahead .node, .stage-path .skipped .node { color: var(--ink-3); }
+
+/* The scene's mark beside its name, and a threat's beside its. */
+h1 .heading-glyph { display: inline-block; vertical-align: -3px; margin-right: .4rem; color: var(--ink-2); }
+.threat-name { display: inline-flex; align-items: center; gap: .4rem; }
+.threat-name .glyph-threat { color: var(--loss); flex: 0 0 auto; }
+
+/* A label with its mark: buttons, options, section titles. */
+.with-glyph { display: inline-flex; align-items: center; gap: .4rem; }
+.with-glyph .glyph { flex: 0 0 auto; }
+.btn .with-glyph .glyph, .seg-opt .with-glyph .glyph { color: currentColor; opacity: .85; }
+.card-title .with-glyph .glyph { color: var(--ink-3); }
+
+/* The reveal: each card stamped once it has landed. */
+.reveal-slot { position: relative; display: inline-block; }
+.stamp {
+  position: absolute; right: -9px; top: -9px; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--panel); box-shadow: var(--shadow-1);
+  border: 2px solid currentColor;
+}
+.stamp.hit { color: var(--ok); }
+.stamp.miss { color: var(--loss); }
+.stamp svg { display: block; }
+@keyframes stamp-in { 0% { transform: scale(1.8) rotate(-18deg); opacity: 0; } 60% { transform: scale(.92) rotate(4deg); opacity: 1; } 100% { transform: rotate(-8deg); } }
+:root:not([data-depth="off"]) .reveal-slot .stamp { animation: stamp-in .4s cubic-bezier(.3, .7, .3, 1) calc(var(--turn, 0ms) + .7s) both; }
+:root[data-depth="off"] .stamp { transform: rotate(-8deg); }
+
+/* A false lead keeps its rank: the top of the card, torn across below it. */
+.pcard.torn { clip-path: polygon(0 0, 100% 0, 100% 64%, 80% 70%, 62% 62%, 40% 72%, 20% 63%, 0 70%); }
+.pcard.torn .torn-rank { font-size: 1.05rem; margin-top: -6px; color: var(--ink-2); }
+.pcard.torn::after { top: 46%; }
+
+/* Experience as tokens. */
+.xp-list { display: inline-flex; flex-direction: column; align-items: flex-end; gap: .25rem; min-width: 0; max-width: 100%; }
+.xp-list .stacked { flex-wrap: wrap; justify-content: flex-end; }
+.xp-tokens { display: inline-flex; align-items: center; gap: .3rem; color: var(--accent); }
+.xp-tokens svg { display: block; fill: currentColor; }
+.pill .glyph-seal { margin: -2px .2rem -2px -.2rem; }
+
+/* The oracles, before anything is asked: the die at rest, the tiles empty. */
+.dice.idle { margin: .2rem 0 .7rem; }
+.idle-die { color: var(--ink-3); display: inline-flex; }
+.idle-die svg { display: block; }
+.word-tile.blank { min-width: 76px; min-height: 2.1rem; border-style: dashed; background: transparent; box-shadow: none; animation: none; }
+.word-tile.blank.optional { opacity: .55; }
+.word-tiles.idle { margin-bottom: .7rem; }
+
+/* Tables and the rules library carry their marks. */
+details.acc > summary > .glyph { color: var(--ink-3); flex: 0 0 auto; }
+
+/* The disclosure is drawn: one chevron, turned when it is open. */
+details.acc > summary::after {
+  content: ""; width: 8px; height: 8px; margin: 0 4px 3px auto; flex: 0 0 auto;
+  border-right: 1.5px solid var(--ink-3); border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(45deg); transition: transform .18s ease;
+}
+details.acc[open] > summary::after { content: ""; transform: rotate(225deg); margin-bottom: -3px; }
+
+/* The roll log: the dice first, the arithmetic after. */
+.log-roll { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+
+/* People and places: an index card each. */
+.cast-card {
+  position: relative; margin: 0 0 .55rem; padding: .55rem .75rem .6rem; border-radius: 4px;
+  border: 1px solid var(--line); background: var(--panel);
+  border-top: 2px solid color-mix(in srgb, var(--loss) 55%, transparent);
+  display: grid; grid-template-columns: 1fr auto; align-items: start; gap: .2rem .6rem;
+}
+.cast-name { font-family: var(--serif); font-weight: 600; font-size: 1rem; }
+.cast-note { grid-column: 1; font-size: .86rem; color: var(--ink-2); }
+.cast-card .btn { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+
+/* Every switch with its mark. */
+label.opt.switch > .glyph { order: 0; flex: 0 0 auto; color: var(--ink-2); align-self: flex-start; margin-top: 1px; }
+
+/* The face distribution as bars over the faces they count. */
+.dist { display: grid; grid-template-columns: repeat(6, 1fr); gap: .5rem; align-items: end; height: 132px; margin: .4rem 0 .8rem; }
+.dist-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: .3rem; height: 100%; }
+.dist-n { font-size: .72rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.dist-bar { width: 70%; height: var(--h, 0%); min-height: 2px; border-radius: 3px 3px 0 0; background: var(--ink-2); }
+
+/* The investigator as an index card, filling in. */
+.index-card {
+  margin: 0 0 14px; padding: .75rem .9rem .8rem; border-radius: 4px; border: 1px solid var(--line);
+  border-top: 2px solid color-mix(in srgb, var(--loss) 55%, transparent);
+  background: var(--panel); box-shadow: var(--shadow-1);
+  display: grid; gap: .3rem;
+}
+.index-name { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; border-bottom: 1.5px solid color-mix(in srgb, var(--loss) 55%, transparent); padding-bottom: .3rem; }
+.index-trait { font-family: var(--serif); font-style: italic; color: var(--ink-2); }
+.index-attrs { display: flex; gap: .9rem; flex-wrap: wrap; }
+.index-attr { display: inline-flex; align-items: center; gap: .35rem; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.index-attr .attr-pips { display: inline-flex; gap: 3px; }
+.index-line { display: flex; align-items: center; gap: .45rem; font-size: .9rem; }
+.index-line .glyph { color: var(--ink-3); flex: 0 0 auto; }
+.seg-opt .attr-pips { display: inline-flex; gap: 3px; }
+.seg-opt .attr-pips i, .index-attr .attr-pips i { width: 6px; height: 6px; border-radius: 50%; border: 1.2px solid currentColor; }
+.seg-opt .attr-pips i.on, .index-attr .attr-pips i.on { background: currentColor; }
+.seg-opt .attr-pips:empty { display: none; }
+
+/* A blank on the form, and a rolled entry with its dice. */
+.blank { display: inline-block; width: 7.5rem; max-width: 60%; height: 1.05em; vertical-align: -.2em; border-bottom: 1.5px dashed var(--line); }
+.rolled { display: inline-flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.rolled .code.d66 { flex: 0 0 auto; }
+
+/* A difficulty drawn as the truth deck it builds. */
+.truth-preview { display: flex; flex-wrap: wrap; gap: 3px; max-width: 170px; justify-content: flex-end; }
+.truth-preview .pcard.mini { width: 11px; height: 16px; border-radius: 2px; }
+.truth-preview .pcard.mini.back { box-shadow: inset 0 0 0 1px #f6f3ec, inset 0 0 0 1.6px rgba(27, 29, 33, .38); }
+.truth-preview .pcard.mini.ruled { background: linear-gradient(170deg, #fdfcf8, #efe9dc); }
+.truth-preview .pcard.mini.ruled::after { display: none; }
+.truth-preview .pcard.herring { outline: 1.5px solid var(--loss); outline-offset: 1px; }
