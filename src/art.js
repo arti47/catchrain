@@ -102,6 +102,10 @@ const GLYPHS = {
   fantasy: `<path ${STROKE} d="M7 20.5V11l-1.5-1.5V6h2.5v1.8h2V6h4v1.8h2V6h2.5v3.5L17 11v9.5z"/><path ${STROKE} d="M12 6V2.8l3.5 1.2L12 5.2"/>`,
   horror: `<path ${STROKE} d="M6.5 20.5 7.2 4l10.3.8-.4 15.7"/><circle cx="14" cy="12.5" r="1" fill="currentColor"/><path ${STROKE} d="M14 13.5v2"/>`,
   scifi: `<path ${STROKE} d="M3.5 7h6l3 3h8M3.5 15h9l2.5 2.5h5"/><circle ${STROKE} cx="20.5" cy="10" r="1"/><circle ${STROKE} cx="20.5" cy="17.5" r="1"/>`,
+  // Danger: a gauge with its needle.
+  gauge: `<path ${STROKE} d="M4 16a8 8 0 0 1 16 0"/><path ${STROKE} d="M12 16l4.2-5"/><circle cx="12" cy="16" r="1.3" fill="currentColor"/>`,
+  // Fatigue: one box of the track, marked.
+  box: `<rect ${STROKE} x="6" y="4.5" width="12" height="15" rx="2.2"/><path d="M8.5 7h7v10h-7z" fill="currentColor" opacity=".55"/>`,
   reveal: `<rect ${STROKE} x="2.5" y="6" width="7" height="11" rx="1.4" transform="rotate(-10 6 11.5)"/><rect ${STROKE} x="8.5" y="5" width="7" height="11" rx="1.4"/><rect ${STROKE} x="14.5" y="6" width="7" height="11" rx="1.4" transform="rotate(10 18 11.5)"/>`,
 };
 
@@ -252,7 +256,7 @@ export function dangerGauge(danger) {
  * the roll marked on it — and, inside an investigation, the danger it had to
  * clear. `bands` is a resolution table from data.js; nothing here knows a rule.
  */
-function scale({ lo, hi, bands, bandClass, total, danger = null, label }) {
+function scale({ lo, hi, bands, bandClass, total, danger = null, label, range = null }) {
   const cell = 16, span = hi - lo + 1, w = span * cell;
   let inner = "";
   for (let v = lo; v <= hi; v++) {
@@ -263,6 +267,11 @@ function scale({ lo, hi, bands, bandClass, total, danger = null, label }) {
   if (total !== null) {
     const at = (Math.min(Math.max(total, lo), hi) - lo) * cell + cell / 2;
     inner += `<path d="M${at - 5} 1h10l-5 7z" class="marker"/>`;
+  }
+  // A range the next roll can land in, bracketed under the bands.
+  if (range) {
+    const a = Math.max(range[0], lo), b = Math.min(range[1], hi);
+    if (a <= b) inner += `<path d="M${(a - lo) * cell + 2} 22.5h${(b - a + 1) * cell - 4}" class="reach"/>`;
   }
   if (danger !== null && danger >= lo && danger <= hi + 1) {
     const dx = (Math.min(danger, hi + 1) - lo) * cell;
@@ -297,9 +306,9 @@ export function yesNoScale(die) {
 }
 
 /** Three marks for three guesses: a closed case's record at a glance. */
-export function resultPips(correct) {
+export function resultPips(correct, label = null) {
   const inner = [0, 1, 2].map((i) => `<circle cx="${5 + i * 11}" cy="5" r="3.6" class="${i < correct ? "on" : "off"}"/>`).join("");
-  return svg("0 0 32 10", inner, { cls: "result-pips", label: `${correct} of 3 correct`, w: 32, h: 10 });
+  return svg("0 0 32 10", inner, { cls: "result-pips", label: label || `${correct} of 3 correct`, w: 32, h: 10 });
 }
 
 /**
@@ -530,4 +539,83 @@ export function stamp(hit) {
     ? `<path ${STROKE} d="M5 12.5 10 17.5 19 7"/>`
     : `<path ${STROKE} d="M6.5 6.5 17.5 17.5M17.5 6.5 6.5 17.5"/>`;
   return svg("0 0 24 24", inner, { cls: `stamp ${hit ? "hit" : "miss"}`, label: hit ? "Named" : "Missed", w: 22, h: 22 });
+}
+
+// --- The fourth pass --------------------------------------------------------------
+
+/** Truths known, as a card filling with the truth blue from the bottom up. */
+export function truthCard(known, total, cls = "") {
+  const pct = total ? Math.round((known / total) * 100) : 0;
+  return el("span", { class: `truth-card ${cls}`.trim(), role: "img", "aria-label": `${known} of ${total} truth cards known` },
+    el("i", { class: "truth-fill", style: `--fill:${pct}%` }));
+}
+
+/**
+ * The odds of a test at one attribute: how 2d6 plus it splits across failure,
+ * success at a cost and success, with the share that would land under the
+ * current danger hatched from the left. Proportions only — the percentages are
+ * on the label, for a screen reader and for anyone who wants them.
+ */
+export function oddsStrip(attrValue, danger = 0) {
+  const share = { failure: 0, cost: 0, success: 0 };
+  let under = 0;
+  for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) {
+    const total = a + b + attrValue;
+    const o = TEST_OUTCOMES.find((x) => total >= x.min && total <= x.max) || TEST_OUTCOMES[TEST_OUTCOMES.length - 1];
+    share[o.id] += 1 / 36;
+    if (total < danger) under += 1 / 36;
+  }
+  const W = 120, H = 8;
+  let x = 0, inner = "";
+  for (const o of TEST_OUTCOMES) {
+    const w = share[o.id] * W;
+    if (w > 0) inner += `<rect x="${x.toFixed(2)}" y="0" width="${Math.max(0, w - 1).toFixed(2)}" height="${H}" rx="1.5" class="odds-${o.id}"/>`;
+    x += w;
+  }
+  if (under > 0) {
+    const u = (under * W).toFixed(2);
+    inner += `<rect x="0" y="0" width="${u}" height="${H}" class="odds-under"/><path d="M${u} -1V${H + 1}" class="danger-line"/>`;
+  }
+  const pc = (v) => `${Math.round(v * 100)}%`;
+  const label = `${TEST_OUTCOMES.map((o) => `${o.name.toLowerCase()} ${pc(share[o.id])}`).join(", ")}${under ? `; ${pc(under)} under danger ${danger}` : ""}`;
+  return svg(`0 -1 ${W} ${H + 2}`, inner, { cls: "odds-strip", label: `Odds: ${label}`, w: W, h: H + 2 });
+}
+
+/** The outcome of a test, stamped: made, made at a cost, or not. */
+export function outcomeStamp(id) {
+  const inner = id === "success" ? `<path ${STROKE} d="M5 12.5 10 17.5 19 7"/>`
+    : id === "cost" ? `<path ${STROKE} d="M5 12.5 10 17.5 19 7"/><path ${STROKE} d="M4 20 20 4"/>`
+    : `<path ${STROKE} d="M6.5 6.5 17.5 17.5M17.5 6.5 6.5 17.5"/>`;
+  return svg("0 0 24 24", inner, { cls: `stamp outcome-stamp ${id}`, w: 22, h: 22 });
+}
+
+/** Which glyph an event line carries: what the line is about, at a glance. */
+const EVENT_GLYPHS = {
+  test: "die", consequence: "die", investigation_roll: "investigation",
+  threat_acts: "threat", threat_in: "threat", threat_up: "threat", threat_capped: "threat", threat_marked: "threat",
+  threat_removed: "threat", rival_returns: "threat", rival_defeated: "threat", threats_left: "threat",
+  danger: "gauge", joker_no_sets: "gauge",
+  fatigue: "box", attribute_struck: "box", all_struck: "box", force_escape: "exit",
+  keyword_gained: "tag", keyword_used: "tag",
+  new_clue: "card", strengthen_clue: "card", false_lead: "card", joker_removed: "card",
+  discard_false_lead: "card", discard_established_truth: "card", discarded: "card", deck_empty: "card",
+  game_over: "reveal", random_event: "tiles", stage: "key", scene_end: "exit",
+  clock: "day", day_end: "dawn", day_start: "dawn",
+  rest: "rest", attributes_cleared: "rest", signature_cleared: "seal", obligation_attended: "obligation",
+  reroll: "refresh",
+};
+export const eventGlyph = (t) => glyph(EVENT_GLYPHS[t] || "drop", 14, "event-glyph");
+
+/**
+ * How far the worst consequence roll in the scene can reach: 1d6, plus the
+ * level of the strongest threat present, bracketed on the consequences table
+ * against the 9 that ends the case.
+ */
+export function consequenceReach(threatLevel = 0) {
+  const top = 6 + threatLevel;
+  return scale({
+    lo: 1, hi: 9, bands: CONSEQUENCES_SOLO, bandClass: (b) => `c-${b.id}`, total: null,
+    range: [1 + threatLevel, top],
+    label: `A consequence can land from ${1 + threatLevel} to ${top}${top >= 9 ? ", which reaches the 9 that ends the case" : ", short of the 9 that ends the case"}.`,
+  });
 }

@@ -2,7 +2,7 @@
 // boundaries between them. Controls are ordered by the book's sequence of play.
 
 import { el, add } from "./core.js";
-import { SCENE_TYPES, CLOCK_SEGMENTS, END_TRIGGERS } from "../data.js";
+import { SCENE_TYPES, CLOCK_SEGMENTS, END_TRIGGERS, ATTRIBUTE_MAX } from "../data.js";
 import * as R from "./rules.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
@@ -13,13 +13,13 @@ import { eventList } from "./prompts.js";
 import { useKeywordFlow } from "./sheet.js";
 import { rankName } from "./deck.js";
 import { framingCard, framingLines, framingAction } from "./framing.js";
-import { recapCard } from "./coach.js";
+import { recapCard, nextStep } from "./coach.js";
 import { SCENE_FRAMING } from "../data.js";
 const SCENE_FRAMING_NOTE = SCENE_FRAMING.note;
 import { go } from "./router.js";
 import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace, pickDice, cardFace } from "./ui.js";
 
-import { illustration, glyph, stagePath, markBoxes, levelBars, testScale, consequenceScale, caseFile, dangerGauge, investigationScale, diceArt, clearingTrack, flatDie } from "./art.js";
+import { illustration, glyph, stagePath, markBoxes, levelBars, testScale, caseFile, dangerGauge, investigationScale, diceArt, clearingTrack, flatDie, outcomeStamp, oddsStrip, attrPips } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 
 /** The slot a returning rival holds, which is the die face it comes back on. */
@@ -42,15 +42,11 @@ function showResult(title, res, extraEvents = [], onReroll, onAgain) {
   add(body,
     diceRow(res.dice, res.attrValue || 0, res.total, res.doubles),
     testScale(res.total, res.dangerAtRoll === undefined ? null : res.dangerAtRoll),
-    el("p", { class: `outcome ${res.outcome.id}`, text: `${res.outcome.name} — ${res.outcome.text}` }),
+    el("div", { class: `outcome-row ${res.outcome.id}` }, outcomeStamp(res.outcome.id),
+      el("p", { class: `outcome ${res.outcome.id}`, text: `${res.outcome.name} — ${res.outcome.text}` })),
+    // Each consequence's strip rides under its own line in the list, so the 9
+    // that ends the case is seen beside the roll that came near it.
     eventList(all));
-  // Each consequence rolled in this test, on its own table's strip, so the 9
-  // that ends the case is something you can see coming rather than a number.
-  for (const e of all.filter((x) => x.t === "consequence" && typeof x.total === "number")) {
-    const strip = consequenceScale(e.total);
-    strip.classList.add("consequence");
-    add(body, strip);
-  }
   const actions = [{ label: "Continue" }];
   // A failed stage test is the one roll a player makes over and over, at the
   // same stage with the same approach. This is that, without walking back
@@ -92,7 +88,9 @@ async function chooseAttribute(purpose, who) {
   return await chooseModal({
     title: purpose,
     message: struck || "Which approach fits what your investigator is doing?",
-    options: usable.map((a) => ({ value: a.id, label: `${a.name} ${a.value}`, note: a.text })),
+    // Each approach drawn as its pips and the odds it gives against this danger.
+    options: usable.map((a) => ({ value: a.id, label: `${a.name} ${a.value}`, note: a.text,
+      art: el("span", { class: "approach-art" }, attrPips(a.value, ATTRIBUTE_MAX), oddsStrip(a.value, (Store.mystery && Store.mystery.danger) || 0)) })),
   });
 }
 
@@ -540,6 +538,11 @@ export function renderPlay(host) {
   if (individualRound && party.length > 1) {
     return { action: actionBar("Rest scene", startRest, `${Store.investigator.name} takes a scene`) };
   }
+  // One recommendation, not two: the bar offers the scene the guide names.
+  const advised = { "pick-rest": "rest", "pick-obligation": "obligation", "pick-truth": "truth", "pick-truth-pressure": "truth" }[nextStep("play").id];
+  if (advised === "truth") return { action: actionBar("Truth scene", startTruth, "Turn a clue set over") };
+  if (advised === "rest") return { action: actionBar("Rest scene", startRest, "Clear 1d6 fatigue and every strike") };
+  if (advised === "obligation") return { action: actionBar("Obligation scene", startObligation, "Attend it before the day turns") };
   return { action: actionBar("Investigation scene", startInvestigation, `Roll 1d6 + ${m.danger} danger`) };
 }
 

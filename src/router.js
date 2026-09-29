@@ -105,6 +105,12 @@ export async function render() {
   // A screen that changed arrives; one that re-rendered under you does not, or
   // every roll would fade the page you are reading.
   if (!sameScreen) {
+    // Changing tab, the new screen comes in from the side its tab is on; within
+    // a tab it simply arrives.
+    const tabOf = (r) => { const d = routes.get(r); return d ? TABS.findIndex((t) => { const td = routes.get(t.route); return td && td.group === d.group; }) : -1; };
+    const was = lastRoute ? tabOf(lastRoute) : -1, now = tabOf(name);
+    if (was >= 0 && now >= 0 && was !== now) host.dataset.from = now > was ? "right" : "left";
+    else delete host.dataset.from;
     host.classList.remove("arriving");
     void host.offsetWidth;
     host.classList.add("arriving");

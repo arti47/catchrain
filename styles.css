@@ -503,7 +503,9 @@ b, strong { font-weight: 650; }
   border: 1px solid var(--line); border-radius: var(--r); background: var(--panel-2);
 }
 .seg-opt {
-  flex: 1 1 0; min-width: 0; min-height: var(--tap); padding: .35rem .5rem;
+  /* Sized from its own label, then sharing what is left: "Everything" beside
+     "Story" gets the width it needs instead of an equal share and an ellipsis. */
+  flex: 1 1 auto; min-width: 0; min-height: var(--tap); padding: .35rem .5rem;
   border: 0; border-radius: calc(var(--r) - 4px); background: transparent;
   color: var(--ink-2); font: inherit; font-size: .84rem; font-weight: 600;
   cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -590,7 +592,9 @@ b, strong { font-weight: 650; }
   background: radial-gradient(120% 120% at 32% 22%,
     rgba(255, 255, 255, .45), rgba(255, 255, 255, 0) 52%, rgba(20, 22, 26, .2) 100%);
 }
-.clock .seg-off { fill: var(--panel-2); stroke: var(--line); }
+/* An empty segment is still a segment: outlined at the 3:1 a graphic needs, so
+   a new day's clock reads as four empty wedges and not as a grey disc. */
+.clock .seg-off { fill: var(--panel-2); stroke: var(--ink-3); }
 .clock .seg-on { fill: var(--accent); stroke: color-mix(in srgb, var(--accent) 70%, black); }
 
 /* Where you are in a four-step wizard, drawn as four lengths rather than four
@@ -1617,3 +1621,130 @@ label.opt.switch > .glyph { order: 0; flex: 0 0 auto; color: var(--ink-2); align
 .truth-preview .pcard.mini.ruled { background: linear-gradient(170deg, #fdfcf8, #efe9dc); }
 .truth-preview .pcard.mini.ruled::after { display: none; }
 .truth-preview .pcard.herring { outline: 1.5px solid var(--loss); outline-offset: 1px; }
+
+/* --- The fourth pass ------------------------------------------------------------ */
+
+/* Search fields carry their lens. */
+.search-field > .glyph { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-3); pointer-events: none; }
+.search-field .input { padding-left: 2.4rem; }
+
+/* The idle oracle: three tiles on one line at any phone width. */
+.word-tiles.idle { flex-wrap: nowrap; }
+.word-tiles.idle .word-tile.blank { flex: 1 1 0; min-width: 0; }
+
+/* The numbers are buttons: the same cells, a tap target, a rule behind each. */
+button.res {
+  background: none; border: 0; border-right: 1px solid var(--line-2); border-radius: 0;
+  font: inherit; color: inherit; text-align: left; cursor: pointer; min-height: var(--tap);
+  -webkit-tap-highlight-color: transparent;
+}
+button.res:last-child { border-right: 0; }
+button.res:active { background: var(--panel-2); }
+button.res:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.res-stack { display: block; }
+.res-stack > b, .res-stack > span { display: block; }
+/* Five numbers fit a 360px phone: tighter tracking, smaller drawings beside them. */
+.res { padding-right: .32rem; }
+.res span { letter-spacing: .06em; }
+.res.dialled { display: block; }
+.res .res-top { display: flex; align-items: center; gap: .3rem; height: 1.2rem; margin: 0; text-transform: none; letter-spacing: 0; }
+.res-top > b { display: inline; }
+.res .res-top .clock svg, .res .res-top .deck-stack, .res .res-top .truth-card { flex: 0 0 auto; }
+.res .deck-stack { transform: scale(.72); transform-origin: left center; margin-right: -6px; }
+
+/* Truths known: a card filling with the truth blue. */
+.truth-card {
+  position: relative; display: inline-block; flex: 0 0 auto; overflow: hidden;
+  width: 13px; height: 18px; border-radius: 2.5px; background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.truth-card .truth-fill { position: absolute; left: 0; right: 0; bottom: 0; height: var(--fill, 0%); background: var(--accent); }
+.truth-card.big { width: 30px; height: 42px; border-radius: 4px; }
+
+/* The rule behind a number. */
+.rule-sheet .gauged { display: flex; align-items: center; gap: .7rem; margin: 0 0 .7rem; }
+.rule-number { font-family: var(--serif); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.rule-entry { border-top: 1px solid var(--line-2); padding-top: .5rem; margin-top: .5rem; }
+.rule-entry-name { margin: 0 0 .25rem; font-size: .9rem; }
+.rule-entry p { margin: 0 0 .35rem; }
+
+/* The result dialog: the outcome stamped, every line marked, the buttons kept. */
+.outcome-row { display: flex; align-items: center; gap: .6rem; margin: .6rem 0 .4rem; }
+.outcome-row .outcome { margin: 0; }
+.outcome-row .stamp { position: static; flex: 0 0 auto; transform: rotate(-8deg); }
+.stamp.success { color: var(--ok); }
+.stamp.cost { color: var(--danger); }
+.stamp.failure { color: var(--loss); }
+@keyframes outcome-stamp { 0% { transform: scale(1.7) rotate(-22deg); opacity: 0; } 65% { transform: scale(.94) rotate(-6deg); opacity: 1; } 100% { transform: rotate(-8deg); } }
+:root:not([data-depth="off"]) .outcome-row .stamp { animation: outcome-stamp .38s cubic-bezier(.3, .7, .3, 1) .45s both; }
+.events li { display: flex; gap: .5rem; align-items: flex-start; padding-left: 0; }
+.events li::before { display: none; }
+.events li .event-glyph { flex: 0 0 auto; margin-top: 2px; color: var(--ink-3); }
+.events li .event-glyph svg { display: block; }
+.event-text { flex: 1 1 auto; min-width: 0; }
+.event-text .roll-scale { display: block; margin: .35rem 0 .1rem; }
+.modal-card { position: relative; }
+.modal-actions {
+  position: sticky; bottom: -.9rem; z-index: 2;
+  margin: 0 -1rem -.9rem; padding: .6rem 1rem .9rem;
+  background: var(--panel); border-top: 1px solid var(--line-2);
+}
+
+/* An approach drawn: its pips and the odds it gives against this danger. */
+.choice.with-glyph .approach-art { display: flex; flex-direction: column; align-items: center; gap: .35rem; flex: 0 0 auto; }
+.odds-strip { display: block; }
+.odds-strip .odds-failure { fill: var(--loss); opacity: .75; }
+.odds-strip .odds-cost { fill: var(--danger); opacity: .75; }
+.odds-strip .odds-success { fill: var(--ok); opacity: .8; }
+.odds-strip .odds-under { fill: var(--ink); opacity: .22; }
+.odds-strip .danger-line { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 2 1.5; }
+
+/* A new clue's prompts, laid out as tiles: the clue itself first. */
+.prompt-label { margin: .2rem 0 .3rem; text-transform: uppercase; letter-spacing: .08em; font-size: .72rem; }
+.prompt-tiles .word-tile { font-size: .98rem; padding: .25rem .6rem; }
+.word-tile.clue-tile { border-color: color-mix(in srgb, var(--accent) 50%, transparent); background: var(--accent-dim); }
+
+/* Why?: each ending drawn beside the words. */
+.ending { display: flex; align-items: center; gap: .6rem; }
+.ending-meter { flex: 0 0 auto; display: inline-flex; align-items: center; min-width: 44px; color: var(--ink-2); }
+.ending p { margin: 0; }
+.roll-scale .reach { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.guess-worth { display: flex; align-items: center; gap: .6rem; margin-top: .6rem; }
+.guess-worth .result-pips { color: var(--accent); flex: 0 0 auto; }
+.guess-worth p { margin: 0; }
+
+/* Careers: tokens and the name on one line, across the card's width. */
+.xp-list { align-items: flex-start; }
+.xp-list .stacked { flex-wrap: wrap; row-gap: .2rem; justify-content: flex-start; }
+.xp-list .stacked > span:not(.xp-tokens) { white-space: nowrap; }
+
+/* Home: the attributes as one row of small tiles. */
+.attr-mini-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: .45rem; padding: .5rem 0; border-bottom: 1px solid var(--line-2); }
+.attr-mini {
+  display: flex; flex-direction: column; align-items: center; gap: .2rem; padding: .45rem .2rem;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2);
+}
+.attr-mini b { font-family: var(--serif); font-size: 1.2rem; line-height: 1; }
+.attr-mini .attr-pips { display: flex; gap: 3px; }
+.attr-mini .attr-pips i { width: 6px; height: 6px; border-radius: 50%; border: 1.2px solid var(--ink-2); }
+.attr-mini .attr-pips i.on { background: var(--ink); border-color: var(--ink); }
+.attr-mini > span:last-child { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.attr-mini.struck { background: var(--loss-dim); border-color: color-mix(in srgb, var(--loss) 30%, transparent); }
+.attr-mini.struck b, .attr-mini.struck > span:last-child { color: var(--loss); }
+.attr-mini.struck .attr-pips i.on { background: var(--loss); border-color: var(--loss); }
+
+/* A tab's screen arrives from the side its tab sits on. */
+/* A wipe, not a slide: moving the screen right would widen the page for a
+   fifth of a second, and a phone shows that as a sideways jiggle. */
+@keyframes screen-from-right { from { opacity: 0; clip-path: inset(0 0 0 18%); } to { opacity: 1; clip-path: inset(0); } }
+@keyframes screen-from-left { from { opacity: 0; clip-path: inset(0 18% 0 0); } to { opacity: 1; clip-path: inset(0); } }
+:root:not([data-depth="off"]) .screen.arriving[data-from="right"] { animation: screen-from-right .2s cubic-bezier(.2, .8, .3, 1) both; }
+:root:not([data-depth="off"]) .screen.arriving[data-from="left"] { animation: screen-from-left .2s cubic-bezier(.2, .8, .3, 1) both; }
+
+/* Pips anywhere they are drawn. Their size was set, but an <i> is inline and
+   drops it outside a flex row, which is how the chooser got a sliver. */
+.attr-pips { display: inline-flex; gap: 3px; align-items: center; }
+.attr-pips i { display: block; flex: 0 0 auto; }
+
+/* Why?: a wide meter scales down rather than squeezing the words beside it. */
+.ending-meter .roll-scale svg { width: 104px; height: auto; }

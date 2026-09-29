@@ -12,7 +12,8 @@ import { eventList } from "./prompts.js";
 import { go } from "./router.js";
 import { saveSheets } from "./paper.js";
 
-import { glyph, tick, attrPips, deckStack } from "./art.js";
+import { glyph, tick, attrPips, deckStack, truthCard, dangerGauge, fatigueMini } from "./art.js";
+import { RULES_LIBRARY } from "./library.js";
 const IN_PLAY = new Set(["home", "play", "sheet", "case-sheet", "clues", "solve", "journal"]);
 
 /**
@@ -45,8 +46,15 @@ export function renderResourceHeader(routeName) {
   // A number that just changed is a number worth looking at.
   host.classList.remove("tucked");
   clear(host);
-  const res = (label, value, kind = "", warn = false, meter = null) =>
-    el("div", { class: `res ${kind} ${warn ? "warn" : ""}` },
+  // Every number is a button: a tap opens the rule it counts, drawn, without
+  // leaving the screen you are on.
+  const cell = (rule, label, kind, warn, ...kids) => el("button", {
+    class: `res ${kind} ${warn ? "warn" : ""}`.replace(/\s+/g, " ").trim(), type: "button",
+    "aria-label": `${label}: ${kids.map((k) => (k && k.textContent) || "").join(" ").trim()}. What this means`,
+    onclick: () => ruleSheet(rule),
+  }, ...kids);
+  const res = (label, value, kind = "", warn = false, meter = null, rule = null) =>
+    cell(rule || label.toLowerCase(), label, kind, warn,
       el("b", { text: String(value) }),
       el("span", { text: label }),
       meter === null ? null : el("i", { class: "meter", style: `--fill:${Math.round(clamp(meter, 0, 1) * 100)}%` }));
@@ -66,20 +74,57 @@ export function renderResourceHeader(routeName) {
     res("Fatigue", `${inv.fatigue}/${FATIGUE_BOXES}`, "loss", inv.fatigue >= 4, inv.fatigue / FATIGUE_BOXES),
     // The clock is drawn everywhere else in the app; spelling it out here was
     // the one place the game's own dial turned back into a fraction.
-    el("div", { class: "res dialled" },
-      el("div", { class: "res-stack" }, el("b", { text: String(inv.day) }), el("span", { text: "day" })),
-      clockTrack(inv, 20)),
+    // Each drawing sits beside its number, over the label, so a cell is only as
+    // wide as its label and five of them fit a 360px phone.
+    cell("clock", "Day", "dialled", false,
+      el("span", { class: "res-top" }, el("b", { text: String(inv.day) }), clockTrack(inv, 18)), el("span", { text: "day" })),
     // The two decks are drawn as what they are, the way the clock beside them is.
-    el("div", { class: "res dialled truth" },
-      el("div", { class: "res-stack" }, el("b", { text: `${m.truthRevealed.length}/${m.truthRevealed.length + m.truthDeck.length}` }), el("span", { text: "Truths" })),
-      el("span", { class: "pcard mini res-card", "aria-hidden": "true" })),
-    el("div", { class: `res dialled ${m.clueDeck.length <= 5 ? "warn" : ""}`.trim() },
-      el("div", { class: "res-stack" }, el("b", { text: String(m.clueDeck.length) }), el("span", { text: "Clue deck" })),
-      deckStack(m.clueDeck.length, "Clue deck")),
-    D.allAttributesStruck(inv) ? res("Struck", "all", "loss", true) : null,
+    cell("truths", "Truths", "dialled truth", false,
+      el("span", { class: "res-top" }, el("b", { text: `${m.truthRevealed.length}/${m.truthRevealed.length + m.truthDeck.length}` }),
+        truthCard(m.truthRevealed.length, m.truthRevealed.length + m.truthDeck.length)), el("span", { text: "Truths" })),
+    cell("deck", "Clue deck", "dialled", m.clueDeck.length <= 5,
+      el("span", { class: "res-top" }, el("b", { text: String(m.clueDeck.length) }), deckStack(m.clueDeck.length, "Clue deck")), el("span", { text: "Clue deck" })),
+    D.allAttributesStruck(inv) ? res("Struck", "all", "loss", true, null, "fatigue") : null,
   );
   edgeFade(host);
   if (dangerCell && dangerBefore !== m.danger) tick(dangerCell.querySelector("b"), dangerBefore, m.danger);
+}
+
+/**
+ * What a number in the bar means, opened from the number itself: the number
+ * drawn, and the rules library's own words about it — the same text the Rules
+ * screen shows, read from one place, with the way through to the full entry.
+ */
+const RULE_SHEETS = {
+  danger: { title: "Danger", ids: ["problem", "investigation-roll", "stages", "test", "consequences", "jokers", "career"], only: /danger/i },
+  fatigue: { title: "Fatigue", ids: ["fatigue"] },
+  clock: { title: "The clock and the day", ids: ["clock"] },
+  truths: { title: "Truths", ids: ["truths"] },
+  deck: { title: "The clue deck", ids: ["setup", "end", "rest", "obligation"], only: /deck/i },
+};
+export function ruleSheet(kind) {
+  const def = RULE_SHEETS[kind] || RULE_SHEETS.danger;
+  const m = Store.mystery, inv = Store.investigator;
+  const entries = RULES_LIBRARY.flatMap((g) => g.entries).filter((e) => def.ids.includes(e.id));
+  const figure = !m ? null
+    : kind === "danger" ? el("span", { class: "gauged" }, dangerGauge(m.danger), el("b", { class: "rule-number", text: String(m.danger) }))
+    : kind === "fatigue" ? el("span", { class: "gauged" }, fatigueMini(inv.fatigue), el("b", { class: "rule-number", text: `${inv.fatigue}/${FATIGUE_BOXES}` }))
+    : kind === "clock" ? el("span", { class: "gauged" }, clockTrack(inv, 44), el("b", { class: "rule-number", text: `Day ${inv.day} · ${inv.clock}/${CLOCK_SEGMENTS}` }))
+    : kind === "truths" ? el("span", { class: "gauged" }, truthCard(m.truthRevealed.length, m.truthRevealed.length + m.truthDeck.length, "big"), el("b", { class: "rule-number", text: `${m.truthRevealed.length} of ${m.truthRevealed.length + m.truthDeck.length}` }))
+    : el("span", { class: "gauged" }, deckStack(m.clueDeck.length, "Clue deck"), el("b", { class: "rule-number", text: `${m.clueDeck.length} left` }));
+  const body = el("div", { class: "rule-sheet" }, figure);
+  for (const e of entries) {
+    const lines = e.text.filter((t) => !def.only || def.only.test(t));
+    if (!lines.length) continue;
+    add(body, el("div", { class: "rule-entry" },
+      el("h4", { class: "rule-entry-name", text: e.name }),
+      ...lines.map((t) => el("p", { class: "small", text: t })),
+      el("p", { class: "small muted", text: e.cite })));
+  }
+  modal({
+    title: def.title, body,
+    actions: [{ label: "Got it" }, { label: "Open in the rules", kind: "ghost", onClick: () => go(`rules?rule=${entries[0] ? entries[0].id : ""}`) }],
+  });
 }
 
 const attrTile = (inv, a) => {

@@ -2404,7 +2404,8 @@ for (const width of WIDTHS) {
   await page.reload();
   await page.goto(`${base}#/play`);
   await page.waitForTimeout(300);
-  await page.locator(".action-bar .btn").click();
+  // The bar follows the guide's advice (tired: rest), so press the scene itself.
+  await page.locator("#screen .choice", { hasText: /^Investigation/ }).first().click();
   let inv = null;
   for (let i = 0; i < 5 && !inv; i++) {
     await page.waitForTimeout(250);
@@ -2654,6 +2655,148 @@ for (const width of WIDTHS) {
 
   if (errors.length) fail(`console error in the third graphics pass: ${errors[0].slice(0, 140)}`);
   if (!failures.length) ok("typed glyphs are drawn, and the same state is drawn the same way everywhere");
+}
+
+// 8ag. the fourth pass: the numbers answer a tap, the result dialog reads at a glance, nothing truncates
+{
+  const { ctx, page, errors } = await newPage(360);
+  const q = (fn, arg) => page.evaluate(fn, arg);
+  const at = async (route, ms = 350) => { await page.goto(`${base}#/${route}`); await page.waitForTimeout(ms); };
+  const n = (sel) => q((s) => document.querySelectorAll(s).length, sel);
+  // Typed dice, so the stage test below fails on 1 + 2 and always rolls a consequence.
+  await seed(page, base, "mid-session", { career: true, rivals: true, manualDice: true, autoOracle: true });
+
+  // 1. a segmented option never cuts its own label
+  await at("journal");
+  const cut = await q(() => [...document.querySelectorAll("#screen .seg-opt")].filter((o) => o.scrollWidth > o.clientWidth + 1 || [...o.querySelectorAll("*")].some((c) => c.scrollWidth > c.clientWidth + 1)).map((o) => o.textContent.trim()));
+  if (cut.length) fail(`a segmented option truncates its label: ${cut.join(", ")}`);
+
+  // 3, 6, 7, 8. the numbers: all five in view at 360, truths drawn filling, the clock's segments visible, a tap explains
+  await at("play");
+  const bar = await q(() => {
+    const host = document.querySelector("#resource-header"); const hr = host.getBoundingClientRect();
+    const cells = [...host.querySelectorAll(".res")];
+    // Colours come back with alpha; composite the stroke over what it is drawn on.
+    const rgba = (c) => { const p = (c.match(/[\d.]+/g) || []).map(Number); return [p[0], p[1], p[2], p[3] === undefined ? 1 : p[3]]; };
+    const over = (f, b) => [0, 1, 2].map((i) => f[i] * f[3] + b[i] * (1 - f[3]));
+    const lum = (p) => { const f = p.map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2]; };
+    const seg = host.querySelector(".clock .seg-off");
+    const under = over(rgba(getComputedStyle(host).backgroundColor), rgba(getComputedStyle(document.body).backgroundColor));
+    const stroke = seg ? over(rgba(getComputedStyle(seg).stroke), under) : under;
+    const [a, b] = [lum(stroke), lum(under)].sort((x, y) => y - x);
+    return { hidden: cells.filter((c) => c.getBoundingClientRect().right > hr.right + 1).map((c) => c.textContent.trim().slice(0, 12)),
+      truth: host.querySelector(".truth-card[role=img]")?.getAttribute("aria-label") || "", fill: !!host.querySelector(".truth-card .truth-fill"),
+      segRatio: seg ? (a + 0.05) / (b + 0.05) : 0, buttons: host.querySelectorAll("button.res").length };
+  });
+  if (bar.hidden.length) fail(`the numbers hide ${bar.hidden.join(", ")} past the edge at 360px`);
+  if (!/of/.test(bar.truth) || !bar.fill) fail("truths in the numbers are a blank card, not one filling as they are found");
+  if (bar.segRatio < 3) fail(`the clock's empty segments are drawn at ${bar.segRatio.toFixed(2)}:1, under the 3:1 a graphic needs`);
+  if (bar.buttons < 4) fail(`${bar.buttons} of the numbers answer a tap`);
+  else {
+    await page.locator("#resource-header button.res").first().click();
+    await page.waitForTimeout(250);
+    if (!(await n(".modal-overlay .rule-sheet"))) fail("tapping a number opens nothing about its rule");
+    await q(() => document.querySelectorAll(".modal-overlay").forEach((x) => x.remove()));
+  }
+
+  // 13, 14, 9, 10, 11, 12. one stage test, dialog by dialog
+  await page.locator(".action-bar .btn").click();
+  await page.waitForTimeout(300);
+  const chooser = await q(() => { const cs = [...document.querySelectorAll(".modal-overlay .choice")];
+    return { n: cs.length, odds: cs.filter((c) => c.querySelector(".odds-strip[role=img]")).length,
+      pips: cs.filter((c) => { const p = c.querySelector(".attr-pips"); return p && p.getBoundingClientRect().width >= 18; }).length }; });
+  if (!chooser.n || chooser.odds !== chooser.n || chooser.pips !== chooser.n) fail(`the attribute chooser draws ${chooser.odds} odds strips and ${chooser.pips} pip sets at size for ${chooser.n} options`);
+  await page.locator(".modal-overlay .choice").first().click();
+  let result = null, clueTiles = null;
+  for (let i = 0; i < 10 && !result; i++) {
+    await page.waitForTimeout(700);
+    const st = await q(() => ({ title: document.querySelector(".modal-title")?.textContent || "", outcome: !!document.querySelector(".modal-overlay .outcome") }));
+    if (st.outcome) {
+      result = await q(() => {
+        const lis = [...document.querySelectorAll(".modal-overlay .events li")];
+        return { stamp: !!document.querySelector(".modal-overlay .outcome-stamp"),
+          lis: lis.length, marked: lis.filter((l) => l.querySelector(".glyph")).length,
+          cons: lis.filter((l) => /^Consequence/.test(l.textContent)).length,
+          inline: lis.filter((l) => /^Consequence/.test(l.textContent) && l.querySelector(".roll-scale")).length,
+          stray: document.querySelectorAll(".modal-overlay .modal-body > .roll-scale.consequence").length,
+          sticky: getComputedStyle(document.querySelector(".modal-overlay .modal-actions")).position };
+      });
+      break;
+    }
+    const dice = page.locator(".modal-overlay .dice-pick");
+    if (await dice.count()) { const f = [1, 2]; for (let r = 0; r < await dice.count(); r++) await dice.nth(r).locator(`.die-choice[data-face='${f[r]}']`).click(); continue; }
+    const ch = page.locator(".modal-overlay .choice").first();
+    if (await ch.count()) { await ch.click(); continue; }
+    const b = page.locator(".modal-actions .btn").first(); if (await b.count()) await b.click(); else break;
+  }
+  if (!result) fail("a stage test never reached its result dialog, so its checks could not run");
+  else {
+    if (!result.stamp) fail("the outcome is a line of coloured text with no stamp");
+    if (result.marked !== result.lis) fail(`${result.marked} of ${result.lis} event lines carry their mark`);
+    if (result.inline !== result.cons || result.stray) fail("a consequence's strip sits apart from its line");
+    if (result.sticky !== "sticky") fail("a long result dialog scrolls its buttons away");
+  }
+  if (!result || !result.cons) fail("a failed stage test rolled no consequence, so its strip could not be checked");
+  await q(() => document.querySelectorAll(".modal-overlay").forEach((x) => x.remove()));
+  clueTiles = await q(async () => {
+    const { getPrompts } = await import("../src/roller.js");
+    const p = getPrompts().describeClue({ set: { rank: "2", cards: [] }, card: { id: "c", rank: "2", suit: "D" }, oracle: "Demand · Abandoned · Insight", clue: "Anonymous phone call", isNew: true });
+    await new Promise((r) => setTimeout(r, 150));
+    const tiles = document.querySelectorAll(".modal-overlay .word-tile").length;
+    document.querySelector(".modal-actions .btn.ghost")?.click(); await p;
+    return tiles;
+  });
+  if (clueTiles !== 4) fail(`a new clue's prompts are drawn as ${clueTiles} tiles, not the clue and its three words`);
+
+  // 15, 16. Why?: the four endings drawn, and the guess worth drawn
+  await at("play");
+  await page.locator(".coach .btn", { hasText: "Why?" }).click();
+  await page.waitForTimeout(250);
+  const why = await q(() => ({ meters: document.querySelectorAll(".modal-overlay .ending-meter").length, worth: !!document.querySelector(".modal-overlay .guess-worth") }));
+  if (why.meters !== 4) fail(`Why? draws ${why.meters} of the four endings`);
+  if (!why.worth) fail("what a guess is worth now is a sentence with nothing drawn");
+  await q(() => document.querySelectorAll(".modal-overlay").forEach((x) => x.remove()));
+
+  // 4. the picker's primary is the scene the guide names
+  await q(() => { const s = JSON.parse(localStorage.getItem("citr:v1")); const m = s.careers[s.activeId].mystery; m.scene = null; m.threats = [];
+    m.clueSets = { 7: { rank: "7", cards: [{ id: "x1", rank: "7", suit: "S" }, { id: "x2", rank: "7", suit: "H" }], entries: [], description: "", prompts: [], truth: false, falseLead: false, truthCards: [] } };
+    localStorage.setItem("citr:v1", JSON.stringify(s)); });
+  await page.reload(); await at("play");
+  const pick = await q(() => ({ say: document.querySelector(".coach-say")?.textContent || "", bar: document.querySelector(".action-bar .btn")?.innerText || "" }));
+  if (/Turn the/.test(pick.say) && !/Truth/.test(pick.bar)) fail(`the guide says "${pick.say.slice(0, 30)}…" while the bar offers ${pick.bar.split("\n")[0]}`);
+
+  // 5. the oracle's idle tiles sit on one line
+  await at("oracle");
+  const tops = await q(() => { const ts = [...document.querySelectorAll("#screen .word-tile.blank")].map((t) => t.getBoundingClientRect().top);
+    return ts.length ? 1 + ts.filter((t, i) => i && Math.abs(t - ts[i - 1]) > 4).length : 0; });
+  if (tops !== 1) fail(`the idle oracle tiles wrap onto ${tops} lines`);
+
+  // 17. search fields carry a lens
+  for (const r of ["tables", "rules"]) {
+    await at(r);
+    if (!(await n("#screen .field .glyph-lens, #screen .search-field .glyph-lens"))) fail(`the ${r} search has no lens`);
+  }
+
+  // 2, 18. careers experience on one line; home attributes as one row of tiles
+  await at("careers");
+  const xp = await q(() => { const s = document.querySelector("#screen .xp-list .stacked"); if (!s) return 0;
+    const kids = [...s.children].map((k) => Math.round(k.getBoundingClientRect().top + k.getBoundingClientRect().height / 2));
+    const text = s.querySelector(":scope > span:not(.xp-tokens)"); return { mid: Math.max(...kids) - Math.min(...kids), lines: text ? text.getClientRects().length : 0 }; });
+  if (!xp || xp.mid > 6 || xp.lines > 1) fail(`experience on Careers breaks across lines: ${JSON.stringify(xp)}`);
+  await at("home");
+  const tiles = await q(() => [...document.querySelectorAll("#screen .inv-card .attr-mini")].map((t) => Math.round(t.getBoundingClientRect().top)));
+  if (tiles.length !== 3 || new Set(tiles).size !== 1) fail(`Home's attributes are ${tiles.length} tiles on ${new Set(tiles).size} lines`);
+
+  // 19. a tab slides in from the side it lives on
+  await page.locator(".tab", { hasText: "Clues" }).click(); await page.waitForTimeout(80);
+  const right = await q(() => document.querySelector("#screen").dataset.from || "");
+  await page.locator(".tab", { hasText: "Case" }).click(); await page.waitForTimeout(80);
+  const left = await q(() => document.querySelector("#screen").dataset.from || "");
+  if (right !== "right" || left !== "left") fail(`tabs arrive from "${right}" and "${left}", not from their own side`);
+
+  if (errors.length) fail(`console error in the fourth pass: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("the numbers answer a tap, the result reads at a glance, and nothing truncates");
+  await ctx.close();
 }
 
 // 8ae. the first paint is the icon, not a blank screen

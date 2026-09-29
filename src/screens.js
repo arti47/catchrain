@@ -52,9 +52,12 @@ export function renderHome(host) {
   const invCard = section(c.investigators.length > 1 ? `Investigator — ${inv.name}` : "Investigator",
     row("Name", inv.name),
     row("Trait", inv.trait || "—"),
-    row("Attributes", el("span", { class: "chip-list" }, ...DATA.ATTRIBUTES.map((a) =>
-      el("span", { class: `pill ${D.isStruck(inv, a.id) ? "loss" : ""}`.trim() }, attrPips(D.attrValue(inv, a.id), DATA.ATTRIBUTE_MAX),
-        `${a.name} ${D.attrValue(inv, a.id)}${D.isStruck(inv, a.id) ? " \u2715" : ""}`)))),
+    // One row of three small tiles, the sheet's own drawing in miniature.
+    el("div", { class: "attr-mini-row", role: "group", "aria-label": "Attributes" }, ...DATA.ATTRIBUTES.map((a) =>
+      el("span", { class: `attr-mini ${D.isStruck(inv, a.id) ? "struck" : ""}`.trim(),
+        "aria-label": `${a.name} ${D.attrValue(inv, a.id)}${D.isStruck(inv, a.id) ? ", struck" : ""}` },
+        el("b", { text: String(D.attrValue(inv, a.id)) }), attrPips(D.attrValue(inv, a.id), DATA.ATTRIBUTE_MAX),
+        el("span", { text: `${a.name}${D.isStruck(inv, a.id) ? " \u2715" : ""}` })))),
     row("Fatigue", el("span", { class: "stacked" }, fatigueMini(inv.fatigue), el("span", { text: `${inv.fatigue}/${DATA.FATIGUE_BOXES}` }))),
     row("Day", el("span", { class: "stacked" }, clockTrack(inv, 22), el("span", { text: `${inv.day} · clock ${inv.clock}/${DATA.CLOCK_SEGMENTS}` }))),
     el("div", { class: "btn-row" },
@@ -187,7 +190,7 @@ export function renderTables(host) {
     class: "field-clear", type: "button", "aria-label": "Clear the search", hidden: true,
     onclick: () => { search.value = ""; filter(); search.focus(); },
   }, el("span", { "aria-hidden": "true" }, "\u00d7"));
-  add(host, section("Find a row", el("div", { class: "field" }, search, clearBtn), count));
+  add(host, section("Find a row", el("div", { class: "field search-field" }, glyph("lens", 18), search, clearBtn), count));
 
   const tableBlock = (name, table, mark = null) => {
     const det = el("details", { class: "acc" });
@@ -333,7 +336,7 @@ export function renderRules(host) {
   add(host, el("h1", { text: "Rules" }),
     explain("Every rule the app automates, in the app's own words and in the order play uses them. Search opens the matching entries. Where a screen automates something, it links back here."));
   const search = el("input", { class: "input", type: "search", placeholder: "Search the rules", "aria-label": "Search the rules" });
-  add(host, section("Search", search));
+  add(host, section("Search", el("div", { class: "field search-field" }, glyph("lens", 18), search)));
   const wrap = el("div", {});
   for (const group of RULES_LIBRARY) {
     const inner = el("div", {});
@@ -553,7 +556,8 @@ export function renderCareers(host) {
     add(list, el("div", { class: "card" },
       row(car.investigators.length > 1 ? "Party" : "Investigator", car.investigators.map((i) => i.name || "unnamed").join(", ")),
       row("Cases closed", String(car.history.length)),
-      row("Experience", el("span", { class: "xp-list" }, ...car.investigators.map((i) =>
+      // Stacked under its label: tokens and a name need the card's whole width.
+      defRow("Experience", el("span", { class: "xp-list" }, ...car.investigators.map((i) =>
         el("span", { class: "stacked" }, xpTokens(i.xp), el("span", { text: `${i.name || "unnamed"} ${i.xp} XP` }))))),
       car.id === (c && c.id) ? row("Playing", el("span", { class: "pill ok" }, glyph("seal", 14), "Current")) : null,
       el("div", { class: "btn-row" },

@@ -7,7 +7,7 @@ import { cardName, rankName } from "./deck.js";
 import { Settings } from "./settings.js";
 import { keepOracle } from "./framing.js";
 
-import { drawFigure, jokerCard, glyph, wordTiles } from "./art.js";
+import { drawFigure, jokerCard, glyph, wordTiles, eventGlyph, consequenceScale } from "./art.js";
 import { Store } from "./store.js";
 export function installPrompts() {
   setPrompts({
@@ -60,10 +60,16 @@ export function installPrompts() {
       }
       return await promptModal({
         title: isNew ? `New clue — the ${rankName(set.rank)}` : `The ${rankName(set.rank)} get clearer`,
-        message: `${cardName(card)} drawn. Prompts: ${clue} — ${oracle}. Write what this is, or leave it blank for now.`,
+        message: `${cardName(card)} drawn. Write what this is, or leave it blank for now.`,
         placeholder: isNew ? "e.g. invoice found at the butcher shop" : "e.g. one of the doors is taped shut",
         multiline: true,
-        figure,
+        // The prompts laid out as the oracle lays out its words: the clue first,
+        // then the three that colour it.
+        figure: el("div", {}, figure,
+          el("p", { class: "small muted prompt-label", text: "Prompts" }),
+          el("div", { class: "word-tiles prompt-tiles", role: "list" },
+            el("span", { class: "word-tile clue-tile", role: "listitem", text: clue }),
+            ...String(oracle).split(" \u00b7 ").map((w) => el("span", { class: "word-tile", role: "listitem", text: w })))),
       });
     },
 
@@ -143,11 +149,18 @@ export function eventText(e) {
   }
 }
 
+const consequenceStrip = (total) => { const s = consequenceScale(total); s.classList.add("consequence"); return s; };
+
 export function eventList(events) {
   const ul = el("ul", { class: "events" });
   for (const e of events) {
     const text = eventText(e);
-    if (text) add(ul, el("li", { text }));
+    if (!text) continue;
+    // Each line carries the mark of what it is about; a consequence carries its
+    // own strip, with the 9 that ends the case, right under the words.
+    add(ul, el("li", {}, eventGlyph(e.t),
+      el("span", { class: "event-text" }, el("span", { text }),
+        e.t === "consequence" && typeof e.total === "number" ? consequenceStrip(e.total) : null)));
   }
   return ul.children.length ? ul : null;
 }

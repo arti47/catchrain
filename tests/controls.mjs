@@ -25,6 +25,7 @@ export const TAPPABLE_ALL = [
   "#screen .section-nav a",
   ".tab",
   ".action-bar .btn",
+  "#resource-header button.res",
   ".to-top",
   "#undo-btn",
   "#theme-btn",

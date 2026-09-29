@@ -14,7 +14,7 @@ import { Store } from "./store.js";
 import { Settings } from "./settings.js";
 import { WIZARD_STEPS, wizardStep } from "./wizard.js";
 import { btn, modal, section, defRow } from "./ui.js";
-import { glyph } from "./art.js";
+import { glyph, deckStack, fatigueMini, resultPips, consequenceReach } from "./art.js";
 
 const go = (name) => import("./router.js").then((m) => m.go(name));
 
@@ -138,22 +138,22 @@ export function nextStep(currentRoute) {
   const lastSegment = (inv.clock || 0) >= CLOCK_SEGMENTS - 1;
 
   if (inv.fatigue >= FATIGUE_BOXES - 1 || D.unstruck(inv).length < 3) {
-    return { id: "pick-rest", route: "play", press: "Rest", tone: "warn",
+    return { id: "pick-rest", route: "play", press: "Rest scene", tone: "warn",
       say: "Rest before anything else.",
       why: `${inv.fatigue >= FATIGUE_BOXES - 1 ? `At ${inv.fatigue} of ${FATIGUE_BOXES} fatigue the next consequence strikes out your best attribute. ` : ""}${D.unstruck(inv).length < 3 ? "A struck attribute cannot be used at all until you rest. " : ""}A rest clears 1d6 fatigue and every attribute strike, and gives your signature keyword back. It costs one card off the clue deck and one segment of the day.` };
   }
   if (lastSegment && owed.length) {
-    return { id: "pick-obligation", route: "play", press: "Obligation",
+    return { id: "pick-obligation", route: "play", press: "Obligation scene",
       say: `Attend "${owed[0].text}" — the day turns after this scene.`,
       why: "Every obligation you have not attended when the day turns costs you a fatigue. Attending is a scene like any other: it strikes the obligation until tomorrow and costs one card off the clue deck." };
   }
   if (best && best.cards.length >= 2) {
-    return { id: "pick-truth", route: "play", press: "Truth",
+    return { id: "pick-truth", route: "play", press: "Truth scene",
       say: `Turn the ${best.rank}s over — ${n(best.cards.length, "card", "cards")} means ${n(best.cards.length, "truth card", "truth cards")} ruled out.`,
       why: `A truth scene reveals as many face cards as the set has cards, and those cards can never be the answer — that is how you stop guessing blind. It also makes the set joker-proof, so a false lead can never burn it. ${read.guess}` };
   }
   if (best && read.pressure.length) {
-    return { id: "pick-truth-pressure", route: "play", press: "Truth",
+    return { id: "pick-truth-pressure", route: "play", press: "Truth scene",
       say: `Turn the ${best.rank}s over while you still can.`,
       why: `${read.pressure.join("; ")}. Each truth scene rules a card out for good. ${read.guess}` };
   }
@@ -268,13 +268,17 @@ export function explainStep(step = nextStep()) {
   if (m && !m.solved) {
     const read = readiness(m);
     const line = (k, v) => defRow(k, el("p", { class: "small", text: v }));
+    // Each ending drawn as how near it is, beside the words that say so.
+    const ending = (k, art, v) => defRow(k, el("div", { class: "ending" }, el("span", { class: "ending-meter" }, art), el("p", { class: "small", text: v })));
+    const topThreat = Math.max(0, ...D.activeThreats(m).map((t) => t.level));
     add(body, section("How this ends",
       el("p", { class: "small", text: "Four ways out. Only the first one is yours to choose \u2014 the other three arrive whether you are ready or not, which is why it is worth stopping while the stopping is good." }),
-      line("You stop", "Resolve the mystery at the end of any scene. This is the ending you want."),
-      line("The deck runs out", `${read.deck} clue cards left. Rest and obligation scenes each burn one.`),
-      line("A consequence", `9 or more on the consequences table ends it on the spot. Danger is ${m.danger}, and a threat adds its level to that roll.`),
-      line("Fatigue", `${inv.fatigue} of ${FATIGUE_BOXES}. A full track strikes out an attribute and throws you into the escape stage \u2014 it does not end the case, but it is how cases end.`),
-      el("p", { class: "small muted", text: read.guess })));
+      ending("You stop", glyph("seal", 22), "Resolve the mystery at the end of any scene. This is the ending you want."),
+      ending("The deck runs out", deckStack(read.deck, "Clue deck"), `${read.deck} clue cards left. Rest and obligation scenes each burn one.`),
+      ending("A consequence", consequenceReach(topThreat), `9 or more on the consequences table ends it on the spot. Danger is ${m.danger}, and a threat adds its level to that roll.`),
+      ending("Fatigue", fatigueMini(inv.fatigue), `${inv.fatigue} of ${FATIGUE_BOXES}. A full track strikes out an attribute and throws you into the escape stage \u2014 it does not end the case, but it is how cases end.`),
+      el("div", { class: "guess-worth" }, resultPips(Math.round(read.expected), `Guessing now, about ${read.expected} of 3 right`),
+        el("p", { class: "small muted", text: read.guess }))));
   }
 
   modal({
