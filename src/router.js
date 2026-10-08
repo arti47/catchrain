@@ -2,7 +2,7 @@
 
 import { el, add, clear } from "./core.js";
 import { coachBar } from "./coach.js";
-import { edgeFade, centreInScroller } from "./ui.js";
+import { edgeFade, centreInScroller, attachLinks, xlink, ruleLink } from "./ui.js";
 
 const routes = new Map();
 /**
@@ -31,6 +31,53 @@ export const TABS = [
 ];
 
 export function register(name, def) { routes.set(name, def); }
+/** What a route is called, for a link that names where it goes. */
+export const routeTitle = (name) => (routes.get(name) || {}).title || name;
+
+/**
+ * Where each screen's parts lead: to the rule a section automates, and to the
+ * screen that owns state a section only shows. Kept in one table here, applied
+ * after every render, so a screen written later is linked the same way and the
+ * guard can read one list. A section that is not on screen right now is skipped.
+ */
+const LINKS = {
+  home: () => ({
+    "The problem": [xlink("case-sheet", "The whole mystery sheet"), xlink("clues", "The clues")],
+    "Rivals": [ruleLink("rivals")],
+    "Closed cases": [xlink("careers", "Your career")],
+  }),
+  "case-sheet": () => ({
+    "Danger and the scene": [xlink("play", "Go to the scene")],
+    "Clue sets": [xlink("clues", "Open the clues")],
+    "The truth": [xlink("clues", "The case board"), xlink("solve", "The solve")],
+    "Threats": [xlink("play", "Face them in the scene")],
+    "Rivals": [xlink("home", "Rivals on the case screen")],
+    "The decks": [xlink("clues", "The decks on the clues screen")],
+  }),
+  sheet: () => ({
+    "Attributes": [ruleLink("test")],
+    "Fatigue and time": [ruleLink("fatigue"), ruleLink("clock")],
+    "Keywords": [ruleLink("keywords")],
+    "Obligations": [ruleLink("obligation")],
+  }),
+  journal: () => ({ "How to read it": [ruleLink("solo-record")] }),
+  play: () => ({
+    "Stages": [ruleLink("stages")],
+    "The problem": [xlink("case-sheet", "The whole mystery sheet")],
+    "Threats": [ruleLink("threats")],
+    "Keywords ready": [xlink("sheet", "Your keywords on the sheet"), ruleLink("keywords")],
+    "Choose a scene": [ruleLink("scenes")],
+  }),
+  clues: () => ({
+    "Where the case stands": [ruleLink("truths"), xlink("solve", "The solve")],
+    "The decks": [ruleLink("clues"), ruleLink("jokers")],
+  }),
+  solve: () => ({ "What you know": [xlink("clues", "The case board")], "Your three guesses": [ruleLink("solve")] }),
+  oracle: () => ({ "Yes or no": [ruleLink("solo-questions")] }),
+  careers: () => ({ "Experience": [ruleLink("career")] }),
+  wizard: () => ({ "Step": [ruleLink("investigator")] }),
+  mystery: () => ({ "The problem": [ruleLink("problem")], "Difficulty": [ruleLink("difficulty")] }),
+};
 export const route = () => (location.hash.replace(/^#\//, "").split("?")[0] || "home");
 export const go = (name) => { location.hash = `#/${name}`; };
 
@@ -95,6 +142,7 @@ export async function render() {
   // added later cannot quietly ship without it.
   add(host, coachBar(name));
   const out = await def.render(host);
+  if (LINKS[name]) attachLinks(host, LINKS[name]());
   pairHeading(host);
   if (out && out.action) {
     host.classList.add("has-action");

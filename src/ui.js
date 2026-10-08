@@ -2,6 +2,7 @@
 // No native alert/confirm/prompt anywhere in the app.
 
 import { el, add, clear } from "./core.js";
+import { RULES_LIBRARY } from "./library.js";
 
 let openModal = null;
 
@@ -349,3 +350,31 @@ export const emptyState = (text, actionLabel, onAction, art = null) =>
   el("div", { class: "empty" }, art, el("p", { text }), actionLabel ? btn(actionLabel, onAction, "primary") : null);
 
 export { clear };
+
+// --- Links between the parts of the app --------------------------------------
+/**
+ * A link to another part of the app. A real link, not a button that navigates:
+ * one tap, the browser's back button returns, and it reads as "this goes
+ * somewhere" rather than "this does something".
+ */
+export const xlink = (route, label) => el("a", { class: "xlink", href: `#/${route}` }, el("span", { text: label }));
+
+/** The rules library entry for a mechanic, named as the library names it. */
+export function ruleLink(id) {
+  const entry = RULES_LIBRARY.flatMap((g) => g.entries).find((e) => e.id === id);
+  return entry ? xlink(`rules?rule=${id}`, `The rule: ${entry.name}`) : null;
+}
+
+/**
+ * Put links at the foot of the sections they belong to, matched by title. Done
+ * once at the end of a screen, so a section's own code is left alone and a link
+ * cannot quietly lose the section it belongs to without the guard noticing.
+ */
+export function attachLinks(host, map) {
+  const cards = [...host.querySelectorAll("section.card")];
+  for (const [title, links] of Object.entries(map)) {
+    const card = cards.find((c) => (c.querySelector(".card-title")?.textContent || "").trim().startsWith(title));
+    const kept = links.filter(Boolean);
+    if (card && kept.length) add(card, el("div", { class: "xlinks" }, ...kept));
+  }
+}

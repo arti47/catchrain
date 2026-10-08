@@ -1,12 +1,15 @@
 // A first session, step by step: what to tap and why the game asks for it.
 
 import { el, add } from "./core.js";
-import { section, btn, explain } from "./ui.js";
+import { section, btn, explain, xlink } from "./ui.js";
 import { go } from "./router.js";
 import { glyph } from "./art.js";
 
 // Each step's mark, in the order the steps are played.
 const MARKS = ["seal", "folder", "die", "investigation", "card", "threat", "dawn", "truth", "chairs", "reveal"];
+// …and the screen each step is played on.
+const PLACES = [["wizard", "Create an investigator"], ["mystery", "Set up a mystery"], ["play", "Play"], ["play", "Play"],
+  ["clues", "Clues"], ["play", "Play"], ["play", "Play"], ["clues", "Clues"], ["home", "The case"], ["solve", "The solve"]];
 
 const STEPS = [
   ["Make your investigator", [
@@ -72,7 +75,8 @@ export function renderTutorial(host) {
   STEPS.forEach(([title, paras], i) => {
     const det = el("details", { class: "acc route-step", open: i === 0 ? true : null });
     add(det, el("summary", {}, glyph(MARKS[i] || "drop", 18), el("span", { text: `${i + 1}. ${title}` })),
-      el("div", { class: "acc-body" }, ...paras.map((p) => el("p", { class: "small", text: p }))));
+      el("div", { class: "acc-body" }, ...paras.map((p) => el("p", { class: "small", text: p })),
+        PLACES[i] ? el("div", { class: "xlinks" }, xlink(PLACES[i][0], `Go: ${PLACES[i][1]}`)) : null));
     add(wrap, det);
   });
   add(host, wrap);

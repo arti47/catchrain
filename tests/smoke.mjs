@@ -2799,6 +2799,77 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8ah. every part that shows another part's state leads there, and every rule leads to its screen
+{
+  const { ctx, page, errors } = await newPage();
+  const q = (fn, arg) => page.evaluate(fn, arg);
+  const at = async (route, ms = 350) => { await page.goto(`${base}#/${route}`); await page.waitForTimeout(ms); };
+  const hrefs = () => q(() => [...document.querySelectorAll("#screen a.xlink")].map((a) => a.getAttribute("href")));
+  await seed(page, base, "stress", { career: true, rivals: true });
+  const { RULES_LIBRARY } = await q(async () => ({ RULES_LIBRARY: (await import("../src/library.js")).RULES_LIBRARY.flatMap((g) => g.entries.map((e) => e.id)) }));
+  const ruleIds = new Set(RULES_LIBRARY);
+
+  // 1. the screens that automate a rule link back to it, and only to rules that exist
+  const wantRule = { play: ["stages", "threats", "keywords"], clues: ["clues", "truths", "jokers"], sheet: ["fatigue", "clock", "keywords", "obligation"],
+    careers: ["career"], home: ["rivals"], journal: ["solo-record"], oracle: ["solo-questions"] };
+  for (const [route, ids] of Object.entries(wantRule)) {
+    await at(route);
+    const got = (await hrefs()).filter((h) => h.startsWith("#/rules?rule=")).map((h) => h.split("=")[1]);
+    const missing = ids.filter((id) => !got.includes(id));
+    if (missing.length) fail(`${route} does not link to its rule${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`);
+    const bad = got.filter((id) => !ruleIds.has(id));
+    if (bad.length) fail(`${route} links to rules that do not exist: ${bad.join(", ")}`);
+  }
+  // …and following one opens that entry
+  await at("play");
+  const stagesLink = page.locator('#screen a.xlink[href="#/rules?rule=stages"]').first();
+  if (await stagesLink.count()) { await stagesLink.click(); await page.waitForTimeout(400); }
+  if (!(await q(() => !!document.querySelector("#rule-stages[open]")))) fail("following a rule link does not open that rule");
+
+  // 2. the mystery sheet leads to where each part of it is played
+  await at("case-sheet");
+  const cs = await hrefs();
+  for (const r of ["#/clues", "#/play", "#/home"]) if (!cs.includes(r)) fail(`the mystery sheet has no way to ${r}`);
+  // 3. Home: the problem to the whole sheet, the clue sets to Clues
+  await at("home");
+  const hm = await hrefs();
+  for (const r of ["#/case-sheet", "#/clues"]) if (!hm.includes(r)) fail(`Home has no way to ${r}`);
+  // 4. Play: the problem to the sheet, the keywords to the investigator
+  await at("play");
+  const pl = await hrefs();
+  for (const r of ["#/case-sheet", "#/sheet"]) if (!pl.includes(r)) fail(`Play has no way to ${r}`);
+
+  // 5. every rule names the screen that does it, and that screen exists
+  await at("rules");
+  const rl = await q(() => [...document.querySelectorAll("#screen details.acc[id^='rule-']")].map((d) => ({ id: d.id, href: d.querySelector("a.xlink")?.getAttribute("href") || "" })));
+  const routes = (await import("./routes.mjs")).ROUTES;
+  const noLink = rl.filter((r) => !r.href).map((r) => r.id);
+  const dead = rl.filter((r) => r.href && !routes.includes(r.href.replace(/^#\//, "").split("?")[0])).map((r) => r.id);
+  if (noLink.length) fail(`${noLink.length} rules lead nowhere in the app: ${noLink.slice(0, 4).join(", ")}…`);
+  if (dead.length) fail(`rules link to screens that do not exist: ${dead.join(", ")}`);
+
+  // 6. the tutorial's steps lead to their screens
+  await at("tutorial");
+  const tu = await q(() => [...document.querySelectorAll("#screen .route-step")].map((s) => s.querySelector("a.xlink")?.getAttribute("href") || ""));
+  if (tu.length !== 10 || tu.some((h) => !h)) fail(`${tu.filter(Boolean).length} of ${tu.length} tutorial steps lead to their screen`);
+
+  // 7. the story leads back to where its lines were made
+  await q(() => { const s = JSON.parse(localStorage.getItem("citr:v1")); const c = s.careers[s.activeId];
+    c.journal.push({ id: "j1", ts: Date.now(), kind: "scene", text: "The shutters were down.", day: 99, scene: "investigation" },
+      { id: "j2", ts: Date.now(), kind: "oracle", text: "Asked the oracle: Hide · old", day: 99, scene: "investigation" });
+    localStorage.setItem("citr:v1", JSON.stringify(s)); });
+  await page.reload();
+  await at("journal");
+  const jr = await q(() => ({ scenes: document.querySelectorAll("#screen .story-scene").length, linked: document.querySelectorAll('#screen .story-scene a.xlink[href="#/play"]').length,
+    oracles: document.querySelectorAll("#screen .story-oracle").length, oracleLinked: document.querySelectorAll('#screen .story-oracle a.xlink[href="#/oracle"]').length }));
+  if (!jr.scenes || jr.linked !== jr.scenes) fail(`${jr.linked} of ${jr.scenes} scenes in the story lead back to Play`);
+  if (!jr.oracles || jr.oracleLinked !== jr.oracles) fail(`${jr.oracleLinked} of ${jr.oracles} oracle lines lead to the Oracles`);
+
+  if (errors.length) fail(`console error in the links pass: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("every part that shows another's state leads there, and every rule leads to its screen");
+  await ctx.close();
+}
+
 // 8ae. the first paint is the icon, not a blank screen
 {
   const html = (await import("node:fs")).readFileSync(new URL("../index.html", import.meta.url), "utf8");

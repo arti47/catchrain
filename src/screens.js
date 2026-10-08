@@ -11,8 +11,8 @@ import { RULES_LIBRARY } from "./library.js";
 import { resetDrafts, expressStart } from "./wizard.js";
 import { recapCard } from "./coach.js";
 import { Updates } from "./updates.js";
-import { section, row, defRow, btn, seg, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState, dieFace } from "./ui.js";
-import { go } from "./router.js";
+import { xlink, section, row, defRow, btn, seg, pill, explain, modal, promptModal, confirmModal, chooseModal, showToast, actionBar, emptyState, dieFace } from "./ui.js";
+import { go, routeTitle } from "./router.js";
 
 import { illustration, glyph, resultPips, yesNoScale, caseFile, dangerGauge, wordTiles, costPips, d66Code as d66Dice,
   flatDie, attrPips, fatigueMini, xpTokens, withGlyph, distribution, diceArt } from "./art.js";
@@ -332,6 +332,18 @@ const RULE_GLYPHS = {
 /** Each kind of genre table, marked with what it holds. */
 const TABLE_GLYPHS = { locations: "investigation", objects: "parcel", clues: "card", keywords: "tag", obligations: "obligation", threats: "threat" };
 
+/** The screen that does what each rule says: the other end of every rule link. */
+const RULE_HOMES = {
+  setup: "clues", problem: "case-sheet", investigator: "sheet",
+  "solo-cycle": "play", "solo-framing": "play", "solo-questions": "oracle", "solo-record": "journal",
+  scenes: "play", clock: "sheet", rest: "play", obligation: "sheet",
+  "investigation-roll": "play", stages: "play", test: "play", consequences: "play", fatigue: "sheet", threats: "play",
+  clues: "clues", jokers: "clues", truths: "clues", keywords: "sheet",
+  end: "play", solve: "solve",
+  difficulty: "mystery", career: "careers", rivals: "home",
+  coop: "home", "coop-turns": "play", "coop-threats": "play", "coop-narration": "play",
+};
+
 export function renderRules(host) {
   add(host, el("h1", { text: "Rules" }),
     explain("Every rule the app automates, in the app's own words and in the order play uses them. Search opens the matching entries. Where a screen automates something, it links back here."));
@@ -342,9 +354,11 @@ export function renderRules(host) {
     const inner = el("div", {});
     for (const entry of group.entries) {
       const det = el("details", { class: "acc", id: `rule-${entry.id}` });
+      const home = RULE_HOMES[entry.id];
       add(det, el("summary", { text: entry.name }),
         el("div", { class: "acc-body" }, ...entry.text.map((t) => el("p", { class: "small", text: t })),
-          el("p", { class: "small muted", text: entry.cite })));
+          el("p", { class: "small muted", text: entry.cite }),
+          home ? el("div", { class: "xlinks" }, xlink(home, `Where the app does this: ${routeTitle(home)}`)) : null));
       add(inner, det);
     }
     add(wrap, section(withGlyph(RULE_GLYPHS[group.name] || "card", group.name, 14), inner));
@@ -431,14 +445,17 @@ export function renderJournal(host) {
         }
         // A scene's first line carries the mark of what kind of scene it was.
         if (e.scene && e.scene !== scene && DATA.SCENE_TYPES.some((t) => t.id === e.scene)) {
-          add(listHost, el("p", { class: "story-scene" }, glyph(e.scene, 16),
-            el("span", { text: DATA.SCENE_TYPES.find((t) => t.id === e.scene).name })));
+          // The scene's mark is also the way back to where scenes are played.
+          add(listHost, el("p", { class: "story-scene" },
+            el("a", { class: "xlink", href: "#/play", "aria-label": `${DATA.SCENE_TYPES.find((t) => t.id === e.scene).name} scene — go to Play` },
+              glyph(e.scene, 16), el("span", { text: DATA.SCENE_TYPES.find((t) => t.id === e.scene).name }))));
         }
         scene = e.scene || scene;
         const prose = e.kind !== "oracle";
         add(listHost, prose
           ? el("p", { class: `story-line${opened ? "" : " opens"}`, text: e.text })
-          : el("p", { class: "story-oracle mono small" }, glyph("die", 14), el("span", { text: e.text })));
+          : el("p", { class: "story-oracle mono small" },
+              el("a", { class: "xlink bare", href: "#/oracle", "aria-label": "Ask the oracles again" }, glyph("die", 14)), el("span", { text: e.text })));
         if (prose) opened = true;
       }
       if (!all.length) add(listHost, el("p", { class: "muted small", text: "Nothing written yet. Whatever you write in a scene, and every answer the oracle gives, lands here." }));
