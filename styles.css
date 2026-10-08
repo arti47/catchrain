@@ -986,12 +986,16 @@ body:has(.toast-action) .to-top { opacity: 0; pointer-events: none; }
   bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 14px); z-index: 70;
   background: var(--ink); color: var(--paper); padding: .55rem .9rem; border-radius: 999px;
   max-width: 90vw; font-size: .85rem; box-shadow: var(--shadow-2);
-  transition: transform .18s cubic-bezier(.2, .8, .3, 1);
+  /* Hidden means gone: sliding 150% of its own height was less than the height
+     it is lifted above the dock, so a "hidden" toast stayed on the Next button. */
+  opacity: 0; visibility: hidden;
+  transition: transform .18s cubic-bezier(.2, .8, .3, 1), opacity .18s ease, visibility 0s linear .18s;
   pointer-events: none;
 }
-.toast.show { transform: translateX(-50%) translateY(0); }
-body:has(.action-bar) .toast { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 84px); }
-body:has(.action-bar) .toast-action { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 82px); }
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; transition-delay: 0s; }
+/* Above the dock — guide line and Next button — by its measured height. */
+body:has(.action-bar) .toast { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + var(--dock, 84px) + 10px); }
+body:has(.action-bar) .toast-action { bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + var(--dock, 82px) + 8px); }
 
 .toast-action {
   position: fixed; left: var(--gutter); right: var(--gutter); z-index: 71;

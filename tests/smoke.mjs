@@ -3083,6 +3083,36 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8aj. a toast goes away, and never sits on the button it is about
+// A toast used to "hide" by sliding down 150% of its own height — less than the
+// height it was lifted above the dock — so it stayed on the Next button for good.
+{
+  const { ctx, page, errors } = await newPage(390);
+  for (const fixture of ["fresh", "mid-session"]) {
+    await seed(page, base, fixture);
+    await page.goto(`${base}#/play`);
+    await page.waitForTimeout(400);
+    await page.evaluate(async () => (await import("../src/ui.js")).showToast("Everything erased."));
+    await page.waitForTimeout(300);
+    const shown = await page.evaluate(() => {
+      const t = document.querySelector("#toast").getBoundingClientRect();
+      const dock = document.querySelector("#action-host").getBoundingClientRect();
+      return { overlap: Math.round(t.bottom - dock.top), h: t.height };
+    });
+    if (shown.overlap > 0) fail(`on ${fixture} the toast covers the dock by ${shown.overlap}px`);
+    await page.waitForTimeout(3800);
+    const gone = await page.evaluate(() => {
+      const t = document.querySelector("#toast"), cs = getComputedStyle(t), r = t.getBoundingClientRect();
+      const visible = cs.visibility !== "hidden" && Number(cs.opacity) > 0.05 && r.top < innerHeight && r.bottom > 0;
+      return visible;
+    });
+    if (gone) fail(`on ${fixture} the toast is still on screen 4 seconds later`);
+  }
+  if (errors.length) fail(`console error in the toast check: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("a toast clears the dock and goes away");
+  await ctx.close();
+}
+
 // 10. the two clean slates: put down the case, and erase everything
 {
   const { ctx, page, errors } = await newPage();
