@@ -673,6 +673,13 @@ this whole document exists to prevent.
    watched failing first.
 6. Copy that states a mechanic is either enforced in the same change or marked
    as guidance. Every flag has a setter, a reader and a clearer.
+7. **Faithful to the rules, always.** No visual, UX or tooling change may alter
+   what the engine does against the book. Every pass ends with the rule-bearing
+   harnesses green (`npm test`, smoke, walk, the playtest matrix) and any rule a
+   change touches re-read against `docs/rules/` and §6.
+8. **Reporting to the owner.** Progress is reported as a percentage only — 5%,
+   10%, … 55%, … 100% — not a narration of each step; the full summary comes
+   once, at 100%.
 
 ## 9. Changelog
 
