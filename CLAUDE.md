@@ -38,7 +38,9 @@ later work does not re-open them.
    closes on the last one. There is no push economy, so manual entry is single-stage.
 4. **Expansions — none supplied.**
 5. **Device — phone first**, comfortable at 320px, centred to 720px on a desktop.
-6. **Theme — follows the system**, with an in-app override and a text-size control.
+6. **Theme — night by default**, with an in-app override (light, night, system) and a
+   text-size control. The game is played late and in the rain; the case reads best on
+   wet asphalt.
 7. **Many careers, not one.** The book's career rules make multiple mysteries a
    published rule, so the career list is in the schema from day one.
 8. **No sound and no haptics.** Taken deliberately rather than by omission: this
@@ -352,7 +354,7 @@ document at the top of the screen, so `.app-header` takes `env(safe-area-inset-t
 and everything sticky under it allows for the same.
 
 **Every part that shows another part's state leads there.** One table in
-`router.js` (`LINKS`) puts links at the foot of the sections they belong to,
+`router.js` (`LINKS`) puts links inside the **More** of the sections they belong to,
 applied after every render: a section that automates a rule links to it in the
 library, and a section that only shows state another screen owns links to that
 screen (the mystery sheet to Clues, Play and Home; Home's problem to the sheet;
@@ -366,23 +368,46 @@ thing the screen is asking you to do — on the scene picker, the scene the guid
 recommends, so the screen never makes two suggestions at once; an option you have picked is marked, not
 painted as an action (`ui.seg`, a radiogroup; `.btn.chosen` for the rest).
 Feature flags are switches whose whole row is the target. A row that scrolls
-sideways — the numbers, the section nav, the stage rail — scrolls the item you
-are on into its own middle (`ui.centreInScroller`, never `scrollIntoView`, which
-would drag the page with it) and fades only the edge it is actually cutting.
+sideways fades only the edge it is actually cutting (`ui.edgeFade`).
 
-**The guide is a card where you play and a line where you read.** Full on the
-surfaces the game is played on; one tappable line on the ones you go to in order
-to look something up, opened for as long as the app is open. On a blank app it
-is the line too, because the onboarding card is already saying the same thing at
-length. It is silent on the solve, which walks you through itself. In a wizard
-it names the current step's button, read from `wizard.WIZARD_STEPS` — the same
-list the action bar reads — so it cannot name a control that is not on the
-screen. A section nav offers only the sibling routes that have something in
-them yet (`register(…, { empty })`). The numbers tuck
-away as you scroll into a page of reading and come back the moment you scroll up
-or one of them changes, so four fixed bars are not a third of a small phone.
-"What this screen does" is a `?` beside the heading, paired there by the router
-so a screen written later cannot get it wrong.
+**The Table and the Moment.** Three tabs — **Table** (play), **Notebook**
+(the journal, story first) and **Book** (rules, tables and oracles behind one
+three-way switch) — and Settings behind a gear in the header. Everything else
+is a *drawer* off the Table: the case, the investigator, the clues, the mystery
+sheet, the solve and both wizards open from something on the Table and carry a
+**‹ Table** link back (`a.drawer-back`); Careers and the tutorial open from the
+Book and lead back to it. There are no sub-tab bars. The Table itself is a case
+strip (the genre's glyph, the case number and the premise, leading to the
+mystery sheet) over a *desk* of four objects — the investigator, the clue deck,
+the clock and danger — each a tap into its drawer or its rule; the numbers bar
+is left off the Table, because the desk is the numbers, and everywhere else it
+is drawings with figures and no words. The scene picker is four tiles, the
+recommended one marked. A roll, a scene opening, the day's turn and the solve
+are **Moments**: dialogs that take the whole screen, with the outcome set as one
+large word, events dealt in one after another like cards, the dawn on its own
+tone, and the reveal on black. The investigator is a card that turns over
+(attributes and fatigue on the front, keywords and obligations on the back);
+clue sets are pinned to a corkboard.
+
+**A word budget.** A section shows its title, its drawing and its controls;
+its helper prose and its links fold under one **More** (`ui.foldHelp`,
+`attachLinks`), everywhere but the Book, which is reading matter. A blank app is
+three illustrated panels and one button.
+
+**The guide is one line beside the Next button.** It sits in the dock with the
+action bar, just above the button it names, and opens into the full card
+(Why?, the endings, what a guess is worth) only when tapped. On a first session
+the Next button itself is pointed at until the first case closes. It is silent
+on the solve, which walks you through itself. In a wizard it names the current
+step's button, read from `wizard.WIZARD_STEPS` — the same list the action bar
+reads — so it cannot name a control that is not on the screen. The dock grows
+with what the guide says (a warning adds a line, an opened guide a card), so
+the router measures it into `--dock` and the screen is padded by that rather
+than a guess: the foot of a page always scrolls clear of it, and anything
+scrolled into view clears a toast as well. The numbers tuck away as you scroll
+into a page of reading and come back the moment you scroll up or one of them
+changes. "What this screen does" is a `?` beside the heading, paired there by
+the router so a screen written later cannot get it wrong.
 
 **An installed app has to be told.** A home-screen install is resumed from the
 app switcher, not loaded, so nothing looks for a new version unless the app
@@ -425,7 +450,7 @@ in the README rather than hidden behind an encoding.
 | Module | Responsibility |
 |---|---|
 | `src/core.js` | Constants, DOM helpers (incl. the null-safe `add`), crypto dice, d66. No imports. |
-| `src/ui.js` | Modals, toasts (including the answerable `actionToast`), `explain()`, `actionBar()`, the segmented control `seg()`, the tapped-dice picker `pickDice()`, and the sideways-scroller helpers `edgeFade()` and `centreInScroller()`. |
+| `src/ui.js` | Modals, toasts (including the answerable `actionToast`), `explain()`, `actionBar()`, the segmented control `seg()`, the tapped-dice picker `pickDice()`, and the sideways-scroller helper `edgeFade()`, and the linking and folding helpers `xlink`, `ruleLink`, `attachLinks`, `foldHelp`. |
 | `src/rules.js` | Pure lookups over `data.js`, table rolls, the content filter hook. |
 | `src/derived.js` | Derivations over investigator and mystery state; normalization and migration. |
 | `src/settings.js` | Toggles, all off unless the fiction's default is on. |
@@ -446,7 +471,7 @@ in the README rather than hidden behind an encoding.
 | `src/screens.js` | Home, tables, oracles, rules, journal, careers, settings. |
 | `src/library.js` | The rules-library content. |
 | `src/tutorial.js` | The first-session walkthrough. |
-| `src/router.js` | Routing, the tab bar, the section nav, live-state badges. |
+| `src/router.js` | Routing, the three tabs, drawers and the Book switch, the dock and its measured height, live-state badges. |
 | `src/updates.js` | Keeping an installed app current: registration, the checks, the update toast. |
 | `src/main.js` | Boot: storage, theme, prompts, routes, service worker. |
 
@@ -695,6 +720,7 @@ this whole document exists to prevent.
 
 | Date | Change | Verification | Cache |
 |---|---|---|---|
+| 2026-10-08 | **The Table and the Moment** — the interface rethought, the engine untouched. Three tabs (Table · Notebook · Book) and a gear; every other screen a drawer with a way back, no sub-tab bars. The Table is a case strip over a desk of four drawn objects; the scene picker is four tiles. Rolls, scene openings, the day's turn and the solve are full-screen Moments: the outcome as one big word, events dealt like cards, the dawn and the reveal on their own ground. The guide is one line above the Next button, which a first session points at; the numbers are drawings with no labels; helper prose and links fold under one **More**; the investigator is a card that turns over; clue sets sit on a corkboard; a blank app is three illustrated panels; Settings is Game rules and Look with the rest folded; night is the default theme. Found on the way: a guide that warned or was opened grew the dock over the foot of the page (now measured into `--dock`, guard watched failing), and a toast could cover the button you scrolled to; `centreInScroller` lost its last reader and went. | one smoke block of 30 checks (8ai), watched failing; the dock guard watched failing; ~60 older smoke checks rewritten to the new shell without dropping a rule check; unit 69; interaction, walk, scan, deploy path; probe 15 routes at 44px, 0 overflow; solo, guided, manual-dice and co-op playtests; eyes-on in both themes | citr-v24 |
 | 2026-10-08 | The parts linked to each other. The Rules screen claimed "where a screen automates something, it links back here" and only the numbers bar did — now every screen that automates a rule links to it, and every rule links to the screen that does it. The mystery sheet showed clue sets, the truth, threats, the scene, rivals and decks with no way to any of them; Home's problem and clue sets, Play's problem and keywords, the tutorial's ten steps and the story's scenes and oracle lines were the same. One `LINKS` table in the router, `ui.xlink`/`ruleLink`/`attachLinks`, `RULE_HOMES` in the rules screen. Engine untouched. | one smoke block of 19 checks, all watched failing against v22; unit 69; full smoke; layout probe (links held to the 44px floor); interaction, walk, scan, deploy path; guided, solo, manual-dice and co-op playtests | citr-v23 |
 | 2026-09-29 | Fourth UX/UI audit, 19 items. **Defects:** Journal's view switch cut "Everything" to "Everythi…" — a segmented option now sizes from its own label; Careers broke experience across three lines under floating tokens; the deck art pushed **Clue deck** off a 360px screen; the scene picker's guide said "Truth" while its blue bar said "Investigation"; the oracle's idle tiles wrapped. **The numbers:** each is a button opening its rule (drawn, with the library's own text and a link to the entry); truths fill a card; the clock's empty segments are outlined at the 3:1 a graphic needs — its guard first measured an alpha colour as opaque and passed, and was fixed to composite before it was trusted; drawings sit beside the number so five fit at 360. **The result dialog:** outcome stamp, a glyph per event line, each consequence's strip under its line, and a pinned footer. **Choosers:** pips and an odds strip per approach (proportions from `TEST_OUTCOMES`, the under-danger share hatched, percentages on the label); a new clue's prompts as tiles. **Why?:** each ending as a meter — the consequence one bracketing how far 1d6 plus the strongest threat can reach toward 9 — and the guess worth as three marks. **Frame:** a lens in both search fields; Home's attributes as one row of tiles; a tab's screen wipes in from its own side. Found on the way: a slide from the right widened the page for a fifth of a second — the overflow check caught it at all three widths, and it is a clip wipe now; and pips were inline `<i>`s with a size they could not use outside a flex row, so the chooser drew a sliver. | one smoke block of 20 checks, all watched failing against v21, plus the pip-size check watched failing on the first fix; full smoke; layout probe; interaction, walk, scan, deploy path; guided, solo, manual-dice and co-op playtests; eyes-on in both themes | citr-v22 |
 | 2026-09-28 | Third graphics pass, 30 items. **Defects first:** a rival's slot on Home was a cube scaled to half size that sheared into stray edges — it is a flat CSS-pip die now, and the first attempt at that was an inline `<i>` whose width the browser ignored, caught on the screenshots and guarded by size; the Manual dice setting and the face distribution both still said dice were *typed*, false since v20; Play's ready keywords lacked the tag the sheet has; the mystery sheet wrote threats, rivals and decks as text where every other screen draws them; a false lead was a torn card back with no rank on it. **Typed glyphs drawn:** the header's ↶ and ◑ (the theme button now shows sun, moon or system), the guide's ›, the accordion's +/–. **New drawings:** a glyph in each stage node, on the scene heading, on each threat, on the framing buttons, on every settings switch, rules section and table, and on the backup's two buttons; a mark on every toast; the clue deck and truths in the numbers as a stack and a card; the reveal stamps each set-aside card named or missed after it lands; the investigator wizard fills in an index card and draws 2/1/0 as pips; the mystery wizard carries genre glyphs, draws a difficulty as the truth deck it builds, and shows blanks until a roll lands with its d66 dice; closed cases as folders with the date on the tab; Home's investigator card with pips, a small fatigue track and the clock; experience as tokens and Current under the seal; the oracles' idle state; the roll log with its dice; the face distribution as bars; people and places as index cards; a case file and mark boxes on the printed mystery sheet; and the guide's sentence arrives when the step changes and never on a re-render. `ui.section` takes a node title; `ui.actionToast` takes a mark. Found while fixing: the small fatigue track reused `.box`, the sheet's tap target, and failed the 44px floor on Home — it is its own class now. | one smoke block of 36 checks, all watched failing against the previous source, plus the rival-die size check watched failing on the first fix; full smoke with the floors sweep; layout probe; interaction, walk, scan, deploy path; guided, solo, manual-dice and co-op playtests; eyes-on in both themes | citr-v21 |

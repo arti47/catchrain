@@ -115,11 +115,13 @@ function renderOutcome(host, c, m) {
     slot.style.setProperty("--turn", `${i * 260}ms`);
     add(stage, slot);
   });
+  // The reveal happens at night: the cards on black, whatever the theme.
   add(host, section("The cards", stage,
     ...(m.results || []).map((r, i) => row(`Guess ${i + 1}: ${r.guess.rank}${r.guess.suit}`,
       el("span", {}, r.correct ? pill("Correct", "ok") : pill(r.reason === "red herring" ? "Red herring" : "Wrong", "loss")))),
     row("Correct", `${correct} of 3`),
     Settings.get("career") && m.xpGained !== undefined ? row("Experience earned", `${m.xpGained} XP (${R.difficulty(m.difficulty).name})`) : null));
+  host.lastChild.classList.add("solve-night");
 
   const answers = el("div", {});
   m.answers = m.answers || [];

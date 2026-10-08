@@ -129,7 +129,8 @@ async function findControl(page, label, { inModal }) {
       scope = block;
     }
 
-    const all = [...scope.querySelectorAll(sel)].filter((n) => n.offsetParent !== null || n.getClientRects().length);
+    // The guide's own line is what a player reads, not a control the guide names.
+    const all = [...scope.querySelectorAll(sel)].filter((n) => !n.closest(".coach-toggle") && (n.offsetParent !== null || n.getClientRects().length));
     const texts = all.map((n) => norm(n.innerText || n.textContent));
     const w = want.toLowerCase();
     let i = texts.findIndex((t) => t.toLowerCase() === w);

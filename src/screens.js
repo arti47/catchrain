@@ -19,23 +19,31 @@ import { illustration, glyph, resultPips, yesNoScale, caseFile, dangerGauge, wor
 import { clockTrack } from "./sheet.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 
+// --- The first screen -----------------------------------------------------------
+/**
+ * A blank app is three panels and one button, not a page of instructions: the
+ * rain, the case, the first scene. Everything else is learned at the table.
+ */
+export function renderIntro(host) {
+  add(host, el("h1", { text: "A solo mystery" }),
+    explain("You play one investigator through a mystery the cards decide. Start playing rolls everything for you and puts you in the first scene; the line above the big button says what to press after that."));
+  const panel = (art, title, line) => el("div", { class: "intro-panel" }, illustration(art), el("h2", { class: "intro-title", text: title }), el("p", { text: line }));
+  add(host, el("div", { class: "intro-panels" },
+    panel("hero", "Caught in the rain", "A solo mystery. You play the investigator; the cards hold the truth."),
+    panel("mystery", "One tap deals you in", "An investigator and a case are rolled for you. Nothing is permanent."),
+    panel("scene", "Then follow the line", "The line above the big button always says what to press next.")));
+  add(host, el("div", { class: "intro-more" },
+    xlink("wizard", "Make an investigator myself"), xlink("tutorial", "Read the walkthrough")));
+  return { action: actionBar("Start playing", startPlaying, "Rolls everything and deals you in") };
+}
+
 // --- Home ---------------------------------------------------------------------
 export function renderHome(host) {
   const c = Store.career;
   add(host, el("h1", { text: "The case" }),
     explain("Everything in one place: who is investigating, what the problem is, and what the rules say to do next. The bar at the bottom always offers that next step."));
 
-  if (!c || !Store.investigator.name) {
-    add(host, section("Never played this before?",
-      illustration("hero"),
-      el("p", { text: "Press the button at the bottom. It rolls you an investigator and a case and puts you in the first scene — you do not have to decide anything, and nothing it rolls is permanent." }),
-      el("p", { class: "small muted", text: "From then on, the line at the top of every screen says what to do next and what it will cost you. Press Why? next to it whenever you want the longer answer." })));
-    add(host, section("Or take your time",
-      el("div", { class: "btn-row" },
-        btn("Make an investigator myself", () => go("wizard")),
-        btn("Read the walkthrough", () => go("tutorial")))));
-    return { action: actionBar("Start playing", startPlaying, "Rolls everything and deals you in") };
-  }
+  if (!c || !Store.investigator.name) return renderIntro(host);
   const inv = Store.investigator, m = c.mystery;
 
   if (c.investigators.length > 1) {
@@ -700,9 +708,9 @@ export function renderSettings(host) {
       onchange: (e) => { Settings.set(t.key, e.target.checked); if (t.key === "wakeLock") applyWakeLock(); rerender(); } });
     add(toggles, el("label", { class: "opt switch" }, input, glyph(TOGGLE_GLYPHS[t.key] || "drop", 20), el("span", { class: "opt-text" }, t.name, el("small", { text: t.text })), el("span", { class: "switch-track", "aria-hidden": "true" })));
   }
-  add(host, section("Rules and play", toggles));
+  add(host, section("Game rules", toggles));
 
-  add(host, section("Appearance",
+  add(host, section("Look",
     defRow("Theme", seg([["system", "system"], ["light", "sun"], ["dark", "moon"]].map(([t, g]) => ({ value: t, label: el("span", { class: "seg-with-glyph" }, glyph(g, 16), el("span", { text: t[0].toUpperCase() + t.slice(1) })) })),
       Settings.get("theme"), (t) => { Settings.set("theme", t); applyTheme(); rerender(); }, "Theme")),
     defRow("Text size", seg([90, 100, 115, 130].map((sz) => ({ value: sz, label: `${sz}%` })),
@@ -811,6 +819,19 @@ export function renderSettings(host) {
         showToast("Everything erased.");
         go("home");
       }, "danger"))));
+
+  // Two groups up front — the game's rules, the look — and everything else
+  // (the filter, your data, updates, about, starting over) folded under one line.
+  const rest = [...host.querySelectorAll(":scope > section.card")].filter((c) => {
+    const t = c.querySelector(".card-title")?.textContent || "";
+    return !t.startsWith("Game rules") && !t.startsWith("Look");
+  });
+  if (rest.length) {
+    const fold = el("details", { class: "acc settings-more" },
+      el("summary", {}, el("span", { text: "Your data, updates and starting over" })),
+      el("div", { class: "acc-body" }, ...rest));
+    add(host, fold);
+  }
 
   return {};
 }

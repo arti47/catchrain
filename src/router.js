@@ -2,7 +2,8 @@
 
 import { el, add, clear } from "./core.js";
 import { coachBar } from "./coach.js";
-import { edgeFade, centreInScroller, attachLinks, xlink, ruleLink } from "./ui.js";
+import { attachLinks, xlink, ruleLink, seg, foldHelp } from "./ui.js";
+import { Store } from "./store.js";
 
 const routes = new Map();
 /**
@@ -10,11 +11,12 @@ const routes = new Map();
  * as a set rather than as five glyphs borrowed from a font.
  */
 const ICON = {
-  case: "<circle cx='10.5' cy='10.5' r='6.2'/><path d='M15.2 15.2 20 20'/>",
-  play: "<rect x='4' y='4' width='16' height='16' rx='3.4'/><circle cx='9' cy='9' r='1.15' fill='currentColor' stroke='none'/><circle cx='15' cy='15' r='1.15' fill='currentColor' stroke='none'/><circle cx='12' cy='12' r='1.15' fill='currentColor' stroke='none'/>",
-  clues: "<rect x='3.4' y='6.6' width='10.5' height='13.5' rx='2'/><path d='M8.4 4.2h9.2a2 2 0 0 1 2 2v9.4'/>",
-  tables: "<rect x='3.5' y='4.5' width='17' height='15' rx='2'/><path d='M3.5 9.5h17M9.2 9.5v10'/>",
-  more: "<circle cx='5.5' cy='12' r='1.3'/><circle cx='12' cy='12' r='1.3'/><circle cx='18.5' cy='12' r='1.3'/>",
+  // The Table: a desk top on its legs, a card lying on it.
+  table: "<path d='M3 9.5h18M5 9.5V19M19 9.5V19'/><rect x='8.5' y='5' width='5' height='4.5' rx='.8'/>",
+  // The Notebook: a bound book with its ribbon.
+  notebook: "<rect x='5' y='3.5' width='14' height='17' rx='1.8'/><path d='M8.5 3.5v17M11.5 8h4.5M11.5 11.5h4.5'/><path d='M15 20.5v-4l1.3 1 1.3-1v4'/>",
+  // The Book: two pages open.
+  book: "<path d='M12 6.5c-2-1.4-5-1.8-8.5-1.2v13c3.5-.6 6.5-.2 8.5 1.2 2-1.4 5-1.8 8.5-1.2v-13c-3.5-.6-6.5-.2-8.5 1.2z'/><path d='M12 6.5v13'/>",
 };
 const icon = (id) => {
   const holder = el("span", { class: "tab-icon", "aria-hidden": "true" });
@@ -23,11 +25,9 @@ const icon = (id) => {
 };
 
 export const TABS = [
-  { id: "case", label: "Case", route: "home" },
-  { id: "play", label: "Play", route: "play" },
-  { id: "clues", label: "Clues", route: "clues" },
-  { id: "tables", label: "Tables", route: "tables" },
-  { id: "more", label: "More", route: "rules" },
+  { id: "table", label: "Table", route: "play" },
+  { id: "notebook", label: "Notebook", route: "journal" },
+  { id: "book", label: "Book", route: "rules" },
 ];
 
 export function register(name, def) { routes.set(name, def); }
@@ -63,7 +63,6 @@ const LINKS = {
   journal: () => ({ "How to read it": [ruleLink("solo-record")] }),
   play: () => ({
     "Stages": [ruleLink("stages")],
-    "The problem": [xlink("case-sheet", "The whole mystery sheet")],
     "Threats": [ruleLink("threats")],
     "Keywords ready": [xlink("sheet", "Your keywords on the sheet"), ruleLink("keywords")],
     "Choose a scene": [ruleLink("scenes")],
@@ -78,34 +77,45 @@ const LINKS = {
   wizard: () => ({ "Step": [ruleLink("investigator")] }),
   mystery: () => ({ "The problem": [ruleLink("problem")], "Difficulty": [ruleLink("difficulty")] }),
 };
-export const route = () => (location.hash.replace(/^#\//, "").split("?")[0] || "home");
+export const route = () => (location.hash.replace(/^#\//, "").split("?")[0] || "play");
 export const go = (name) => { location.hash = `#/${name}`; };
 
 let badgeFn = () => ({});
 let lastRoute = null;
 
+/**
+ * The dock — guide line plus Next button — is fixed over the screen, and its
+ * height changes with what the guide says (a warning adds a line, an opened
+ * guide adds a card). The screen is padded by what it measures, not a guess,
+ * so the last thing on the page always scrolls clear of it.
+ */
+let dockWatch = null;
+function watchDock(actionHost) {
+  const set = () => document.documentElement.style.setProperty("--dock", `${actionHost.getBoundingClientRect().height}px`);
+  if (!dockWatch && typeof ResizeObserver === "function") { dockWatch = new ResizeObserver(set); dockWatch.observe(actionHost); }
+  set();
+}
+
 export function setBadges(fn) { badgeFn = fn; }
 
-/** The pill row of sibling routes for the current tab group. */
+/**
+ * No sub-tab bars. A drawer — anything that opens off the Table, plus the
+ * Book's own drawers — carries one way back; the Book's three pages carry one
+ * switch between them.
+ */
 export function sectionNav(current) {
   const def = routes.get(current);
-  if (!def || !def.group) return null;
-  const siblings = [...routes.entries()]
-    .filter(([, d]) => d.group === def.group && !d.hidden)
-    .filter(([name, d]) => name === current || !d.empty || !d.empty());
-  if (siblings.length < 2) return null;
-  const badges = badgeFn() || {};
-  const nav = el("nav", { class: "section-nav", "aria-label": def.group });
-  for (const [name, d] of siblings) {
-    add(nav, el("a", {
-      href: `#/${name}`,
-      "aria-current": name === current ? "page" : null,
-    }, d.title, badges[name] ? el("span", { class: "dot", title: badges[name] }) : null));
+  if (!def) return null;
+  if (def.book) {
+    const sw = seg(["rules", "tables", "oracle"].map((r) => ({ value: r, label: routes.get(r).title })), current, (r) => go(r), "The Book");
+    sw.classList.add("book-switch");
+    return sw;
   }
-  // The row scrolls, so the pill you are on is the one the right edge cuts off
-  // unless it is asked for. Instant, because this is a first paint, not a move.
-  requestAnimationFrame(() => centreInScroller(nav, nav.querySelector('[aria-current="page"]')));
-  return edgeFade(nav);
+  if (def.drawer) {
+    const back = def.group === "book" ? "rules" : "play";
+    return el("a", { class: "drawer-back", href: `#/${back}` }, el("span", { text: back === "play" ? "Table" : "Book" }));
+  }
+  return null;
 }
 
 export function renderTabs() {
@@ -127,7 +137,7 @@ export function renderTabs() {
 
 export async function render() {
   const name = route();
-  const def = routes.get(name) || routes.get("home");
+  const def = routes.get(name) || routes.get("play");
   // Re-rendering the screen you are already on keeps your place: a roll mid-way
   // down a scene should not throw you back to the top of it.
   const sameScreen = name === lastRoute;
@@ -138,17 +148,30 @@ export async function render() {
   host.classList.remove("has-action");
   const nav = sectionNav(name);
   if (nav) add(host, nav);
-  // The guide sits above every screen rather than inside each one, so a screen
-  // added later cannot quietly ship without it.
-  add(host, coachBar(name));
+  // The guide is one line, and it sits with the Next button: what to do and
+  // the thing that does it, in one place under the thumb. A screen with no
+  // Next button keeps the line at its top.
+  const guide = coachBar(name);
   const out = await def.render(host);
+  // The Book is reading matter; everywhere else, help folds under "More" —
+  // and the links to a section's rule and owner fold in with it, so a section
+  // shows its title, its drawing and its controls, and one "More".
+  if (def.group !== "book") foldHelp(host);
   if (LINKS[name]) attachLinks(host, LINKS[name]());
   pairHeading(host);
   if (out && out.action) {
     host.classList.add("has-action");
+    if (guide) { add(actionHost, guide); host.classList.add("has-guide"); }
+    // A first session: the Next button is pointed at until the first case closes.
+    const c = Store.career, inv = Store.investigator;
+    if (c && inv && !c.history.length && (inv.day || 1) === 1) out.action[1].classList.add("hint");
     add(actionHost, out.action[1]);
     add(host, out.action[0]);
+  } else if (guide) {
+    host.insertBefore(guide, nav ? nav.nextSibling : host.firstChild);
   }
+  host.classList.toggle("has-guide", !!(out && out.action && guide));
+  watchDock(actionHost);
   renderTabs();
   // A screen that changed arrives; one that re-rendered under you does not, or
   // every roll would fade the page you are reading.
@@ -186,6 +209,6 @@ function pairHeading(host) {
 
 export function start() {
   window.addEventListener("hashchange", render);
-  if (!location.hash) location.hash = "#/home";
+  if (!location.hash) location.hash = "#/play";
   return render();
 }

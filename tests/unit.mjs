@@ -767,8 +767,11 @@ await test("a forced theme tells the browser chrome and the widgets which one it
 await test("the numbers follow every screen that is in play", () => {
   const line = SHEET_SRC.match(/const IN_PLAY = new Set\(\[([^\]]*)\]\)/);
   assert(line, "IN_PLAY is not a set any more");
-  for (const r of ["home", "play", "sheet", "clues", "solve", "journal", "case-sheet"])
+  for (const r of ["home", "sheet", "clues", "solve", "journal", "case-sheet"])
     assert(line[1].includes(`"${r}"`), `${r} shows the case but not its numbers`);
+  // The Table shows the same numbers as objects on its desk instead of the bar.
+  const PLAY_SRC = readFileSync(new URL("../src/play.js", import.meta.url), "utf8");
+  assert(!line[1].includes('"play"') && /deskRow\(m\)/.test(PLAY_SRC), "the Table neither carries the bar nor draws the desk");
 });
 
 // --- Installing it ------------------------------------------------------------

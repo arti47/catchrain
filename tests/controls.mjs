@@ -18,6 +18,9 @@ export const TAPPABLE = [
   "#screen .step-seg",
   "#screen .pick-card",
   "#screen .xlink",
+  "#screen .desk-item",
+  "#screen .desk-who",
+  "#screen .drawer-back",
 ].join(", ");
 
 /** The same, plus the chrome that lives outside the screen. */
@@ -30,4 +33,5 @@ export const TAPPABLE_ALL = [
   ".to-top",
   "#undo-btn",
   "#theme-btn",
+  "#settings-btn",
 ].join(", ");

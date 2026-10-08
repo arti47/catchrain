@@ -87,12 +87,14 @@ export function renderClues(host) {
     row("Jokers drawn", `${m.jokersDrawn || 0} of 2`),
     m.clueDeck.length <= 5 ? el("p", { class: "small", text: "The deck is nearly out. When it empties the mystery ends." }) : null));
 
+  // The sets are pinned to a corkboard: the open leads, the settled truths and
+  // the dead ends each on their own board, the cards held up by their pins.
   add(host, section(`Open clues (${open.length})`,
-    open.length ? el("div", {}, ...open.map((s) => setBlock(m, s)))
+    open.length ? el("div", { class: "corkboard" }, ...open.map((s) => setBlock(m, s)))
       : el("p", { class: "muted small", text: "No clue sets yet. Take one in the acquisition stage of an investigation." })));
 
-  if (truths.length) add(host, section(`Established truths (${truths.length})`, ...truths.map((s) => setBlock(m, s))));
-  if (dead.length) add(host, section(`False leads (${dead.length})`, ...dead.map((s) => setBlock(m, s))));
+  if (truths.length) add(host, section(`Established truths (${truths.length})`, el("div", { class: "corkboard" }, ...truths.map((s) => setBlock(m, s)))));
+  if (dead.length) add(host, section(`False leads (${dead.length})`, el("div", { class: "corkboard" }, ...dead.map((s) => setBlock(m, s)))));
 
   if (m.truthRevealed.length) {
     add(host, section("Face cards you have ruled out",

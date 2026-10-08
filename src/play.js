@@ -10,16 +10,17 @@ import { Settings } from "./settings.js";
 import * as Roller from "./roller.js";
 import * as Life from "./lifecycle.js";
 import { eventList } from "./prompts.js";
-import { useKeywordFlow } from "./sheet.js";
+import { useKeywordFlow, ruleSheet, clockTrack, switchInvestigator } from "./sheet.js";
 import { rankName } from "./deck.js";
 import { framingCard, framingLines, framingAction } from "./framing.js";
 import { recapCard, nextStep } from "./coach.js";
+import { renderIntro } from "./screens.js";
 import { SCENE_FRAMING } from "../data.js";
 const SCENE_FRAMING_NOTE = SCENE_FRAMING.note;
 import { go } from "./router.js";
 import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace, pickDice, cardFace } from "./ui.js";
 
-import { illustration, glyph, stagePath, markBoxes, levelBars, testScale, caseFile, dangerGauge, investigationScale, diceArt, clearingTrack, flatDie, outcomeStamp, oddsStrip, attrPips } from "./art.js";
+import { illustration, glyph, stagePath, markBoxes, levelBars, testScale, dangerGauge, investigationScale, diceArt, clearingTrack, flatDie, outcomeStamp, oddsStrip, attrPips, fatigueMini, deckStack } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
 
 /** The slot a returning rival holds, which is the die face it comes back on. */
@@ -42,8 +43,11 @@ function showResult(title, res, extraEvents = [], onReroll, onAgain) {
   add(body,
     diceRow(res.dice, res.attrValue || 0, res.total, res.doubles),
     testScale(res.total, res.dangerAtRoll === undefined ? null : res.dangerAtRoll),
+    // The outcome in one big word, stamped; the sentence under it, smaller.
     el("div", { class: `outcome-row ${res.outcome.id}` }, outcomeStamp(res.outcome.id),
-      el("p", { class: `outcome ${res.outcome.id}`, text: `${res.outcome.name} — ${res.outcome.text}` })),
+      el("p", { class: `outcome ${res.outcome.id}` },
+        el("span", { class: "outcome-big", text: res.outcome.name }), el("span", { class: "vh", text: " — " }),
+        el("span", { class: "outcome-text", text: res.outcome.text }))),
     // Each consequence's strip rides under its own line in the list, so the 9
     // that ends the case is seen beside the roll that came near it.
     eventList(all));
@@ -263,7 +267,7 @@ async function startInvestigation() {
   Store.journal("scene", `Investigation scene: rolled ${out.die} + ${out.danger} danger = ${out.total}.`);
   Store.commit();
   modal({
-    title: "Investigation",
+    title: "Investigation", art: glyph("investigation", 64),
     body: el("div", {},
       el("div", { class: "dice" }, dieFace(out.die),
         el("span", { class: "math", text: `1d6 ${out.die} + danger ${out.danger} = ${out.total}` })),
@@ -286,7 +290,7 @@ async function startRest() {
   Store.journal("scene", `${who.name} rests.`);
   Store.commit();
   modal({
-    title: "Rest",
+    title: "Rest", art: glyph("rest", 64),
     body: el("div", {}, restFigure(events), el("p", { class: "muted", text: `Describe how ${who.name} unwinds.` }), framingLines(who.name), eventList(events)),
     actions: [framingAction(who.name), { label: "Done" }].filter(Boolean),
   });
@@ -315,7 +319,7 @@ async function startObligation() {
   Store.journal("scene", `${inv.name} attends: ${out.obligation.text}.`);
   Store.commit();
   modal({
-    title: "Obligation",
+    title: "Obligation", art: glyph("obligation", 64),
     body: el("div", {},
       el("p", { class: "muted", text: `How does ${inv.name} attend to this? Use the prompt below if you want one.` }),
       framingLines(inv.name),
@@ -434,8 +438,8 @@ async function endSceneFlow() {
     Store.journal("oracle", `The new day opens: ${applied.words.join(" · ")}`);
     modal({
       title: `Day ${Store.investigator.day - 1} is over`,
+      tone: "dawn", art: glyph("dawn", 72),
       body: el("div", {},
-        el("div", { class: "dialog-art" }, glyph("dawn", 44)),
         el("p", { class: "muted", text: "The clock filled. Neglected obligations cost fatigue, strikes clear, and a random event opens the new day — resolve it with a test." }),
         eventList(events),
         el("p", { class: "mono", text: applied.words.join("  ·  ") })),
@@ -454,11 +458,8 @@ async function endSceneFlow() {
 // --- Screen -------------------------------------------------------------------
 export function renderPlay(host) {
   const c = Store.career;
-  if (!c || !Store.investigator.name) {
-    add(host, el("h1", { text: "Play" }), explain("This is where a mystery is played out, one scene at a time. You need an investigator first."));
-    add(host, emptyState("No investigator yet.", "Create an investigator", () => go("wizard"), illustration("investigator")));
-    return {};
-  }
+  // A blank app opens here, on the three panels that deal you in.
+  if (!c || !Store.investigator.name) return renderIntro(host);
   const m = c.mystery;
   if (!m) {
     add(host, el("h1", { text: "Play" }), explain("Each scene is a choice: investigate for clues, establish a truth, rest, or attend an obligation. Four scenes make a day. You need a mystery to start."));
@@ -481,7 +482,9 @@ export function renderPlay(host) {
       ? "Play the scene out. Each stage needs one successful test; failure and success-at-a-cost both bring consequences, and every threat that you did not act against gets a roll of its own."
       : "Pick the scene that fits what your investigator needs: clues, certainty, recovery, or the rest of their life. Ending a scene marks the clock; four scenes make a day."));
 
-  add(host, problemBlock(m, inScene));
+  // The Table: the case on its strip, and the four things on the desk you keep
+  // an eye on. Each opens the drawer or the rule behind it.
+  add(host, caseStrip(m), deskRow(m));
   if (!inScene) add(host, recapCard());
 
   if (inScene && scene.type === "investigation") return renderInvestigation(host, m, scene);
@@ -509,7 +512,10 @@ export function renderPlay(host) {
 
   // Scene picker, in the book's own order. A scene the rules do not allow right
   // now says why before you tap it, and tapping still explains the rule.
-  const list = el("div", { class: "choice-list" });
+  // Four tiles, two to a row; the one the guide recommends says why, the rest
+  // keep their words for when they are refused.
+  const advised = { "pick-rest": "rest", "pick-obligation": "obligation", "pick-truth": "truth", "pick-truth-pressure": "truth" }[nextStep("play").id] || "investigation";
+  const list = el("div", { class: "choice-list tiles" });
   for (const t of SCENE_TYPES) {
     const handler = { investigation: startInvestigation, truth: startTruth, rest: startRest, obligation: startObligation }[t.id];
     const shared = Life.SHARED_SCENES.has(t.id);
@@ -521,7 +527,7 @@ export function renderPlay(host) {
       ? `${shared ? "The whole party plays this one." : "Each investigator takes their own."} ${t.text}`
       : t.text;
     add(list, el("button", {
-      class: "choice with-glyph", type: "button",
+      class: `choice with-glyph ${t.id === advised && !barred ? "recommended" : ""}`.trim(), type: "button",
       onclick: barred
         ? () => modal({ title: t.name, body: el("div", {}, el("p", { text: barred.why }), el("p", { class: "small muted", text: barred.rule })), actions: [{ label: "Back" }] })
         : handler,
@@ -539,31 +545,45 @@ export function renderPlay(host) {
     return { action: actionBar("Rest scene", startRest, `${Store.investigator.name} takes a scene`) };
   }
   // One recommendation, not two: the bar offers the scene the guide names.
-  const advised = { "pick-rest": "rest", "pick-obligation": "obligation", "pick-truth": "truth", "pick-truth-pressure": "truth" }[nextStep("play").id];
   if (advised === "truth") return { action: actionBar("Truth scene", startTruth, "Turn a clue set over") };
   if (advised === "rest") return { action: actionBar("Rest scene", startRest, "Clear 1d6 fatigue and every strike") };
   if (advised === "obligation") return { action: actionBar("Obligation scene", startObligation, "Attend it before the day turns") };
   return { action: actionBar("Investigation scene", startInvestigation, `Roll 1d6 + ${m.danger} danger`) };
 }
 
-/** The premise: a card between scenes, a line you can unfold during one. */
-function problemBlock(m, inScene) {
-  const rows = [
-    m.motivation ? row("Motivation", m.motivation) : null,
-    row("Danger", el("span", { class: "gauged" }, dangerGauge(m.danger), el("span", { class: `pill ${m.danger >= 6 ? "danger" : ""}`, text: String(m.danger) }))),
-  ];
+/** The case on its strip: the genre's mark, the number, the sentence. Opens the sheet. */
+function caseStrip(m) {
   const caseNo = ((Store.career && Store.career.history) || []).length + 1;
-  if (!inScene) return caseFile(section("The problem", el("p", { class: "premise", text: R.problemText(m) }), ...rows), caseNo);
-  // Mid-scene the numbers fold away, but the sentence the mystery hangs on
-  // stays on the page: a premise behind a closed accordion is not a premise.
-  const fold = el("details", { class: "acc" });
-  add(fold, el("summary", { text: "Danger and the rest of it" }),
-    el("div", { class: "acc-body" }, ...rows));
-  const line = el("p", { class: "premise clamp", text: R.problemText(m), tabindex: "0", role: "button",
-    "aria-label": "The problem. Tap to read all of it",
-    onclick: () => line.classList.toggle("open"),
-    onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); line.classList.toggle("open"); } } });
-  return caseFile(section("The problem", line, fold), caseNo);
+  return el("a", { class: "case-strip", href: "#/case-sheet", "aria-label": `Case ${caseNo}: ${R.problemText(m)}. Open the mystery sheet` },
+    el("span", { class: "genre-art" }, glyph(m.genre, 30)),
+    el("span", { class: "case-strip-text" },
+      el("span", { class: "case-no", text: `Case \u2116 ${caseNo}` }),
+      el("span", { class: "premise", text: R.problemText(m) })));
+}
+
+/** The desk: who you are, what you hold, what time it is, how hot it is. */
+function deskRow(m) {
+  const inv = Store.investigator;
+  const label = (t) => el("span", { class: "desk-label", text: t });
+  // With a party, who is playing (and the switch) leads the desk.
+  const who = Store.party.length > 1
+    ? el("button", { class: "desk-who", type: "button", onclick: () => switchInvestigator() },
+        glyph("chairs", 16), el("span", { text: `Playing as ${inv.name}` }), el("span", { class: "desk-who-switch", text: "Switch" }))
+    : null;
+  const desk = el("div", { class: "desk", role: "group", "aria-label": "On the table" },
+    el("a", { class: "desk-item", href: "#/sheet", "aria-label": `${inv.name}, fatigue ${inv.fatigue} of 5. Open the investigator` },
+      el("span", { class: "desk-art inv-mini" }, el("b", { text: (inv.name || "?").trim()[0] }), fatigueMini(inv.fatigue)),
+      label((inv.name || "").split(" ")[0])),
+    el("a", { class: "desk-item", href: "#/clues", "aria-label": `${m.clueDeck.length} clue cards left, ${D.clueSetList(m).length} clue sets. Open the clues` },
+      el("span", { class: "desk-art" }, deckStack(m.clueDeck.length, "Clue deck")),
+      label(`${m.clueDeck.length} left`)),
+    el("button", { class: "desk-item", type: "button", "aria-label": `Day ${inv.day}, clock ${inv.clock} of ${CLOCK_SEGMENTS}. What this means`, onclick: () => ruleSheet("clock") },
+      el("span", { class: "desk-art" }, clockTrack(inv, 34)),
+      label(`Day ${inv.day}`)),
+    el("button", { class: "desk-item", type: "button", "aria-label": `Danger ${m.danger}. What this means`, onclick: () => ruleSheet("danger") },
+      el("span", { class: "desk-art danger-art" }, el("b", { text: String(m.danger) }), dangerGauge(m.danger)),
+      label("Danger")));
+  return who ? el("div", { class: "desk-wrap" }, who, desk) : desk;
 }
 
 /** Why a scene type cannot be taken right now, or null when it can. */
@@ -626,11 +646,13 @@ function renderInvestigation(host, m, scene) {
   // The book's own diagram (p.26): four stages on a line, the one you are in
   // named. It fits a 320px row whole, so nothing has to scroll or be cut.
   const rail = stagePath(scene);
-  // Where you are in the scene is the state the whole screen turns on, so it
-  // goes above the guide rather than below it and the framing card both.
-  host.prepend(section("Stages", rail,
+  // Where you are in the scene is the state the whole screen turns on: first
+  // after the desk, before the framing card.
+  const deskEl = host.querySelector(".desk-wrap") || host.querySelector(".desk");
+  const stages = section("Stages", rail,
     el("p", { class: "small muted", text: R.stage(scene.stage).note }),
-    scene.forceEscape ? el("p", { class: "small", text: "The track filled — you are running for the door." }) : null));
+    scene.forceEscape ? el("p", { class: "small", text: "The track filled — you are running for the door." }) : null);
+  if (deskEl) deskEl.after(stages); else host.prepend(stages);
 
   const threats = D.activeThreats(m);
   const tl = el("div", {});
@@ -640,9 +662,8 @@ function renderInvestigation(host, m, scene) {
         el("strong", { class: "threat-name" }, glyph("threat", 16),
           t.rivalId && rivalSlot(t.rivalId) ? flatDie(rivalSlot(t.rivalId), "rival") : null, el("span", { text: t.name })),
         el("span", { class: "threat-meters" },
-          el("span", { class: "pill loss" }, levelBars(t.level), `Level ${t.level}`), " ",
+          el("span", { class: "pill loss", title: R.threatLevelText(t.level), "aria-label": `Level ${t.level}: ${R.threatLevelText(t.level)}` }, levelBars(t.level), `Level ${t.level}`), " ",
           el("span", { class: "pill" }, markBoxes(t.marks || 0, t.level), `${t.marks || 0}/${t.level} marks`))),
-      el("p", { class: "small muted", text: R.threatLevelText(t.level) }),
       Store.party.length > 1
         ? el("p", { class: "small", text: `On ${Roller.attachedTo(t).name} — its rolls land on them until someone else acts against it.` })
         : null,

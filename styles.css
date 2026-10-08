@@ -108,7 +108,7 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
-html { font-size: calc(100% * var(--scale)); -webkit-text-size-adjust: 100%; }
+html { font-size: calc(100% * var(--scale)); -webkit-text-size-adjust: 100%; scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom)); scroll-padding-top: 64px; }
 body {
   margin: 0;
   background: var(--paper);
@@ -1767,3 +1767,212 @@ button.res:focus-visible { outline: 2px solid var(--accent); outline-offset: -2p
 .story-scene .xlink { color: inherit; font-size: inherit; font-weight: inherit; }
 .xlink.bare { min-width: var(--tap); justify-content: center; margin: -13px -12px -13px -15px; color: var(--ink-2); }
 .xlink.bare::after, .story-scene .xlink::after { display: none; }
+
+/* ================================================================================
+   The redesign: the Table and the Moment
+   ================================================================================ */
+
+/* The way back from a drawer, and the Book's one switch. */
+.drawer-back {
+  display: inline-flex; align-items: center; gap: .4rem; min-height: var(--tap);
+  color: var(--ink-2); text-decoration: none; font-size: .86rem; font-weight: 600; margin: -.2rem 0 .2rem;
+}
+.drawer-back::before {
+  content: ""; width: 8px; height: 8px; border-left: 1.8px solid currentColor; border-bottom: 1.8px solid currentColor;
+  transform: rotate(45deg); margin: 0 .2rem 0 .3rem;
+}
+.book-switch { margin: 0 0 1rem; }
+
+/* The guide, one line, with the Next button: the two sit together at the
+   bottom, the guide's line just above the button it names. */
+#action-host:has(.action-bar) {
+  position: fixed; left: 0; right: 0; z-index: 28;
+  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom));
+  background: var(--glass); backdrop-filter: saturate(140%) blur(14px); border-top: 1px solid var(--line);
+}
+#action-host .action-bar { position: static; background: none; backdrop-filter: none; border-top: 0; }
+#action-host > .coach { margin: 0 auto; max-width: 680px; border: 0; background: none; padding: .3rem var(--gutter) 0; box-shadow: none; border-radius: 0; }
+#action-host > .coach.compact .coach-toggle { min-height: 40px; padding: 0 .2rem; }
+#action-host > .coach .coach-line { font-size: .92rem; color: var(--ink-2); }
+#action-host > .coach:not(.compact) { max-height: 46vh; overflow: auto; padding-top: .6rem; }
+.screen.has-action.has-guide { padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + var(--dock, 146px) + 24px); }
+html:has(.screen.has-action) { scroll-padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + var(--dock, 104px) + 12px); }
+
+/* The first screen: three panels and one button. */
+.intro-panels { display: grid; gap: .9rem; margin: .4rem 0 1rem; }
+.intro-panel {
+  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel);
+  padding: 1rem 1.1rem 1.1rem; text-align: center;
+}
+.intro-panel .illustration svg { width: 100%; max-width: 260px; height: auto; color: var(--ink-2); }
+.intro-title { font-family: var(--serif); font-size: 1.35rem; margin: .5rem 0 .25rem; }
+.intro-panel p { margin: 0; color: var(--ink-2); font-size: .95rem; }
+.intro-more { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 1.2rem; }
+:root:not([data-depth="off"]) .intro-panel { animation: modal-rise .45s cubic-bezier(.2, .8, .3, 1) both; }
+:root:not([data-depth="off"]) .intro-panel:nth-child(2) { animation-delay: .12s; }
+:root:not([data-depth="off"]) .intro-panel:nth-child(3) { animation-delay: .24s; }
+
+/* The case on its strip: the genre's mark, the number, the sentence. */
+.case-strip {
+  display: flex; gap: .8rem; align-items: center; text-decoration: none; color: inherit;
+  border: 1px solid var(--line); border-left: 4px solid var(--ink-2); border-radius: var(--r);
+  background: var(--panel); padding: .7rem .85rem; margin: 0 0 .8rem; min-height: var(--tap);
+}
+.case-strip .genre-art { flex: 0 0 auto; color: var(--ink-2); }
+.case-strip-text { display: flex; flex-direction: column; min-width: 0; }
+.case-no { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+.case-strip .premise {
+  margin: .1rem 0 0; font-size: 1.05rem; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* The desk: four things you keep an eye on, each a way into its drawer. */
+.desk { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; margin: 0 0 1rem; }
+.desk-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: .35rem;
+  min-height: 82px; padding: .55rem .2rem .45rem; border-radius: var(--r);
+  border: 1px solid var(--line); background: var(--panel-2); color: inherit; text-decoration: none;
+  font: inherit; cursor: pointer;
+}
+.desk-item:active { transform: translateY(1px); }
+.desk-art { display: flex; align-items: center; justify-content: center; min-height: 40px; }
+.desk-label { font-size: .74rem; font-weight: 600; color: var(--ink-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inv-mini { flex-direction: column; gap: 3px; }
+.inv-mini b { font-family: var(--serif); font-size: 1.5rem; line-height: 1; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--panel); border: 1px solid var(--line); }
+.inv-mini .fatigue-mini i { width: 6px; height: 8px; }
+.danger-art { flex-direction: column; gap: 4px; }
+.danger-art b { font-family: var(--serif); font-size: 1.5rem; line-height: 1; color: var(--danger); }
+.danger-art .danger-gauge, .danger-art svg { max-width: 64px; }
+
+/* The scene picker: four tiles, two to a row. */
+.choice-list.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+.choice-list.tiles .choice.with-glyph {
+  flex-direction: column; align-items: flex-start; gap: .45rem; min-height: 112px; padding: .8rem;
+}
+.choice-list.tiles .choice-glyph svg { width: 34px; height: 34px; }
+.choice-list.tiles .choice-label { font-family: var(--serif); font-size: 1.1rem; }
+.choice-list.tiles .choice:not(.recommended):not([aria-disabled="true"]) .choice-note { display: none; }
+.choice-list.tiles .choice.recommended { border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--panel-2)); }
+.choice-list.tiles .choice.recommended .choice-glyph { color: var(--accent); }
+
+/* Threats as cards on the table. */
+.threat { border-radius: var(--r); box-shadow: var(--shadow-1); }
+.threat .threat-name .glyph-threat svg { width: 22px; height: 22px; }
+
+/* Help folded under "More". */
+details.aside { margin: .3rem 0 0; }
+details.aside > summary {
+  list-style: none; display: inline-flex; align-items: center; gap: .3rem; min-height: var(--tap);
+  font-size: .8rem; font-weight: 600; color: var(--ink-2); cursor: pointer;
+}
+details.aside > summary::-webkit-details-marker { display: none; }
+details.aside > summary::after {
+  content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg); margin: 0 0 3px .2rem; transition: transform .15s ease;
+}
+details.aside[open] > summary::after { transform: rotate(225deg); margin: 3px 0 0 .2rem; }
+
+/* A first session: the Next button is pointed at. */
+@keyframes next-hint { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 0%, transparent); } }
+:root:not([data-depth="off"]) .action-bar.hint .btn.primary { animation: next-hint 2.2s ease-in-out infinite; }
+
+/* --- Moments: every dialog is the whole screen ------------------------------------ */
+.modal-overlay.moment { padding: 0; align-items: stretch; background: color-mix(in srgb, #05070a 70%, transparent); }
+.modal-overlay.moment .modal-card {
+  max-width: 560px; max-height: none; height: 100%; min-height: 100dvh; border-radius: 0; border: 0;
+  display: flex; flex-direction: column; padding: calc(1.1rem + env(safe-area-inset-top)) 1.15rem 0;
+}
+@media (min-width: 560px) { .modal-overlay.moment .modal-card { border-left: 1px solid var(--line); border-right: 1px solid var(--line); } }
+.modal-overlay.moment .modal-title { font-size: 1.5rem; line-height: 1.2; }
+.modal-overlay.moment .modal-body { flex: 1 1 auto; margin: .7rem 0 1rem; }
+.modal-overlay.moment .modal-actions { margin-top: auto; padding-bottom: calc(.9rem + env(safe-area-inset-bottom)); }
+.modal-overlay.moment .modal-actions .btn { min-height: 52px; font-size: 1rem; }
+.moment-art { display: flex; justify-content: center; padding: .6rem 0 .2rem; color: var(--ink-2); }
+.moment-art svg { width: 72px; height: 72px; }
+
+/* The roll is the show: the outcome in one big word. */
+.outcome-row { align-items: flex-start; margin: .8rem 0 .6rem; }
+.outcome { display: flex; flex-direction: column; gap: .2rem; }
+.outcome-big { font-family: var(--serif); font-size: 2rem; line-height: 1.05; letter-spacing: -.01em; }
+.outcome-text { font-family: var(--sans); font-size: .95rem; font-weight: 400; color: var(--ink-2); }
+.outcome-row .stamp { width: 40px; height: 40px; margin-top: 4px; }
+.outcome-row .stamp svg { width: 26px; height: 26px; }
+
+/* Events dealt as small cards. */
+.events.dealt { display: grid; gap: .4rem; }
+.events.dealt li {
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2);
+  padding: .5rem .65rem; border-top: 1px solid var(--line); box-shadow: var(--shadow-1);
+}
+@keyframes deal-in { from { opacity: 0; transform: translateY(10px) rotate(-1.5deg); } to { opacity: 1; transform: none; } }
+:root:not([data-depth="off"]) .events.dealt li { animation: deal-in .32s cubic-bezier(.2, .8, .3, 1) both; animation-delay: calc(.35s + var(--deal, 0) * 90ms); }
+
+/* The day turns: dawn behind the Moment. */
+.modal-overlay.moment.dawn .modal-card {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 22%, var(--panel)) 0%, var(--panel) 42%);
+}
+.modal-overlay.moment.dawn .moment-art { color: var(--danger); }
+
+/* The reveal at night: the cards on black, whatever the theme. */
+.card.solve-night { background: #0c0f13; border-color: #1d232b; color: #e8edf2; }
+.card.solve-night .card-title { color: #aab4c0; }
+.card.solve-night .row-label { color: #aab4c0; }
+.card.solve-night .row { border-color: #1d232b; }
+
+/* The investigator as a card that turns over. */
+.inv-card-wrap { margin: 0 0 1rem; }
+.inv-flip { perspective: 900px; }
+.inv-flip > .inv-back { display: none; }
+.inv-flip.flipped > .inv-front { display: none; }
+.inv-flip.flipped > .inv-back { display: block; }
+@keyframes card-over { from { transform: rotateY(-80deg); opacity: .2; } to { transform: none; opacity: 1; } }
+/* Only when it is turned: a re-render of the sheet moves nothing. */
+:root:not([data-depth="off"]) .inv-flip.turning > * { animation: card-over .35s cubic-bezier(.2, .8, .3, 1) both; transform-origin: 50% 50%; }
+.inv-flip .card { margin-bottom: .6rem; border-width: 1.5px; }
+.inv-flip-btn { width: 100%; }
+.inv-flip-btn .glyph { margin-right: .4rem; }
+
+/* The corkboard: the clue sets pinned up, slightly askew, on cork. */
+.corkboard {
+  display: grid; gap: .7rem; padding: .7rem; border-radius: var(--r);
+  background:
+    radial-gradient(circle at 20% 30%, rgba(0, 0, 0, .05) 0 1px, transparent 1.5px) 0 0 / 9px 9px,
+    radial-gradient(circle at 70% 60%, rgba(255, 255, 255, .07) 0 1px, transparent 1.5px) 0 0 / 11px 11px,
+    linear-gradient(160deg, #b98d5c, #a67a49);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, .25);
+}
+.corkboard .clue-set { margin: 0; background: var(--panel); box-shadow: var(--shadow-1); position: relative; }
+.corkboard .clue-set::before {
+  content: ""; position: absolute; top: -5px; left: 50%; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #e8836b, #a8402a); box-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+}
+.corkboard .clue-set:nth-child(odd) { transform: rotate(-.6deg); }
+.corkboard .clue-set:nth-child(even) { transform: rotate(.5deg); }
+:root[data-depth="off"] .corkboard .clue-set { transform: none; }
+.corkboard .clue-set.truth::before { background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--accent) 55%, white), var(--accent)); }
+
+/* The numbers: an icon and a figure; the words live on the button and the rule. */
+#resource-header .res-label { display: none; }
+#resource-header .res { padding-top: .2rem; padding-bottom: .2rem; display: flex; flex-direction: column; justify-content: center; }
+#resource-header .res-top { height: 1.6rem; }
+#resource-header .res-top b { font-size: 1.15rem; }
+#resource-header .res-top .glyph { color: var(--ink-2); }
+#resource-header .res.danger .res-top .glyph { color: var(--danger); }
+#resource-header .res.loss .res-top .glyph { color: var(--loss); }
+
+/* Big type, few weights: a section is named in the serif at reading size, not
+   in small grey capitals; the screen's heading is the largest thing on it. */
+.card-title { font-family: var(--serif); font-size: 1.12rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.card-title::after { opacity: .6; }
+.screen h1 { font-size: 1.85rem; letter-spacing: -.01em; }
+.card { padding-top: .95rem; }
+.desk-who {
+  display: flex; align-items: center; gap: .5rem; width: 100%; min-height: var(--tap); margin: 0 0 .5rem;
+  padding: .4rem .75rem; border-radius: 999px; border: 1px solid var(--line); background: var(--panel);
+  color: inherit; font: inherit; font-weight: 600; cursor: pointer;
+}
+.desk-who-switch { margin-left: auto; color: var(--accent); font-size: .86rem; }
+/* A toast sits above the tab bar; whatever is scrolled to the bottom clears it too. */
+html:has(.toast-action), html:has(.toast) { scroll-padding-bottom: calc(200px + env(safe-area-inset-bottom)); }
+body:has(.toast-action) .screen:not(.has-action) { padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 170px); }

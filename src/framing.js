@@ -18,7 +18,8 @@ const rerender = () => import("./router.js").then((m) => m.render());
 export function framingCard(scene, opts = {}) {
   if (!Settings.get("sceneFraming")) return null;
   const written = scene && scene.framing;
-  const wrap = el("details", { class: "acc framing", open: written ? null : true });
+  // Folded: one line on the Table, opened when you want the two questions.
+  const wrap = el("details", { class: "acc framing" });
   const body = el("div", { class: "acc-body" });
 
   add(body, el("ul", { class: "ask" }, ...SCENE_FRAMING.questions.map((q) => el("li", { text: q }))));

@@ -6,7 +6,7 @@ import { RULES_LIBRARY } from "./library.js";
 
 let openModal = null;
 
-export function modal({ title, body, actions = [], dismissable = true, onClose }) {
+export function modal({ title, body, actions = [], dismissable = true, onClose, tone = "", art = null }) {
   closeModal();
   const prev = document.activeElement;
   const card = el("div", { class: "modal-card", role: "document" });
@@ -23,8 +23,10 @@ export function modal({ title, body, actions = [], dismissable = true, onClose }
     }, a.label);
     add(foot, btn);
   });
-  add(card, head, content, actions.length ? foot : null);
-  const overlay = el("div", { class: "modal-overlay", role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" }, card);
+  // Every dialog is a Moment: the whole screen, one thing to read, the buttons
+  // at the bottom under the thumb. A scene's Moment opens on its drawing.
+  add(card, art ? el("div", { class: "moment-art", "aria-hidden": "true" }, art) : null, head, content, actions.length ? foot : null);
+  const overlay = el("div", { class: `modal-overlay moment ${tone}`.trim(), role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" }, card);
   overlay.addEventListener("mousedown", (e) => { if (e.target === overlay && dismissable) closeModal(); });
   const onKey = (e) => {
     if (e.key === "Escape" && dismissable) { closeModal(); return; }
@@ -309,20 +311,6 @@ export function dieFace(n, kind = "") {
  * and nowhere else: a fade at the start when there is nothing before it reads
  * as a fault rather than as an affordance.
  */
-/**
- * Bring a child into the middle of its own scroller by moving that scroller,
- * never the page. `scrollIntoView` also scrolls every ancestor, so calling it
- * on a nav that has scrolled off the top drags the whole document up with it —
- * which is how a roll mid-scene threw the screen back to the top.
- */
-export function centreInScroller(box, child) {
-  if (!box || !child) return;
-  const room = box.scrollWidth - box.clientWidth;
-  if (room <= 1) return;
-  const want = child.offsetLeft - (box.clientWidth - child.offsetWidth) / 2;
-  box.scrollLeft = Math.max(0, Math.min(room, want));
-}
-
 export function edgeFade(node) {
   if (!node) return node;
   const paint = () => {
@@ -375,6 +363,24 @@ export function attachLinks(host, map) {
   for (const [title, links] of Object.entries(map)) {
     const card = cards.find((c) => (c.querySelector(".card-title")?.textContent || "").trim().startsWith(title));
     const kept = links.filter(Boolean);
-    if (card && kept.length) add(card, el("div", { class: "xlinks" }, ...kept));
+    if (!card || !kept.length) continue;
+    let more = card.querySelector(":scope > details.aside");
+    if (!more) { more = el("details", { class: "aside" }, el("summary", {}, el("span", { text: "More" }))); add(card, more); }
+    add(more, el("div", { class: "xlinks" }, ...kept));
+  }
+}
+
+/**
+ * The word budget. A section's helper paragraphs fold into one "More" at its
+ * foot: the section says what it is with its title and its drawing, and the
+ * explanation is a tap away instead of a paragraph in the way.
+ */
+export function foldHelp(host) {
+  for (const card of host.querySelectorAll("section.card")) {
+    const notes = [...card.querySelectorAll(":scope > p.small.muted")];
+    if (!notes.length) continue;
+    const more = el("details", { class: "aside" }, el("summary", {}, el("span", { text: "More" })));
+    notes[0].before(more);
+    for (const p of notes) add(more, p);
   }
 }

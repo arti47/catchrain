@@ -14,7 +14,8 @@ import { saveSheets } from "./paper.js";
 
 import { glyph, tick, attrPips, deckStack, truthCard, dangerGauge, fatigueMini } from "./art.js";
 import { RULES_LIBRARY } from "./library.js";
-const IN_PLAY = new Set(["home", "play", "sheet", "case-sheet", "clues", "solve", "journal"]);
+// Not the Table: it shows the same numbers as objects on the desk.
+const IN_PLAY = new Set(["home", "sheet", "case-sheet", "clues", "solve", "journal"]);
 
 /**
  * The numbers tuck away as you read down a screen and come back the moment you
@@ -53,10 +54,13 @@ export function renderResourceHeader(routeName) {
     "aria-label": `${label}: ${kids.map((k) => (k && k.textContent) || "").join(" ").trim()}. What this means`,
     onclick: () => ruleSheet(rule),
   }, ...kids);
+  // An icon and a number: the label is on the button for a screen reader and
+  // in the rule a tap opens, not printed under every figure.
+  const MARK = { danger: "gauge", fatigue: "box", struck: "box" };
   const res = (label, value, kind = "", warn = false, meter = null, rule = null) =>
     cell(rule || label.toLowerCase(), label, kind, warn,
-      el("b", { text: String(value) }),
-      el("span", { text: label }),
+      el("span", { class: "res-top" }, glyph(MARK[label.toLowerCase()] || "drop", 16), el("b", { text: String(value) })),
+      el("span", { class: "res-label", text: label }),
       meter === null ? null : el("i", { class: "meter", style: `--fill:${Math.round(clamp(meter, 0, 1) * 100)}%` }));
   const band = D.dangerBand(m.danger);
   let dangerCell = null;
@@ -77,13 +81,13 @@ export function renderResourceHeader(routeName) {
     // Each drawing sits beside its number, over the label, so a cell is only as
     // wide as its label and five of them fit a 360px phone.
     cell("clock", "Day", "dialled", false,
-      el("span", { class: "res-top" }, el("b", { text: String(inv.day) }), clockTrack(inv, 18)), el("span", { text: "day" })),
+      el("span", { class: "res-top" }, el("b", { text: String(inv.day) }), clockTrack(inv, 18)), el("span", { class: "res-label", text: "day" })),
     // The two decks are drawn as what they are, the way the clock beside them is.
     cell("truths", "Truths", "dialled truth", false,
       el("span", { class: "res-top" }, el("b", { text: `${m.truthRevealed.length}/${m.truthRevealed.length + m.truthDeck.length}` }),
-        truthCard(m.truthRevealed.length, m.truthRevealed.length + m.truthDeck.length)), el("span", { text: "Truths" })),
+        truthCard(m.truthRevealed.length, m.truthRevealed.length + m.truthDeck.length)), el("span", { class: "res-label", text: "Truths" })),
     cell("deck", "Clue deck", "dialled", m.clueDeck.length <= 5,
-      el("span", { class: "res-top" }, el("b", { text: String(m.clueDeck.length) }), deckStack(m.clueDeck.length, "Clue deck")), el("span", { text: "Clue deck" })),
+      el("span", { class: "res-top" }, el("b", { text: String(m.clueDeck.length) }), deckStack(m.clueDeck.length, "Clue deck")), el("span", { class: "res-label", text: "Clue deck" })),
     D.allAttributesStruck(inv) ? res("Struck", "all", "loss", true, null, "fatigue") : null,
   );
   edgeFade(host);
@@ -305,6 +309,24 @@ export function renderSheet(host) {
       // JSON keeps the data safe and cannot be handed to anyone, printed, or
       // read on a device without the app. This is the sheet as a sheet.
       btn("Save this sheet", () => saveSheets()))));
+
+  // The investigator is one card: attributes and fatigue on the front,
+  // keywords and obligations on the back. Turned over, not scrolled past.
+  const cards = [...host.querySelectorAll(":scope > section.card")];
+  const pick = (t) => cards.find((c) => (c.querySelector(".card-title")?.textContent || "").startsWith(t));
+  const front = el("div", { class: "inv-front" }, pick("Attributes"), pick("Fatigue and time"));
+  const back = el("div", { class: "inv-back" }, pick("Keywords"), pick("Obligations"));
+  const flip = el("div", { class: "inv-flip" }, front, back);
+  const turn = el("button", { class: "btn ghost inv-flip-btn", type: "button", "aria-pressed": "false",
+    onclick: () => {
+      const over = flip.classList.toggle("flipped");
+      flip.classList.add("turning");
+      setTimeout(() => flip.classList.remove("turning"), 400);
+      turn.setAttribute("aria-pressed", over ? "true" : "false");
+      turn.querySelector(".turn-label").textContent = over ? "Front: attributes and fatigue" : "Back: keywords and obligations";
+    } }, glyph("refresh", 16), el("span", { class: "turn-label", text: "Back: keywords and obligations" }));
+  const details = pick("Details");
+  host.insertBefore(el("div", { class: "inv-card-wrap" }, flip, turn), details || null);
 
   if (!m) return { action: actionBar("Set up a mystery", () => go("mystery"), "Roll the problem") };
   const inScene = m.scene && !m.scene.done;

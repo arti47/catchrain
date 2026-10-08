@@ -99,6 +99,7 @@ if (!failures.length) {
 
   await page.goto(`${base}#/settings`);
   await page.waitForTimeout(800);
+  await page.locator("#screen details.settings-more > summary").click();
   await page.getByRole("button", { name: "Check for updates" }).click();
   const found = await page.locator(".toast-action", { hasText: "Update available" })
     .waitFor({ timeout: 15000 }).then(() => true, () => false);

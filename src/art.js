@@ -106,6 +106,8 @@ const GLYPHS = {
   gauge: `<path ${STROKE} d="M4 16a8 8 0 0 1 16 0"/><path ${STROKE} d="M12 16l4.2-5"/><circle cx="12" cy="16" r="1.3" fill="currentColor"/>`,
   // Fatigue: one box of the track, marked.
   box: `<rect ${STROKE} x="6" y="4.5" width="12" height="15" rx="2.2"/><path d="M8.5 7h7v10h-7z" fill="currentColor" opacity=".55"/>`,
+  // Settings: a gear.
+  gear: `<circle ${STROKE} cx="12" cy="12" r="3"/><path ${STROKE} d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M6 18l1.6-1.6M16.4 7.6 18 6"/><circle ${STROKE} cx="12" cy="12" r="6.2"/>`,
   reveal: `<rect ${STROKE} x="2.5" y="6" width="7" height="11" rx="1.4" transform="rotate(-10 6 11.5)"/><rect ${STROKE} x="8.5" y="5" width="7" height="11" rx="1.4"/><rect ${STROKE} x="14.5" y="6" width="7" height="11" rx="1.4" transform="rotate(10 18 11.5)"/>`,
 };
 
@@ -143,6 +145,13 @@ const ILLUSTRATIONS = {
     <path ${STROKE} d="M80 26v64"/>
     <path ${STROKE} d="M42 40h26M42 50h22M92 40h26M92 50h18" opacity=".55"/>
     <path ${STROKE} d="M108 76 136 48l5 5-28 28-7 2z"/>`],
+  // The first scene: a door under a lamp, the rain coming down past it.
+  scene: ["0 0 160 110", `
+    <path ${STROKE} d="M62 100V40h36v60"/><path ${STROKE} d="M62 40 80 30l18 10"/>
+    <circle cx="91" cy="72" r="1.8" fill="currentColor"/>
+    <path ${STROKE} d="M30 100V34M30 34c0-6 4-9 9-9h5"/><path ${STROKE} d="M42 25h8l-2 5h-4z"/>
+    <g opacity=".55"><path ${STROKE} d="M112 20l-6 18M128 30l-6 18M118 56l-6 18M138 64l-6 18M20 52l-6 18"/></g>
+    <path ${STROKE} d="M14 100h132" opacity=".55"/>`],
   // The first screen: rain on a window at night, a lamp across the street.
   hero: ["0 0 320 128", `
     <rect ${STROKE} x="16" y="10" width="288" height="108" rx="4"/>

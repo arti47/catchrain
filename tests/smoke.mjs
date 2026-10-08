@@ -25,6 +25,11 @@ async function newPage(width = 390) {
 }
 
 const withSeed = (page, seeded = true) => seed(page, base, seeded ? "stress" : "fresh");
+// The guide is one line by the Next button; opened, it is the card these checks read.
+const openGuide = async (page) => {
+  const t = page.locator(".coach.compact .coach-toggle");
+  if (await t.count()) { await t.first().click(); await page.waitForTimeout(80); }
+};
 
 // 1. every route renders, no console errors, no stray null text
 for (const seeded of [false, true]) {
@@ -49,7 +54,8 @@ for (const seeded of [false, true]) {
     await page.goto(`${base}#/home`);
     const text = await page.locator("#screen").innerText();
     if (!text.includes("Amine Deckard")) fail("seeded career never reached the screen");
-    const header = await page.locator("#resource-header").innerText();
+    // The numbers print icons and figures; their names are on the buttons.
+    const header = await page.evaluate(() => [...document.querySelectorAll("#resource-header button.res")].map((b) => b.getAttribute("aria-label")).join(" "));
     if (!/danger/i.test(header) || !/fatigue/i.test(header)) fail("resource header missing on an in-play screen");
   }
   ok(`all ${ROUTES.length} routes render${seeded ? " with a mid-case career" : " from empty"}`);
@@ -125,16 +131,16 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
-// 5. section nav reaches every sibling and marks the current route
+// 5. a drawer leads back to the Table, and the Book's switch marks the page you are on
 {
   const { ctx, page } = await newPage();
   await withSeed(page, true);
   await page.goto(`${base}#/home`);
-  const links = await page.locator(".section-nav a").count();
-  if (links < 3) fail(`case group section nav has ${links} links`);
-  const current = await page.locator('.section-nav a[aria-current="page"]').count();
-  if (current !== 1) fail("section nav does not mark exactly one current route");
-  ok("section nav reaches siblings and marks the current route");
+  if (!(await page.locator('#screen a.drawer-back[href="#/play"]').count())) fail("the case drawer has no way back to the Table");
+  await page.goto(`${base}#/tables`);
+  const current = await page.locator('#screen .book-switch .seg-opt[aria-checked="true"]').allInnerTexts();
+  if (current.length !== 1 || !/tables/i.test(current[0])) fail(`the Book's switch marks ${current.join(", ") || "nothing"} on Tables`);
+  ok("drawers lead back to the Table and the Book's switch marks the current page");
   await ctx.close();
 }
 
@@ -191,8 +197,8 @@ for (const width of WIDTHS) {
   }
   if (!clueSeen) fail("the investigation scene never reached its end");
   if (!rerollOffered) fail("no test result offered the re-roll keyword");
-  const header = await page.locator("#resource-header").innerText();
-  if (!/danger/i.test(header)) fail("the resource header is missing in play");
+  // On the Table the numbers are objects on the desk, not a bar.
+  if ((await page.locator("#screen .desk .desk-item").count()) !== 4) fail("the desk is missing in play");
   if (errors.length) fail("console error during the walk: " + errors[0]);
   const logged = await page.evaluate(() => JSON.parse(localStorage.getItem("citr:v1")).careers[Object.keys(JSON.parse(localStorage.getItem("citr:v1")).careers)[0]].rollLog.length);
   if (!logged) fail("no rolls reached the roll log");
@@ -272,9 +278,11 @@ for (const width of WIDTHS) {
   const framing = page.locator("#screen details.framing");
   if (!(await framing.count())) fail("an investigation scene does not ask where it takes place");
   else {
+    // Folded to one line on the Table (the word budget); opened, the book's questions.
+    if (await framing.evaluate((n) => n.open)) fail("the framing card opens across the Table instead of folding to a line");
+    await framing.locator("summary").click();
     const text = await framing.innerText();
     if (!/where is this scene taking place/i.test(text)) fail("the framing card does not carry the book's questions");
-    if (!(await framing.evaluate((n) => n.open))) fail("the framing card starts collapsed on an unset scene");
     await page.getByRole("button", { name: "Ask the oracle" }).click();
     await page.waitForTimeout(120);
     const oracle = await framing.locator(".mono").innerText();
@@ -305,8 +313,9 @@ for (const width of WIDTHS) {
   await page.goto(`${base}#/play`);
   await page.waitForTimeout(150);
 
-  const header = await page.locator("#resource-header").innerText();
-  if (!/AMINE|Amine/i.test(header)) fail("the header does not say who is in context");
+  // On the Table, who is playing sits on the desk, with the switch beside it.
+  const who = await page.locator("#screen .desk-who").innerText().catch(() => "");
+  if (!/AMINE|Amine/i.test(who)) fail("the Table does not say who is in context");
 
   const screen = await page.locator("#screen").innerText();
   if (!/Percy/.test(screen)) fail("the round panel does not name the investigator still owing a scene");
@@ -387,14 +396,19 @@ for (const width of WIDTHS) {
     const boxes = [...document.querySelectorAll("#screen .choice")].map((n) => n.getBoundingClientRect());
     if (boxes.length < 2) return null;
     const widths = boxes.map((b) => Math.round(b.width));
-    const gaps = boxes.slice(1).map((b, i) => Math.round(b.top - boxes[i].bottom));
+    // Tiles, two to a row: every pair of tiles is apart, sideways or downwards.
+    const gaps = [];
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i], b = boxes[j];
+      gaps.push(Math.round(Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom)));
+    }
     return { count: boxes.length, widths, gaps };
   });
   if (!geo) fail("the scene picker offered fewer than two choices");
   else {
     if (new Set(geo.widths).size !== 1) fail(`the choices are different widths (${geo.widths.join(", ")})`);
     if (geo.gaps.some((g) => g < 4)) fail(`the choices are clumped together (gaps ${geo.gaps.join(", ")}px)`);
-    if (!failures.length) ok("the scene picker reads as a list: one width, real gaps");
+    if (!failures.length) ok("the scene picker reads as tiles: one width, real gaps");
   }
   await ctx.close();
 }
@@ -417,19 +431,19 @@ for (const width of WIDTHS) {
   await seed(page, base, "mid-session");
   await page.goto(`${base}#/play`);
   await page.waitForTimeout(180);
+  // Mid-scene the premise sits on the case strip, whole in the text and
+  // leading to the mystery sheet; the numbers it used to carry are on the desk.
   const folded = await page.evaluate(() => {
-    const line = document.querySelector("#screen .premise.clamp");
-    const d = [...document.querySelectorAll("#screen .acc")].find((n) => /Danger/.test(n.querySelector("summary").textContent));
-    return { premise: line ? line.innerText.trim().length : 0, fold: d ? { open: d.open } : null };
+    const strip = document.querySelector('#screen a.case-strip[href="#/case-sheet"] .premise');
+    return { premise: strip ? strip.textContent.trim().length : 0, desk: document.querySelectorAll("#screen .desk .desk-item").length };
   });
   if (!folded.premise) fail("mid-scene the premise is not on the page at all");
-  if (!folded.fold) fail("mid-scene the premise block does not fold its numbers away");
-  else if (folded.fold.open) fail("the numbers fold starts open mid-scene");
+  if (folded.desk !== 4) fail("mid-scene the case's numbers are not on the desk");
 
   await patch("(c) => { c.mystery.scene = null; c.mystery.threats = []; }");
   await page.goto(`${base}#/play`);
   await page.waitForTimeout(180);
-  const premise = await page.evaluate(() => !!document.querySelector("#screen .card .premise"));
+  const premise = await page.evaluate(() => /It happened at/.test(document.querySelector("#screen .case-strip .premise")?.textContent || ""));
   if (!premise) fail("between scenes the premise is not shown in full");
 
   // A scene the rules do not allow says so before it is tapped.
@@ -845,13 +859,12 @@ for (const width of WIDTHS) {
   await withSeed(page, false);
 
   // A blank app: one button that deals you in, and nothing to decide first.
-  const home = await page.locator("#screen").innerText();
-  if (!/never played this before/i.test(home)) fail("a blank app does not speak to someone who has never played");
+  // Three panels and one button; the panels already say what the guide would.
+  if ((await page.locator("#screen .intro-panel").count()) !== 3) fail("a blank app does not speak to someone who has never played");
   const first = await page.locator(".action-bar .btn").innerText();
   if (!/start playing/i.test(first)) fail(`a blank app offers "${first.split("\n")[0]}" instead of a way straight in`);
-  if (!(await page.locator(".coach").count())) fail("the guide is missing on the first screen of all");
-  const opening = await page.locator(".coach-line, .coach-say").first().innerText();
-  if (!/start playing/i.test(opening)) fail(`the guide opens with "${opening.replace(/\s+/g, " ").trim()}" instead of pointing at the way in`);
+  if (await page.locator(".coach:not(.compact)").count()) fail("the guide repeats at length on the first screen what its three panels already say");
+  if (!/start playing/i.test(await page.locator(".coach-line").first().innerText().catch(() => ""))) fail("the guide's line on a blank app does not name Start playing");
 
   await page.locator(".action-bar .btn").click();
   await page.waitForTimeout(400);
@@ -879,6 +892,7 @@ for (const width of WIDTHS) {
   await page.waitForTimeout(300);
 
   // In play, the guide names the button that is actually on the screen.
+  await openGuide(page);
   const sayHere = await page.locator(".coach-say").innerText();
   const here = await page.locator(".coach-here").count();
   const bar = (await page.locator(".action-bar .btn").innerText()).split("\n")[0].trim();
@@ -892,6 +906,7 @@ for (const width of WIDTHS) {
   if (await page.locator(".coach .btn", { hasText: /^Go:/ }).count()) fail("the guide grew a second button for a control already on the screen");
 
   // Why? answers for the moment you are in, and names the ways the case ends.
+  await openGuide(page);
   await page.locator(".coach .btn", { hasText: "Why?" }).click();
   await page.waitForTimeout(250);
   const sheet = await page.locator(".modal-body").innerText();
@@ -912,6 +927,7 @@ for (const width of WIDTHS) {
   await page.reload();
   await page.goto(`${base}#/play`);
   await page.waitForTimeout(300);
+  await openGuide(page);
   const tired = await page.locator(".coach-say").innerText();
   if (!/rest/i.test(tired)) fail(`at 4 of 5 fatigue the guide says "${tired}" instead of telling you to rest`);
   if (!(await page.locator(".coach.warn").count())) fail("the guide does not mark an urgent step as urgent");
@@ -959,6 +975,9 @@ for (const width of WIDTHS) {
   });
   const before = (await oracles()).length;
 
+  // The framing card is one folded line on the Table; open it to ask.
+  const fold = page.locator("#screen details.framing:not([open]) > summary");
+  if (await fold.count()) { await fold.first().click(); await page.waitForTimeout(80); }
   const askBtn = page.locator("#screen .btn", { hasText: "Ask the oracle" }).first();
   if (!(await askBtn.count())) fail("no oracle to hand inside a scene");
   else {
@@ -1083,6 +1102,7 @@ for (const width of WIDTHS) {
 
   await page.goto(`${base}#/settings`);
   await page.waitForTimeout(250);
+  await page.locator("#screen details.settings-more > summary").click();
   const settings = await page.locator("#screen").innerText();
   if (!/content filter\s*\u00b7\s*house aid/i.test(settings)) fail("the content filter does not label itself a house aid");
   await page.goto(`${base}#/journal`);
@@ -1260,9 +1280,8 @@ for (const width of WIDTHS) {
     .filter((t) => t && !/^(What this screen does|Save both sheets)$/.test(t)));
   if (acting.length) fail(`the mystery sheet carries controls that are not a view: ${acting.join(", ")}`);
 
-  // The section nav reaches it, and it is in the Case group.
-  const nav = await page.locator("#screen .section-nav a").allInnerTexts();
-  if (!nav.some((t) => /mystery/i.test(t))) fail(`the Case group's nav reads ${nav.join(" / ")} and does not reach the mystery sheet`);
+  // The Table's case strip reaches it, and it leads back to the Table.
+  if (!(await page.locator('#screen a.drawer-back[href="#/play"]').count())) fail("the mystery sheet has no way back to the Table");
 
   // The export produces a real document, with both sheets and no spoilers.
   const html = await page.evaluate(async () => {
@@ -1542,9 +1561,9 @@ for (const width of WIDTHS) {
     });
   };
 
-  // On a play surface the guide is a card, and the stage rail is above the fold.
+  // On the Table the guide is one line by the Next button, and the stage rail is above the fold.
   const play = await shape("play");
-  if (play.compact) fail("the guide is collapsed on the play screen, where a first-timer needs it");
+  if (!play.compact || !play.expandable) fail("the guide on the Table is not one line that opens");
   if (play.rail < 0) fail("the play screen has no stage rail");
   else if (play.rail > play.viewport - 80) fail(`the stage rail starts at ${play.rail}px of a ${play.viewport}px screen`);
 
@@ -1573,7 +1592,7 @@ for (const width of WIDTHS) {
   if (!heading.explainInline) fail("the what-this-does note is still a full-width band under the heading");
 
   if (errors.length) fail(`console error around the guide: ${errors[0].slice(0, 140)}`);
-  if (!failures.length) ok("the guide is a card where you play and a line where you read; the rail is above the fold");
+  if (!failures.length) ok("the guide is one line that opens, everywhere; the rail is above the fold");
   await ctx.close();
 }
 
@@ -1715,8 +1734,9 @@ for (const width of WIDTHS) {
   await seed(page, base, "stress");
 
   // The clock is the game's own icon and it already exists. The header drew it
-  // as "3/4" while the drawn dial sat two screens away on the sheet.
-  await page.goto(`${base}#/play`);
+  // as "3/4" while the drawn dial sat two screens away on the sheet. (The Table
+  // carries no bar; a drawer does.)
+  await page.goto(`${base}#/sheet`);
   await page.waitForTimeout(320);
   const head = await page.evaluate(() => {
     const dial = document.querySelector("#resource-header .clock svg");
@@ -2009,8 +2029,9 @@ for (const width of WIDTHS) {
       named: named.length,
       marks: threat ? (threat.querySelector(".marks") || {}).getAttribute?.("aria-label") : null,
       bars: threat ? (threat.querySelector(".level-bars") || {}).getAttribute?.("aria-label") : null,
-      gauge: problem ? !!problem.querySelector(".danger-gauge") : false,
-      file: problem ? problem.classList.contains("case-file") && !!problem.querySelector(".case-clip") : false,
+      // On the Table, danger is a gauge on the desk and the case sits on its strip.
+      gauge: !!document.querySelector("#screen .desk .danger-gauge"),
+      file: !!document.querySelector('#screen a.case-strip[href="#/case-sheet"] .genre-art'),
     };
   });
   if (play.steps !== 4) fail(`the stage path draws ${play.steps} stages, not the book's four`);
@@ -2018,8 +2039,8 @@ for (const width of WIDTHS) {
   if (play.named !== 1) fail(`the stage path names ${play.named} stages on screen instead of only the one you are in`);
   if (!play.marks || !/of \d marks/.test(play.marks)) fail("a threat's marks are not drawn as boxes to fill");
   if (!play.bars || !/Level \d of 3/.test(play.bars)) fail("a threat's level is not drawn as a meter");
-  if (!play.gauge) fail("the problem card shows danger as a bare number, with no gauge");
-  if (!play.file) fail("the problem card is not dressed as a case file");
+  if (!play.gauge) fail("the Table shows danger as a bare number, with no gauge");
+  if (!play.file) fail("the Table's case is not on its strip with the genre's mark");
 
   // The genre watermark is behind every screen while a case is open, and gone when flattened.
   const mark = await q(() => {
@@ -2156,10 +2177,10 @@ for (const width of WIDTHS) {
   const blank = await q(() => ({ hero: !!document.querySelector("#screen .illustration-hero"), genre: document.body.dataset.genre || null }));
   if (!blank.hero) fail("the first screen of all has no picture on it");
   if (blank.genre) fail("a blank app carries a genre watermark with no case open");
-  for (const [route, art] of [["clues", "mystery"], ["play", "investigator"], ["solve", "mystery"]]) {
+  for (const [route, art] of [["clues", ".empty .illustration-mystery"], ["play", ".intro-panel .illustration-scene"], ["solve", ".empty .illustration-mystery"]]) {
     await page.goto(`${base}#/${route}`);
     await page.waitForTimeout(250);
-    if (!(await page.locator(`#screen .empty .illustration-${art}`).count())) fail(`${route}: the empty state is words with no drawing`);
+    if (!(await page.locator(`#screen ${art}`).count())) fail(`${route}: the empty state is words with no drawing`);
   }
 
   if (errors.length) fail(`console error in the graphics pass: ${errors[0].slice(0, 140)}`);
@@ -2252,7 +2273,7 @@ for (const width of WIDTHS) {
   const { ctx, page, errors } = await newPage();
   const q = (fn, arg) => page.evaluate(fn, arg);
   const closeAll = () => q(() => { document.querySelectorAll(".modal-overlay").forEach((n) => n.remove()); });
-  await seed(page, base, "stress", { rivals: true });
+  await seed(page, base, "stress", { rivals: true, theme: "light" });
 
   // 2. the watermark: fainter, and thinning out toward the top
   await page.goto(`${base}#/oracle`);
@@ -2595,6 +2616,7 @@ for (const width of WIDTHS) {
 
   // 2, 27, 28. settings
   await at("settings");
+  await page.locator("#screen details.settings-more > summary").click();
   const set = await q(() => ({ rows: document.querySelectorAll("#screen .opt.switch").length, glyphs: document.querySelectorAll("#screen .opt.switch .glyph").length,
     typeCopy: /Type the faces/.test(document.querySelector("#screen").innerText),
     data: [...document.querySelectorAll("#screen .btn")].filter((b) => /Export backup|Import backup/.test(b.innerText)).map((b) => !!b.querySelector(".glyph")) }));
@@ -2610,10 +2632,10 @@ for (const width of WIDTHS) {
   await at("play");
   const arrive = await q(async () => {
     const r = await import("../src/router.js"); const { Store } = await import("../src/store.js");
-    await r.render(); const still = !!document.querySelector(".coach-say.arrive");
+    await r.render(); const still = !!document.querySelector(".coach-say.arrive, .coach-line.arrive");
     Store.update("test", () => { Store.mystery.scene = null; Store.mystery.threats = []; });
-    await r.render(); const moved = !!document.querySelector(".coach-say.arrive");
-    await r.render(); const again = !!document.querySelector(".coach-say.arrive");
+    await r.render(); const moved = !!document.querySelector(".coach-say.arrive, .coach-line.arrive");
+    await r.render(); const again = !!document.querySelector(".coach-say.arrive, .coach-line.arrive");
     return { still, moved, again };
   });
   if (arrive.still || arrive.again) fail("the guide's sentence moves on a re-render that changed nothing");
@@ -2672,7 +2694,8 @@ for (const width of WIDTHS) {
   if (cut.length) fail(`a segmented option truncates its label: ${cut.join(", ")}`);
 
   // 3, 6, 7, 8. the numbers: all five in view at 360, truths drawn filling, the clock's segments visible, a tap explains
-  await at("play");
+  // (on a drawer: the Table draws the same numbers as its desk)
+  await at("sheet");
   const bar = await q(() => {
     const host = document.querySelector("#resource-header"); const hr = host.getBoundingClientRect();
     const cells = [...host.querySelectorAll(".res")];
@@ -2700,6 +2723,7 @@ for (const width of WIDTHS) {
   }
 
   // 13, 14, 9, 10, 11, 12. one stage test, dialog by dialog
+  await at("play");
   await page.locator(".action-bar .btn").click();
   await page.waitForTimeout(300);
   const chooser = await q(() => { const cs = [...document.querySelectorAll(".modal-overlay .choice")];
@@ -2750,6 +2774,7 @@ for (const width of WIDTHS) {
 
   // 15, 16. Why?: the four endings drawn, and the guess worth drawn
   await at("play");
+  await openGuide(page);
   await page.locator(".coach .btn", { hasText: "Why?" }).click();
   await page.waitForTimeout(250);
   const why = await q(() => ({ meters: document.querySelectorAll(".modal-overlay .ending-meter").length, worth: !!document.querySelector(".modal-overlay .guess-worth") }));
@@ -2762,7 +2787,7 @@ for (const width of WIDTHS) {
     m.clueSets = { 7: { rank: "7", cards: [{ id: "x1", rank: "7", suit: "S" }, { id: "x2", rank: "7", suit: "H" }], entries: [], description: "", prompts: [], truth: false, falseLead: false, truthCards: [] } };
     localStorage.setItem("citr:v1", JSON.stringify(s)); });
   await page.reload(); await at("play");
-  const pick = await q(() => ({ say: document.querySelector(".coach-say")?.textContent || "", bar: document.querySelector(".action-bar .btn")?.innerText || "" }));
+  const pick = await q(() => ({ say: document.querySelector(".coach-line, .coach-say")?.textContent || "", bar: document.querySelector(".action-bar .btn")?.innerText || "" }));
   if (/Turn the/.test(pick.say) && !/Truth/.test(pick.bar)) fail(`the guide says "${pick.say.slice(0, 30)}…" while the bar offers ${pick.bar.split("\n")[0]}`);
 
   // 5. the oracle's idle tiles sit on one line
@@ -2788,9 +2813,9 @@ for (const width of WIDTHS) {
   if (tiles.length !== 3 || new Set(tiles).size !== 1) fail(`Home's attributes are ${tiles.length} tiles on ${new Set(tiles).size} lines`);
 
   // 19. a tab slides in from the side it lives on
-  await page.locator(".tab", { hasText: "Clues" }).click(); await page.waitForTimeout(80);
+  await page.locator(".tab", { hasText: "Notebook" }).click(); await page.waitForTimeout(80);
   const right = await q(() => document.querySelector("#screen").dataset.from || "");
-  await page.locator(".tab", { hasText: "Case" }).click(); await page.waitForTimeout(80);
+  await page.locator(".tab", { hasText: "Table" }).click(); await page.waitForTimeout(80);
   const left = await q(() => document.querySelector("#screen").dataset.from || "");
   if (right !== "right" || left !== "left") fail(`tabs arrive from "${right}" and "${left}", not from their own side`);
 
@@ -2804,7 +2829,7 @@ for (const width of WIDTHS) {
   const { ctx, page, errors } = await newPage();
   const q = (fn, arg) => page.evaluate(fn, arg);
   const at = async (route, ms = 350) => { await page.goto(`${base}#/${route}`); await page.waitForTimeout(ms); };
-  const hrefs = () => q(() => [...document.querySelectorAll("#screen a.xlink")].map((a) => a.getAttribute("href")));
+  const hrefs = () => q(() => [...document.querySelectorAll("#screen a.xlink, #screen a.case-strip, #screen a.desk-item")].map((a) => a.getAttribute("href")));
   await seed(page, base, "stress", { career: true, rivals: true });
   const { RULES_LIBRARY } = await q(async () => ({ RULES_LIBRARY: (await import("../src/library.js")).RULES_LIBRARY.flatMap((g) => g.entries.map((e) => e.id)) }));
   const ruleIds = new Set(RULES_LIBRARY);
@@ -2823,7 +2848,11 @@ for (const width of WIDTHS) {
   // …and following one opens that entry
   await at("play");
   const stagesLink = page.locator('#screen a.xlink[href="#/rules?rule=stages"]').first();
-  if (await stagesLink.count()) { await stagesLink.click(); await page.waitForTimeout(400); }
+  if (await stagesLink.count()) {
+    // A section's links fold under its "More".
+    await stagesLink.evaluate((a) => { const d = a.closest("details"); if (d) d.open = true; });
+    await stagesLink.click(); await page.waitForTimeout(400);
+  }
   if (!(await q(() => !!document.querySelector("#rule-stages[open]")))) fail("following a rule link does not open that rule");
 
   // 2. the mystery sheet leads to where each part of it is played
@@ -2868,6 +2897,141 @@ for (const width of WIDTHS) {
   if (errors.length) fail(`console error in the links pass: ${errors[0].slice(0, 140)}`);
   if (!failures.length) ok("every part that shows another's state leads there, and every rule leads to its screen");
   await ctx.close();
+}
+
+// 8ai. the redesign: the Table and the Moment
+{
+  const { ctx, page, errors } = await newPage(360);
+  const q = (fn, arg) => page.evaluate(fn, arg);
+  const at = async (route, ms = 400) => { await page.goto(`${base}#/${route}`); await page.waitForTimeout(ms); };
+  const n = (sel) => q((s) => document.querySelectorAll(s).length, sel);
+  await seed(page, base, "mid-session", { career: true, rivals: true });
+
+  // the shell: three tabs, a gear, no sub-tab bars, every drawer leads back to the table
+  await at("play");
+  const tabs = await q(() => [...document.querySelectorAll(".tab")].map((t) => t.querySelector("span:not(.badge):not(.tab-icon)")?.textContent.trim()));
+  if (JSON.stringify(tabs) !== JSON.stringify(["Table", "Notebook", "Book"])) fail(`the tabs are ${tabs.join(", ")}`);
+  if (!(await n("#settings-btn"))) fail("there is no gear for Settings in the header");
+  const routes = (await import("./routes.mjs")).ROUTES;
+  const TABBED = ["play", "journal", "rules", "tables", "oracle"];
+  for (const r of routes) {
+    await at(r, 250);
+    if (await n("#screen .section-nav")) fail(`${r} still carries a sub-tab bar`);
+    // A drawer off the Table leads back to it; the Book's own drawers back to the Book.
+    const home = ["careers", "tutorial"].includes(r) ? "#/rules" : "#/play";
+    if (!TABBED.includes(r) && !(await n(`#screen a.drawer-back[href="${home}"]`))) fail(`${r} has no way back to where it opened from`);
+    if (["rules", "tables", "oracle"].includes(r) && (await n("#screen .book-switch .seg-opt")) !== 3) fail(`${r} is not switchable inside the Book`);
+  }
+
+  // the Table: case strip, a desk of four objects, no numbers bar, the guide beside Next
+  await at("play");
+  const table = await q(() => ({
+    strip: document.querySelector('#screen a.case-strip[href="#/case-sheet"]') ? 1 : 0,
+    genreArt: !!document.querySelector("#screen .case-strip .genre-art"),
+    desk: [...document.querySelectorAll("#screen .desk .desk-item")].map((d) => d.getAttribute("href") || d.tagName),
+    bar: !document.querySelector("#resource-header")?.hidden,
+    topGuide: !!document.querySelector("#screen > .coach"),
+    nextGuide: !!document.querySelector("#action-host .coach"),
+    muted: [...document.querySelectorAll("#screen p.small.muted")].filter((p) => p.offsetParent && !p.closest("details:not([open])") && !p.closest(".modal-overlay")).length,
+  }));
+  if (!table.strip) fail("the Table has no case strip leading to the mystery sheet");
+  if (!table.genreArt) fail("the case strip carries no genre art");
+  if (table.desk.length !== 4) fail(`the desk holds ${table.desk.length} objects, not four`);
+  if (table.bar) fail("the numbers bar sits over the Table, which already shows them as objects");
+  if (table.topGuide || !table.nextGuide) fail("the guide is a card at the top, not a line beside Next");
+  if (table.muted) fail(`the Table shows ${table.muted} helper paragraphs at once`);
+
+  // the picker as tiles, two to a row
+  await q(() => { const s = JSON.parse(localStorage.getItem("citr:v1")); const m = s.careers[s.activeId].mystery; m.scene = null; m.threats = []; localStorage.setItem("citr:v1", JSON.stringify(s)); });
+  await page.reload(); await at("play");
+  const tiles = await q(() => [...document.querySelectorAll("#screen .choice-list.tiles .choice")].map((c) => Math.round(c.getBoundingClientRect().top)));
+  if (tiles.length !== 4 || new Set(tiles).size !== 2) fail(`the scene picker is ${tiles.length} tiles on ${new Set(tiles).size} rows, not four in two`);
+
+  // a Moment: a stage test fills the screen and reads as one big word with dealt cards
+  await q(() => { const s = JSON.parse(localStorage.getItem("citr:v1")); s.careers[s.activeId].mystery = null; localStorage.setItem("citr:v1", JSON.stringify(s)); });
+  await seed(page, base, "mid-session", { career: true, rivals: true, manualDice: true });
+  await at("play");
+  await page.locator(".action-bar .btn").first().click();
+  await page.waitForTimeout(300);
+  const moment = await q(() => { const c = document.querySelector(".modal-overlay .modal-card"); return c ? { full: c.getBoundingClientRect().height >= innerHeight * 0.9, moment: !!document.querySelector(".modal-overlay.moment") } : null; });
+  if (!moment || !moment.full || !moment.moment) fail("a decision is a small dialog, not a full-screen moment");
+  await page.locator(".modal-overlay .choice").first().click();
+  let result = null;
+  for (let i = 0; i < 10 && !result; i++) {
+    await page.waitForTimeout(600);
+    if (await n(".modal-overlay .outcome")) {
+      result = await q(() => ({ big: !!document.querySelector(".modal-overlay .outcome-big"),
+        dealt: document.querySelectorAll(".modal-overlay .events.dealt li").length, lis: document.querySelectorAll(".modal-overlay .events li").length }));
+      break;
+    }
+    const dice = page.locator(".modal-overlay .dice-pick");
+    if (await dice.count()) { const f = [1, 2]; for (let r = 0; r < await dice.count(); r++) await dice.nth(r).locator(`.die-choice[data-face='${f[r]}']`).click(); continue; }
+    const ch = page.locator(".modal-overlay .choice").first(); if (await ch.count()) { await ch.click(); continue; }
+    const b = page.locator(".modal-actions .btn").first(); if (await b.count()) await b.click(); else break;
+  }
+  if (!result) fail("the stage test never reached its result");
+  else {
+    if (!result.big) fail("the result does not say its outcome in one big word");
+    if (!result.lis || result.dealt !== result.lis) fail("the result's events are a list, not dealt cards");
+  }
+  await q(() => document.querySelectorAll(".modal-overlay").forEach((x) => x.remove()));
+
+  // drawers: the investigator is a card that flips; clues are on a corkboard
+  await at("sheet");
+  const flip = await q(() => !!document.querySelector("#screen .inv-flip .inv-front") && !!document.querySelector("#screen .inv-flip .inv-back"));
+  if (!flip) fail("the investigator is a page of sections, not a card with a front and back");
+  else {
+    await page.locator("#screen .inv-flip-btn").first().click();
+    await page.waitForTimeout(200);
+    if (!(await n("#screen .inv-flip.flipped"))) fail("the investigator card does not turn over");
+  }
+  await at("clues");
+  if (!(await n("#screen .corkboard"))) fail("the clue sets are not pinned to a corkboard");
+  // the numbers lose their labels, not their meaning
+  const labels = await q(() => [...document.querySelectorAll("#resource-header .res > span:not(.res-top), #resource-header .res-stack > span")].filter((s) => s.offsetParent).length);
+  if (labels) fail(`the numbers still print ${labels} labels`);
+
+  // Settings in two groups, the rest folded; dark by default
+  await at("settings");
+  const set = await q(() => ({ titles: [...document.querySelectorAll("#screen .card-title")].map((t) => t.textContent.trim()) }));
+  for (const t of ["Game rules", "Look"]) if (!set.titles.some((x) => x.startsWith(t))) fail(`Settings has no "${t}" group`);
+  const theme = await q(async () => (await import("../src/settings.js")).Settings.defaults().theme);
+  if (theme !== "dark") fail(`the default theme is ${theme}, not the night case`);
+
+  // a first session: the Next button is pointed at
+  if (!(await q(async () => { const { Store } = await import("../src/store.js"); return Store.career.history.length === 0; }))) {
+    await q(() => { const s = JSON.parse(localStorage.getItem("citr:v1")); s.careers[s.activeId].history = []; localStorage.setItem("citr:v1", JSON.stringify(s)); });
+    await page.reload();
+  }
+  await at("play");
+  if (!(await n(".action-bar.hint"))) fail("a first session does not point at the Next button");
+
+  // the dock grows with what the guide says; the page's foot still clears it
+  for (const open of [false, true]) {
+    await q(() => { const s = JSON.parse(localStorage.getItem("citr:v1")); const c = s.careers[s.activeId]; c.investigators[0].fatigue = 4; c.mystery.scene = null; localStorage.setItem("citr:v1", JSON.stringify(s)); });
+    await page.reload(); await at("play");
+    if (open) await openGuide(page);
+    await page.waitForTimeout(250);
+    const gap = await q(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      const kids = [...document.querySelectorAll("#screen > *")].filter((k) => k.getClientRects().length);
+      const last = kids[kids.length - 1].getBoundingClientRect().bottom;
+      return Math.round(document.querySelector("#action-host").getBoundingClientRect().top - last);
+    });
+    if (gap < 0) fail(`with the guide ${open ? "opened" : "warning"}, the foot of the Table sits ${-gap}px under the dock`);
+  }
+  await ctx.close();
+
+  // a blank app opens on three panels, not a page of text
+  const b = await newPage(360);
+  await seed(b.page, base, "fresh");
+  await b.page.goto(`${base}#/play`); await b.page.waitForTimeout(400);
+  const intro = await b.page.evaluate(() => document.querySelectorAll("#screen .intro-panel").length);
+  if (intro !== 3) fail(`a blank app opens on ${intro} intro panels, not three`);
+  await b.ctx.close();
+
+  if (errors.length) fail(`console error in the redesign: ${errors[0].slice(0, 140)}`);
+  if (!failures.length) ok("the Table, the Moment, three tabs and drawers");
 }
 
 // 8ae. the first paint is the icon, not a blank screen
@@ -2925,6 +3089,7 @@ for (const width of WIDTHS) {
   await seed(page, base, "party", { multiplayer: true, career: true });
   await page.goto(`${base}#/settings`);
   await page.waitForTimeout(150);
+  await page.locator("#screen details.settings-more > summary").click();
   await page.getByRole("button", { name: "Put down this case" }).click();
   await page.waitForTimeout(200);
   await page.locator(".modal-actions .btn").first().click();
@@ -2941,6 +3106,7 @@ for (const width of WIDTHS) {
 
   await page.goto(`${base}#/settings`);
   await page.waitForTimeout(150);
+  await page.locator("#screen details.settings-more > summary").click();
   await page.getByRole("button", { name: "Erase everything" }).click();
   await page.waitForTimeout(200);
   await page.locator(".modal-actions .btn").first().click();   // erase it all

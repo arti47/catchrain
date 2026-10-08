@@ -30,37 +30,40 @@ applyWakeLock();
 const noInvestigator = () => !Store.career || !Store.investigator;
 const noMystery = () => !Store.mystery;
 
-register("home", { title: "Case", group: "case", render: renderHome });
-register("sheet", { title: "Investigator", group: "case", render: renderSheet, empty: noInvestigator });
-register("case-sheet", { title: "Mystery", group: "case", render: renderMysterySheet, empty: noMystery });
-register("journal", { title: "Journal", group: "case", render: renderJournal, empty: noInvestigator });
-register("play", { title: "Play", group: "play", render: renderPlay });
-register("clues", { title: "Clues", group: "clues", render: renderClues });
-register("solve", { title: "The solve", group: "clues", render: renderSolve });
-register("tables", { title: "Tables", group: "tables", render: renderTables });
-register("oracle", { title: "Oracles", group: "tables", render: renderOracle });
-register("rules", { title: "Rules", group: "more", render: renderRules });
-register("tutorial", { title: "Tutorial", group: "more", render: renderTutorial });
-register("careers", { title: "Careers", group: "more", render: renderCareers });
-register("settings", { title: "Settings", group: "more", render: renderSettings });
-register("wizard", { title: "New investigator", render: renderWizard });
-register("mystery", { title: "New mystery", render: renderMysteryWizard });
+// Three places, not five tabs: the Table where the game is played (and every
+// drawer that opens off it), the Notebook where it is written down, and the
+// Book where it is looked up. Settings sits behind the gear.
+register("play", { title: "Table", group: "table", render: renderPlay });
+register("home", { title: "The case", group: "table", drawer: true, render: renderHome });
+register("sheet", { title: "Investigator", group: "table", drawer: true, render: renderSheet, empty: noInvestigator });
+register("case-sheet", { title: "Mystery", group: "table", drawer: true, render: renderMysterySheet, empty: noMystery });
+register("clues", { title: "Clues", group: "table", drawer: true, render: renderClues });
+register("solve", { title: "The solve", group: "table", drawer: true, render: renderSolve });
+register("journal", { title: "Notebook", group: "notebook", render: renderJournal, empty: noInvestigator });
+register("rules", { title: "Rules", group: "book", book: true, render: renderRules });
+register("tables", { title: "Tables", group: "book", book: true, render: renderTables });
+register("oracle", { title: "Oracles", group: "book", book: true, render: renderOracle });
+register("tutorial", { title: "Tutorial", group: "book", drawer: true, render: renderTutorial });
+register("careers", { title: "Careers", group: "book", drawer: true, render: renderCareers });
+register("settings", { title: "Settings", group: "settings", drawer: true, render: renderSettings });
+register("wizard", { title: "New investigator", group: "table", drawer: true, render: renderWizard });
+register("mystery", { title: "New mystery", group: "table", drawer: true, render: renderMysteryWizard });
 
 /** Live state travels: badges show a scene in progress or a mystery waiting to be solved. */
 setBadges(() => {
   const m = Store.mystery, inv = Store.investigator;
   const out = {};
   if (!m || !inv) return out;
-  if (m.ended && !m.solved) { out.clues = "!"; out.solve = "ready"; }
-  else if (m.scene && !m.scene.done) { out.play = "•"; }
-  if (D.hasThreat(m)) out.play = "!";
-  if (inv.fatigue >= 4) out.case = "!";
+  if (m.ended && !m.solved) out.table = "!";
+  else if (m.scene && !m.scene.done) out.table = "•";
+  if (D.hasThreat(m) || inv.fatigue >= 4) out.table = "!";
   return out;
 });
 
 // Header controls
 const undoBtn = $("#undo-btn");
 undoBtn.replaceChildren(glyph("undo", 20));
+$("#settings-btn").replaceChildren(glyph("gear", 20));
 undoBtn.addEventListener("click", () => {
   const label = Store.undo();
   const left = Store.undoDepth();

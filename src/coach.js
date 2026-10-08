@@ -194,21 +194,13 @@ export function recapCard() {
 
 // --- The bar ------------------------------------------------------------------
 /**
- * Sits above every screen. When the control it names is on the screen you are
- * looking at, it says so rather than growing a duplicate of it: one button ever
- * does one thing, which is also the only way the audit stays honest.
+ * One line, beside the Next button (or at the top of a screen without one).
+ * Tapped, it opens to say what the step costs and why. When the control it
+ * names is on the screen you are looking at, it says so rather than growing a
+ * duplicate of it: one button ever does one thing.
  */
-/**
- * Where the guide is a card and where it is a line. On the surfaces the game is
- * played on it is the first thing you read; on the ones you go to in order to
- * look something up it is one line, because a step about a scene you are not in
- * is not worth 40% of the screen.
- */
-const PLAY_SURFACES = new Set(["home", "sheet", "case-sheet", "play", "clues", "wizard", "mystery"]);
 /** Screens that guide themselves, step by step, and are not improved by a second voice. */
 const SILENT = new Set(["solve"]);
-/** Opened on a reference screen, it stays open as long as the app is open. */
-let openedOnReference = false;
 /** What the guide last said, so a new step arrives and a re-render does not. */
 let lastSay = null;
 
@@ -238,14 +230,15 @@ export function coachBar(currentRoute) {
     clear(wrap);
     add(wrap, el("button", {
       class: "coach-toggle", type: "button", "aria-expanded": "false",
-      "aria-label": `Next step: ${step.say}. Open the guide`,
-      onclick: () => { openedOnReference = true; full(); },
+      // Named for what it is, so a control the guide mentions by name is never
+      // confused with the guide itself; the sentence is its description.
+      "aria-label": "The guide: open it", "aria-describedby": "coach-line",
+      onclick: () => full(),
     }, mark(),
-       el("span", { class: `coach-line${arrive ? " arrive" : ""}`, text: step.say }),
+       el("span", { class: `coach-line${arrive ? " arrive" : ""}`, id: "coach-line", text: step.say }),
        el("span", { class: "coach-chevron", "aria-hidden": "true" })));
   };
-  const blank = !Store.career || !Store.investigator;
-  if (!blank && (PLAY_SURFACES.has(currentRoute) || openedOnReference)) full(); else line();
+  line();
   return wrap;
 }
 

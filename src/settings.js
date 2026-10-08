@@ -4,7 +4,7 @@ import { APP } from "./core.js";
 
 const KEY = APP.storageKey + ":settings";
 const DEFAULTS = {
-  theme: "system",          // system | light | dark
+  theme: "dark",            // system | light | dark — the night case by default
   textScale: 100,           // pays back the zoom lock
   manualDice: false,        // enter physically rolled dice instead of rolling in-app
   multiplayer: false,       // Ch.3 co-op: a party sharing one mystery

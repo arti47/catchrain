@@ -152,13 +152,14 @@ export function eventText(e) {
 const consequenceStrip = (total) => { const s = consequenceScale(total); s.classList.add("consequence"); return s; };
 
 export function eventList(events) {
-  const ul = el("ul", { class: "events" });
+  // Dealt, not listed: each line a small card with its mark, one after another.
+  const ul = el("ul", { class: "events dealt" });
   for (const e of events) {
     const text = eventText(e);
     if (!text) continue;
     // Each line carries the mark of what it is about; a consequence carries its
     // own strip, with the 9 that ends the case, right under the words.
-    add(ul, el("li", {}, eventGlyph(e.t),
+    add(ul, el("li", { style: `--deal:${ul.children.length}` }, eventGlyph(e.t),
       el("span", { class: "event-text" }, el("span", { text }),
         e.t === "consequence" && typeof e.total === "number" ? consequenceStrip(e.total) : null)));
   }
