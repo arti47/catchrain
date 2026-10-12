@@ -6,7 +6,30 @@ import { RULES_LIBRARY } from "./library.js";
 
 let openModal = null;
 
-export function modal({ title, body, actions = [], dismissable = true, onClose, tone = "", art = null }) {
+/**
+ * The Story's live end. On the Table a dialog is not a dialog: it is the newest
+ * beat of the story, a card in the page under everything already told, and the
+ * Next button steps aside while it waits. The node outlives a re-render — the
+ * router puts it back at the foot of the story every time — so a flow that is
+ * awaiting a choice keeps its card while the page around it is redrawn.
+ * Elsewhere, and for the few moments that are meant to take the whole screen
+ * (the day turning, the case ending, a rules sheet), it stays an overlay.
+ */
+let live = null;
+export function liveHost() {
+  if (!live) live = el("div", { id: "live", class: "live" });
+  return live;
+}
+const inlineHere = () => document.body.dataset.route === "play";
+/** Bring the live card into view under the sticky bars, its top first. */
+export function showLive() {
+  const node = live && live.firstElementChild;
+  if (!node || !node.isConnected) return;
+  const top = node.getBoundingClientRect().top + window.scrollY - 96;
+  window.scrollTo(0, Math.max(0, top));
+}
+
+export function modal({ title, body, actions = [], dismissable = true, onClose, tone = "", art = null, overlay: forceOverlay = false }) {
   closeModal();
   const prev = document.activeElement;
   const card = el("div", { class: "modal-card", role: "document" });
@@ -26,8 +49,13 @@ export function modal({ title, body, actions = [], dismissable = true, onClose, 
   // Every dialog is a Moment: the whole screen, one thing to read, the buttons
   // at the bottom under the thumb. A scene's Moment opens on its drawing.
   add(card, art ? el("div", { class: "moment-art", "aria-hidden": "true" }, art) : null, head, content, actions.length ? foot : null);
-  const overlay = el("div", { class: `modal-overlay moment ${tone}`.trim(), role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" }, card);
-  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay && dismissable) closeModal(); });
+  const inline = !forceOverlay && !tone && inlineHere();
+  const overlay = inline
+    // The same card, as a beat: still `.modal-overlay` so every flow and every
+    // harness finds it where it always did, but in the page and not over it.
+    ? el("div", { class: "modal-overlay beat-live", role: "group", "aria-labelledby": "modal-title" }, card)
+    : el("div", { class: `modal-overlay moment ${tone}`.trim(), role: "dialog", "aria-modal": "true", "aria-labelledby": "modal-title" }, card);
+  if (!inline) overlay.addEventListener("mousedown", (e) => { if (e.target === overlay && dismissable) closeModal(); });
   const onKey = (e) => {
     if (e.key === "Escape" && dismissable) { closeModal(); return; }
     if (e.key !== "Tab") return;
@@ -38,31 +66,36 @@ export function modal({ title, body, actions = [], dismissable = true, onClose, 
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   };
   document.addEventListener("keydown", onKey);
-  document.body.append(overlay);
-  openModal = { overlay, onKey, prev, onClose };
+  if (inline) {
+    add(liveHost(), overlay);
+    document.body.classList.add("has-live");
+    requestAnimationFrame(showLive);
+  } else document.body.append(overlay);
+  openModal = { overlay, onKey, prev, onClose, inline };
   const focusable = card.querySelector("button, input, textarea, select");
-  if (focusable) focusable.focus();
+  if (focusable) focusable.focus({ preventScroll: inline });
   return { close: closeModal, card, content };
 }
 
 export function closeModal() {
   if (!openModal) return;
-  const { overlay, onKey, prev, onClose } = openModal;
+  const { overlay, onKey, prev, onClose, inline } = openModal;
   document.removeEventListener("keydown", onKey);
   overlay.remove();
   openModal = null;
-  if (prev && prev.focus) prev.focus();
+  if (inline) document.body.classList.remove("has-live");
+  if (prev && prev.focus && prev.isConnected) prev.focus({ preventScroll: true });
   if (onClose) onClose();
 }
 
-export function confirmModal({ title, message, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = false }) {
+export function confirmModal({ title, message, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = false, overlay = false }) {
   return new Promise((resolveRaw) => {
     let settled = false;
     const resolve = (v) => { if (!settled) { settled = true; resolveRaw(v); } };
     modal({
       title,
       body: el("p", { class: "muted", text: message }),
-      dismissable: true,
+      dismissable: true, overlay,
       onClose: () => resolve(false),
       actions: [
         { label: confirmLabel, kind: danger ? "danger" : "primary", onClick: () => { resolve(true); } },

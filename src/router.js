@@ -2,7 +2,7 @@
 
 import { el, add, clear } from "./core.js";
 import { coachBar } from "./coach.js";
-import { attachLinks, xlink, ruleLink, seg, foldHelp } from "./ui.js";
+import { showLive, attachLinks, xlink, ruleLink, seg, foldHelp } from "./ui.js";
 import { Store } from "./store.js";
 
 const routes = new Map();
@@ -142,6 +142,7 @@ export async function render() {
   // down a scene should not throw you back to the top of it.
   const sameScreen = name === lastRoute;
   const keepTo = sameScreen ? window.scrollY : 0;
+  document.body.dataset.route = name;
   const host = document.querySelector("#screen");
   const actionHost = document.querySelector("#action-host");
   clear(host); clear(actionHost);
@@ -187,7 +188,12 @@ export async function render() {
     host.classList.add("arriving");
   }
   host.focus({ preventScroll: true });
-  window.scrollTo(0, keepTo); // the browser clamps if the screen got shorter
+  // The Story reads downward and play happens at its foot: arriving, or when
+  // something new has been told, the page goes to where the story has got to.
+  if (out && out.follow && (!sameScreen || out.follow === "grew")) {
+    if (document.querySelector("#live > *")) showLive();
+    else window.scrollTo(0, document.documentElement.scrollHeight);
+  } else window.scrollTo(0, keepTo); // the browser clamps if the screen got shorter
   lastRoute = name;
   document.title = `${def.title} · Caught in the Rain`;
 }

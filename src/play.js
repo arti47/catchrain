@@ -2,7 +2,8 @@
 // boundaries between them. Controls are ordered by the book's sequence of play.
 
 import { el, add } from "./core.js";
-import { SCENE_TYPES, CLOCK_SEGMENTS, END_TRIGGERS, ATTRIBUTE_MAX } from "../data.js";
+import { SCENE_TYPES, CLOCK_SEGMENTS, END_TRIGGERS, ATTRIBUTE_MAX, ATTRIBUTES } from "../data.js";
+const DATA_ATTR = (id) => ATTRIBUTES.find((a) => a.id === id);
 import * as R from "./rules.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
@@ -12,13 +13,11 @@ import * as Life from "./lifecycle.js";
 import { eventList } from "./prompts.js";
 import { useKeywordFlow, ruleSheet, clockTrack, switchInvestigator } from "./sheet.js";
 import { rankName } from "./deck.js";
-import { framingCard, framingLines, framingAction } from "./framing.js";
-import { recapCard, nextStep } from "./coach.js";
+import { nextStep } from "./coach.js";
+import * as Story from "./story.js";
 import { renderIntro } from "./screens.js";
-import { SCENE_FRAMING } from "../data.js";
-const SCENE_FRAMING_NOTE = SCENE_FRAMING.note;
 import { go } from "./router.js";
-import { section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace, pickDice, cardFace } from "./ui.js";
+import { liveHost, section, row, btn, pill, explain, modal, chooseModal, confirmModal, promptModal, showToast, actionBar, emptyState, dieFace, pickDice, cardFace } from "./ui.js";
 
 import { illustration, glyph, stagePath, markBoxes, levelBars, testScale, dangerGauge, investigationScale, diceArt, clearingTrack, flatDie, outcomeStamp, oddsStrip, attrPips, fatigueMini, deckStack } from "./art.js";
 const rerender = () => import("./router.js").then((m) => m.render());
@@ -29,6 +28,18 @@ const rivalSlot = (rivalId) => {
   return i < 0 ? 0 : i + 1;
 };
 
+// --- Live cards ------------------------------------------------------------------
+/**
+ * A card at the live end of the story that shows what just happened. While it
+ * is up, the beats it shows are held back from the story above it, so nothing
+ * is told twice; closing it lets them into the story, where they stay.
+ */
+function beatCard(at, opts) {
+  Story.hold(at);
+  const onClose = opts.onClose;
+  modal({ ...opts, onClose: () => { Story.release(); if (onClose) onClose(); rerender(); } });
+}
+
 // --- Result presentation ------------------------------------------------------
 function diceRow(dice, attrValue, total, doubles) {
   const wrap = el("div", { class: "dice" });
@@ -37,7 +48,7 @@ function diceRow(dice, attrValue, total, doubles) {
   return wrap;
 }
 
-function showResult(title, res, extraEvents = [], onReroll, onAgain) {
+function showResult(title, res, extraEvents = [], onReroll, onAgain, at = null) {
   const body = el("div", {});
   const all = [...(res.events || []), ...extraEvents];
   add(body,
@@ -57,7 +68,8 @@ function showResult(title, res, extraEvents = [], onReroll, onAgain) {
   // through the actor and attribute choosers to say the same two things again.
   if (onAgain) actions.push({ label: "Try it again", kind: "ghost", onClick: () => { setTimeout(onAgain, 40); } });
   if (onReroll) actions.push({ label: "Re-roll with a keyword", kind: "ghost", onClick: () => { setTimeout(onReroll, 40); } });
-  modal({ title, body, actions });
+  if (at === null) modal({ title, body, actions });
+  else beatCard(at, { title, body, actions });
 }
 
 // --- Dice input ---------------------------------------------------------------
@@ -150,6 +162,7 @@ async function chooseActor(label) {
 async function applyTest({ attrId, label, manual, againstThreatId, stageTest, undoLabel, actorId }) {
   const m = Store.mystery;
   const actor = (actorId && Store.investigatorById(actorId)) || Store.investigator;
+  const at = Story.mark();
   Store.begin(undoLabel);
   if (m.scene) {
     m.scene.rolls = m.scene.rolls || {};
@@ -164,7 +177,14 @@ async function applyTest({ attrId, label, manual, againstThreatId, stageTest, un
     const out = await Life.completeStage();
     extra.push(...out.events);
   }
-  Store.journal("test", `${actor.name} \u2014 ${label}: ${res.dice.join("+")}${res.attrValue ? `+${res.attrValue}` : ""} = ${res.total} (${res.outcome.name}).`, { outcome: res.outcome.id });
+  const attr = DATA_ATTR(attrId);
+  const told = Store.journal("test", `${actor.name} \u2014 ${label}: ${res.dice.join("+")}${res.attrValue ? `+${res.attrValue}` : ""} = ${res.total} (${res.outcome.name}).`, {
+    outcome: res.outcome.id,
+    prose: Story.testProse(actor.name, label, res.outcome.id, `${Date.now()}${label}`),
+    chip: { dice: res.dice, attrName: attr ? attr.name : null, attrValue: res.attrValue || 0, plus: 0, total: res.total, what: label },
+    prompt: Story.promptWords(), major: true,
+  });
+  Story.tell([...(res.events || []), ...extra], actor);
   Store.commit();
   const spare = spendableOnReroll(actor);
   const onReroll = spare.length && !Store.mystery.ended
@@ -177,7 +197,7 @@ async function applyTest({ attrId, label, manual, againstThreatId, stageTest, un
   const onAgain = stageTest && res.outcome.id === "failure" && !m2.ended && m2.scene && !m2.scene.done
     ? () => applyTest({ attrId, label, againstThreatId, stageTest, undoLabel: label, actorId: actor.id })
     : null;
-  showResult(Store.party.length > 1 ? `${actor.name} \u2014 ${label}` : label, res, extra, onReroll, onAgain);
+  showResult(Store.party.length > 1 ? `${actor.name} \u2014 ${label}` : label, res, extra, onReroll, onAgain, told ? at : null);
   await rerender();
 }
 
@@ -261,12 +281,14 @@ async function startInvestigation() {
     if (!id) return;
     threatOn = Store.investigatorById(id);
   }
+  const at = Story.mark();
   Store.begin("start investigation");
   Life.startRound("shared");
   const out = await Life.beginInvestigation(die, { threatOn });
-  Store.journal("scene", `Investigation scene: rolled ${out.die} + ${out.danger} danger = ${out.total}.`);
+  Store.journal("scene", `Investigation scene: rolled ${out.die} + ${out.danger} danger = ${out.total}.`, { start: "investigation" });
+  Story.tell(out.events, threatOn);
   Store.commit();
-  modal({
+  beatCard(at, {
     title: "Investigation", art: glyph("investigation", 64),
     body: el("div", {},
       el("div", { class: "dice" }, dieFace(out.die),
@@ -282,17 +304,19 @@ async function startInvestigation() {
 async function startRest() {
   const who = Store.investigator;
   if (!canTakeScene(who)) return;
+  const at = Story.mark();
   Store.begin("rest scene");
   Life.startScene("rest", who);
   const events = await Life.restScene(null, who);
   Store.mystery.scene.done = true;
   Life.recordRoundScene("rest", who);
-  Store.journal("scene", `${who.name} rests.`);
+  Store.journal("scene", `${who.name} rests.`, { start: "rest" });
+  Story.tell(events, who);
   Store.commit();
-  modal({
+  beatCard(at, {
     title: "Rest", art: glyph("rest", 64),
-    body: el("div", {}, restFigure(events), el("p", { class: "muted", text: `Describe how ${who.name} unwinds.` }), framingLines(who.name), eventList(events)),
-    actions: [framingAction(who.name), { label: "Done" }].filter(Boolean),
+    body: el("div", {}, restFigure(events), eventList(events)),
+    actions: [{ label: "Done" }],
   });
   await afterIndividualScene();
 }
@@ -311,21 +335,21 @@ async function startObligation() {
   if (!open.length) { showToast(`${inv.name} has attended every obligation today.`); return; }
   const id = await chooseModal({ title: "Which obligation?", options: open.map((o) => ({ value: o.id, label: o.text })) });
   if (!id) return;
+  const at = Story.mark();
   Store.begin("obligation scene");
   Life.startScene("obligation", inv);
   const out = await Life.obligationScene(id, inv);
   Store.mystery.scene.done = true;
   Life.recordRoundScene("obligation", inv);
-  Store.journal("scene", `${inv.name} attends: ${out.obligation.text}.`);
+  Store.journal("scene", `${inv.name} attends: ${out.obligation.text}.`, { start: "obligation" });
+  Story.tell(out.events, inv);
   Store.commit();
-  modal({
+  beatCard(at, {
     title: "Obligation", art: glyph("obligation", 64),
     body: el("div", {},
-      el("p", { class: "muted", text: `How does ${inv.name} attend to this? Use the prompt below if you want one.` }),
-      framingLines(inv.name),
       el("p", { class: "mono", text: out.words.join("  ·  ") }),
       eventList(out.events)),
-    actions: [framingAction(inv.name), { label: "Done" }].filter(Boolean),
+    actions: [{ label: "Done" }],
   });
   await afterIndividualScene();
 }
@@ -375,7 +399,8 @@ export async function startTruth() {
     multiline: true,
   });
   if (text) { out.set.entries.push(text); out.set.description = out.set.entries.join(" — "); }
-  Store.journal("scene", `Truth scene: established the ${rankName(rank)}, removing ${out.drawn.length} truth card(s).`);
+  Store.journal("scene", `Truth scene: established the ${rankName(rank)}, removing ${out.drawn.length} truth card(s).`, { start: "truth" });
+  if (text) Store.journal("note", text);
   Store.commit();
   await rerender();
 }
@@ -396,8 +421,11 @@ async function endSceneFlow() {
     });
     return;
   }
+  const at = Story.mark();
   Store.begin("end scene");
   const out = Life.endScene();
+  Store.journal("scene", out.dayOver ? "Scene ended; the day turned over." : "Scene ended.");
+  Story.tell(out.events);
   Store.commit();
 
   if (Settings.get("rivals") && out.leftover.length) {
@@ -434,9 +462,10 @@ async function endSceneFlow() {
     Store.begin("day boundary");
     const applied = await Life.applyDayBoundary();
     events.push(...applied.events);
+    Story.tell([...pending.events, ...applied.events]);
     Store.commit();
     Store.journal("oracle", `The new day opens: ${applied.words.join(" · ")}`);
-    modal({
+    beatCard(at, {
       title: `Day ${Store.investigator.day - 1} is over`,
       tone: "dawn", art: glyph("dawn", 72),
       body: el("div", {},
@@ -449,13 +478,15 @@ async function endSceneFlow() {
       ],
     });
   } else {
-    modal({ title: "Scene over", body: el("div", {}, eventList(events), el("p", { class: "small muted", text: "Choose the next scene, or resolve the mystery now." })), actions: [{ label: "Continue" }] });
+    beatCard(at, { title: "Scene over", body: el("div", {}, eventList(events), el("p", { class: "small muted", text: "Choose the next scene, or resolve the mystery now." })), actions: [{ label: "Continue" }] });
   }
-  Store.journal("scene", out.dayOver ? "Scene ended; the day turned over." : "Scene ended.");
   await rerender();
 }
 
 // --- Screen -------------------------------------------------------------------
+/** How much of this case the page has already told, so only what is new arrives. */
+let told = { caseId: null, count: 0 };
+
 export function renderPlay(host) {
   const c = Store.career;
   // A blank app opens here, on the three panels that deal you in.
@@ -466,26 +497,42 @@ export function renderPlay(host) {
     add(host, emptyState("No mystery in progress.", "Set up a mystery", () => go("mystery"), illustration("mystery")));
     return {};
   }
+
+  const scene = m.scene;
+  const inScene = scene && !scene.done && !m.ended;
+  add(host, el("h1", {}, inScene ? glyph(scene.type, 24, "heading-glyph") : null,
+    m.ended ? "It ends here" : inScene ? R.sceneType(scene.type).name : "Next scene"),
+    explain(m.ended
+      ? "The mystery is over: either you chose to stop, the clue deck ran dry, or a consequence forced your investigator out. All that is left is to name the truth."
+      : "This is the case as a story. Every roll and what came of it is written here as it happens; write your own line under any beat, or ask the oracle at the foot. The scene is played at the bottom."));
+
+  // The desk rides at the top, slim; the case opens the story.
+  add(host, deskRow(m), caseStrip(m));
+
+  // The story so far, with what a live card is still showing held back.
+  const entries = Story.caseEntries(c, m);
+  const seen = told.caseId === m.id ? told.count : entries.length;
+  const grew = told.caseId === m.id && entries.length !== told.count;
+  told = { caseId: m.id, count: Story.held() === null ? entries.length : Math.min(entries.length, Story.held()) };
+  add(host, Story.storyColumn(entries, { hideFrom: Story.held(), seen, skipPremise: true }));
+  const follow = grew || document.querySelector("#live > *") ? "grew" : true;
+
+  const now = el("div", { class: "now" });
+  add(host, now);
+  const out = renderNow(now, m, scene, inScene) || {};
+  add(host, Story.pen(), liveHost());
+  return { ...out, follow };
+}
+
+/** The foot of the story: what you can do next, where you do it. */
+function renderNow(host, m, scene, inScene) {
   if (m.ended) {
-    add(host, el("h1", { text: "It ends here" }),
-      explain("The mystery is over: either you chose to stop, the clue deck ran dry, or a consequence forced your investigator out. All that is left is to name the truth."));
     add(host, section("How it ended", el("p", { class: "premise", text: R.problemText(m) }),
       row("Trigger", (END_TRIGGERS.find((t) => t.id === m.endTrigger) || END_TRIGGERS[0]).text)));
     return { action: actionBar("Resolve the mystery", () => go("solve"), "Name the three truth cards") };
   }
-
-  const scene = m.scene;
-  const inScene = scene && !scene.done;
-
-  add(host, el("h1", {}, inScene ? glyph(scene.type, 24, "heading-glyph") : null, inScene ? R.sceneType(scene.type).name : "Next scene"),
-    explain(inScene
-      ? "Play the scene out. Each stage needs one successful test; failure and success-at-a-cost both bring consequences, and every threat that you did not act against gets a roll of its own."
-      : "Pick the scene that fits what your investigator needs: clues, certainty, recovery, or the rest of their life. Ending a scene marks the clock; four scenes make a day."));
-
-  // The Table: the case on its strip, and the four things on the desk you keep
-  // an eye on. Each opens the drawer or the rule behind it.
-  add(host, caseStrip(m), deskRow(m));
-  if (!inScene) add(host, recapCard());
+  // A scene opens on the book's two questions, until they are answered.
+  if (scene) add(host, Story.framingBeat(scene, Store.investigator.name));
 
   if (inScene && scene.type === "investigation") return renderInvestigation(host, m, scene);
 
@@ -529,7 +576,7 @@ export function renderPlay(host) {
     add(list, el("button", {
       class: `choice with-glyph ${t.id === advised && !barred ? "recommended" : ""}`.trim(), type: "button",
       onclick: barred
-        ? () => modal({ title: t.name, body: el("div", {}, el("p", { text: barred.why }), el("p", { class: "small muted", text: barred.rule })), actions: [{ label: "Back" }] })
+        ? () => modal({ title: t.name, overlay: true, body: el("div", {}, el("p", { text: barred.why }), el("p", { class: "small muted", text: barred.rule })), actions: [{ label: "Back" }] })
         : handler,
       "aria-disabled": barred ? "true" : null,
     }, glyph(t.id, 26, "choice-glyph"),
@@ -537,7 +584,7 @@ export function renderPlay(host) {
          el("span", { class: "choice-label", text: t.name }),
          el("span", { class: "choice-note", text: barred ? barred.why : note }))));
   }
-  add(host, section(party.length > 1 ? `Choose a scene — ${Store.investigator.name}` : "Choose a scene", list));
+  add(host, section(party.length > 1 ? `What next — ${Store.investigator.name}?` : "What next?", list));
   add(host, section("Or stop here",
     el("p", { class: "small muted", text: "You may resolve the mystery at the end of any scene. The fewer truth cards you have revealed, the wilder the guess." }),
     btn("Resolve the mystery", () => confirmEnd(), "danger")));
@@ -633,7 +680,7 @@ async function confirmEnd() {
   const ok = await confirmModal({
     title: "Resolve the mystery?",
     message: "This ends the mystery for good: no more clues, no more truth scenes. You will guess the three cards set aside at the start.",
-    confirmLabel: "End it", danger: true,
+    confirmLabel: "End it", danger: true, overlay: true,
   });
   if (!ok) return;
   Store.update("resolve mystery", (s) => { const m = Store.mystery; m.ended = true; m.endTrigger = "chosen"; });
@@ -641,18 +688,12 @@ async function confirmEnd() {
 }
 
 function renderInvestigation(host, m, scene) {
-  const framing = framingCard(scene, { note: `${SCENE_FRAMING_NOTE} Danger is ${m.danger}${D.hasThreat(m) ? `, and ${D.activeThreats(m).map((t) => t.name).join(" and ")} is in it with you` : ""}.` });
-  if (framing) add(host, framing);
   // The book's own diagram (p.26): four stages on a line, the one you are in
-  // named. It fits a 320px row whole, so nothing has to scroll or be cut.
-  const rail = stagePath(scene);
-  // Where you are in the scene is the state the whole screen turns on: first
-  // after the desk, before the framing card.
-  const deskEl = host.querySelector(".desk-wrap") || host.querySelector(".desk");
-  const stages = section("Stages", rail,
+  // named. It sits where the scene is played, at the foot of the story.
+  const stages = section("Stages", stagePath(scene),
     el("p", { class: "small muted", text: R.stage(scene.stage).note }),
     scene.forceEscape ? el("p", { class: "small", text: "The track filled — you are running for the door." }) : null);
-  if (deskEl) deskEl.after(stages); else host.prepend(stages);
+  add(host, stages);
 
   const threats = D.activeThreats(m);
   const tl = el("div", {});

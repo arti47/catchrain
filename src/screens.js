@@ -6,6 +6,7 @@ import { HOUSE_AIDS, houseAidLabel, houseAidTitle } from "../data-house.js";
 import * as R from "./rules.js";
 import * as D from "./derived.js";
 import { Store } from "./store.js";
+import * as Story from "./story.js";
 import { Settings, TOGGLES } from "./settings.js";
 import { RULES_LIBRARY } from "./library.js";
 import { resetDrafts, expressStart } from "./wizard.js";
@@ -390,15 +391,20 @@ export function renderRules(host) {
 
 /** The case as a file you can keep, open anywhere, and read without the app. */
 function saveStory(c) {
-  const MACHINE = /^(Scene ended|Investigation scene: rolled|Truth scene: established|.+ rests\.$|.+ attends:)/;
-  const keep = (e) => e.kind === "note" || e.kind === "oracle" || e.kind === "mystery" || e.kind === "solve"
-    || (e.kind === "scene" && !MACHINE.test(e.text));
+  // The story as it reads on the page: each case, its scenes, every beat that
+  // matters in its sentence, and every line you wrote under one.
   const lines = [`${c.name} \u2014 Caught in the Rain`, ""];
-  let day = null;
-  for (const e of c.journal) {
-    if (!keep(e)) continue;
-    if ((e.day || 1) !== day) { day = e.day || 1; lines.push("", `Day ${day}`, "-".repeat(20)); }
-    lines.push(e.kind === "oracle" ? `    [${e.text}]` : e.text, "");
+  for (const k of Story.cases(c)) {
+    if (k.title) lines.push("", k.title, "=".repeat(Math.min(60, k.title.length)), "");
+    for (const e of k.entries) {
+      const m = e.meta || {};
+      if (e.kind === "mystery") continue;
+      if (Story.sceneStartOf(e)) lines.push("", `${R.sceneType(Story.sceneStartOf(e)).name} \u2014 day ${e.day || 1}`, "-".repeat(20));
+      if (e.kind === "oracle") lines.push(`    [${e.text}]`);
+      else if (e.kind === "note" || (e.kind === "scene" && m.framing) || e.kind === "solve") lines.push(e.text, "");
+      else if ((e.kind === "test" || e.kind === "event") && m.prose && (m.major || e.kind === "test")) lines.push(m.prose);
+      if (m.line) lines.push(`  ${m.line}`, "");
+    }
   }
   for (const h of c.history) {
     lines.push("", `Closed: ${h.problem}`, `${h.correct} of 3 guesses correct.`, ...(h.answers || []));
@@ -414,61 +420,46 @@ function saveStory(c) {
 // --- Journal ------------------------------------------------------------------
 export function renderJournal(host) {
   const c = Store.career;
-  add(host, el("h1", { text: "Journal" }),
-    explain("The record of this case: what you wrote, what the dice did, and what the app changed as a result. It pages a session at a time so it stays readable, and it exports as plain text you can keep."));
+  add(host, el("h1", { text: "Notebook" }),
+    explain("Every case you have played, kept as the story it became. The case in play is told on the Table, where you write it as you go; here are the ones before it, the people and places you made up, and the record to save."));
   if (!c) { add(host, emptyState("No career yet.", "Create an investigator", () => go("wizard"), illustration("journal"))); return {}; }
 
   let page = 0;
   const PAGE = 25;
   let view = "story";
   const listHost = el("div", {});
-  // Three readings of one record. "Story" is what you would hand someone: what
-  // you wrote and what the game answered, oldest first, with the machinery out
-  // of the way. The log was always there; it was never readable as a story.
-  const MACHINE_SCENE = /^(Scene ended|Investigation scene: rolled|Truth scene: established|.+ rests\.$|.+ attends:)/;
-  const isStory = (e) => e.kind === "note" || e.kind === "oracle" || e.kind === "mystery" || e.kind === "solve"
-    || (e.kind === "scene" && !MACHINE_SCENE.test(e.text));
-  const entries = () => (view === "story"
-    ? c.journal.filter(isStory)
-    : view === "rolls" ? c.journal.filter((e) => e.kind === "test" || e.kind === "keyword").slice().reverse()
+  const entries = () => (view === "rolls" ? c.journal.filter((e) => e.kind === "test" || e.kind === "keyword").slice().reverse()
     : c.journal.slice().reverse());
 
   const paint = () => {
     listHost.replaceChildren();
-    const all = entries();
-    const slice = view === "story" ? all : all.slice(0, (page + 1) * PAGE);
     if (view === "story") {
-      // A diary is read from the end backwards, but each sitting reads forwards:
-      // show the most recent days in order, and offer the earlier ones.
-      const STORY_PAGE = 60;
-      const shown = all.slice(Math.max(0, all.length - (page + 1) * STORY_PAGE));
-      if (shown.length < all.length) {
-        add(listHost, btn(`Show ${Math.min(STORY_PAGE, all.length - shown.length)} earlier`, () => { page++; paint(); }));
-      }
-      let day = null, opened = false, scene;
-      for (const e of shown) {
-        if ((e.day || 1) !== day) {
-          day = e.day || 1; opened = false; scene = undefined;
-          add(listHost, el("h3", { class: "card-title story-day" }, glyph("day", 16), el("span", { text: `Day ${day}` })));
+      // The cases, newest first, each a folder holding its story. The one in
+      // play is on the Table; this only points there.
+      const filed = Story.cases(c).filter((k) => k.title || k.entries.some((e) => e.kind !== "create"));
+      if (!filed.length) add(listHost, el("p", { class: "muted small", text: "Nothing written yet. Whatever happens in a scene, and every answer the oracle gives, lands in the story." }));
+      filed.slice().reverse().forEach((k, i) => {
+        const number = filed.length - i;
+        const head = el("span", { class: "case-folder-head" }, glyph("folder", 18),
+          el("span", { class: "case-folder-text" },
+            el("span", { class: "case-no", text: k.title ? `Case \u2116 ${number}` : "Before the first case" }),
+            el("span", { class: "case-folder-title", text: k.title || "Who you were before" })),
+          k.open ? el("span", { class: "pill truth", text: "in play" }) : el("span", { class: "case-date", text: k.ts ? new Date(k.ts).toLocaleDateString() : "" }));
+        if (k.open) {
+          add(listHost, el("a", { class: "case-folder open", href: "#/play", "aria-label": `Case ${number}, in play. Read it on the Table` }, head));
+          return;
         }
-        // A scene's first line carries the mark of what kind of scene it was.
-        if (e.scene && e.scene !== scene && DATA.SCENE_TYPES.some((t) => t.id === e.scene)) {
-          // The scene's mark is also the way back to where scenes are played.
-          add(listHost, el("p", { class: "story-scene" },
-            el("a", { class: "xlink", href: "#/play", "aria-label": `${DATA.SCENE_TYPES.find((t) => t.id === e.scene).name} scene — go to Play` },
-              glyph(e.scene, 16), el("span", { text: DATA.SCENE_TYPES.find((t) => t.id === e.scene).name }))));
-        }
-        scene = e.scene || scene;
-        const prose = e.kind !== "oracle";
-        add(listHost, prose
-          ? el("p", { class: `story-line${opened ? "" : " opens"}`, text: e.text })
-          : el("p", { class: "story-oracle mono small" },
-              el("a", { class: "xlink bare", href: "#/oracle", "aria-label": "Ask the oracles again" }, glyph("die", 14)), el("span", { text: e.text })));
-        if (prose) opened = true;
-      }
-      if (!all.length) add(listHost, el("p", { class: "muted small", text: "Nothing written yet. Whatever you write in a scene, and every answer the oracle gives, lands here." }));
+        const folder = el("details", { class: "case-folder" }, el("summary", {}, head));
+        // Drawn only when opened: a long career is many hundreds of beats.
+        folder.addEventListener("toggle", () => {
+          if (folder.open && folder.children.length < 2) add(folder, Story.storyColumn(k.entries, { readOnly: true, skipPremise: true }));
+        }, { once: false });
+        add(listHost, folder);
+      });
       return;
     }
+    const all = entries();
+    const slice = all.slice(0, (page + 1) * PAGE);
     for (const e of slice) {
       add(listHost, el("div", { class: "log-entry" },
         el("div", { class: "log-when", text: `Day ${e.day || 1} · ${fmtTime(e.ts)} · ${e.kind}` }),
@@ -485,7 +476,7 @@ export function renderJournal(host) {
       view, (id) => { view = id; page = 0; paintViews(); paint(); }, "How to read it"));
   paintViews();
   add(host, section("How to read it", views,
-    el("p", { class: "small muted", text: "Story is the case as it happened, oldest first: what you wrote and what the game answered back. Everything adds the machinery; Rolls is the dice alone." }),
+    el("p", { class: "small muted", text: "Story is your cases, each kept as it was told. Everything is the whole record with its machinery, newest first; Rolls is the dice alone." }),
     el("div", { class: "btn-row" }, btn("Save the story as text", () => saveStory(c)))));
 
   // House aid (§4), not a rule: the book's oracles make words and you make
@@ -515,13 +506,7 @@ export function renderJournal(host) {
       el("ul", { class: "ask" }, ...DATA.RECORDING_METHODS.map((w) => el("li", { class: "small", text: w })))));
 
 
-  add(host, section("Write",
-    btn("Add a note", async () => {
-      const t = await promptModal({ title: "Journal", multiline: true, placeholder: "What happened in the fiction?" });
-      if (t) { Store.update("journal", () => Store.journal("note", t)); paint(); }
-    }, "primary")));
-
-  add(host, section("The case, as it happened", listHost));
+  add(host, section("Your cases", listHost));
 
   add(host, section(houseAidTitle("cast"), cast,
     el("p", { class: "small muted", text: HOUSE_AIDS.cast.text }),

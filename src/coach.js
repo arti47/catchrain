@@ -276,7 +276,7 @@ export function explainStep(step = nextStep()) {
 
   modal({
     title: "What do I do now?",
-    body,
+    body, overlay: true,
     actions: [{ label: "Got it" }, { label: "The whole sequence", kind: "ghost", onClick: () => go("tutorial") }],
   });
 }

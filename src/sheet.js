@@ -6,6 +6,7 @@ import * as D from "./derived.js";
 import { Store } from "./store.js";
 import { rankName } from "./deck.js";
 import { Settings } from "./settings.js";
+import * as Story from "./story.js";
 import { section, row, defRow, btn, edgeFade, explain, promptModal, showToast, chooseModal, modal, actionBar } from "./ui.js";
 import * as Roller from "./roller.js";
 import { eventList } from "./prompts.js";
@@ -126,7 +127,7 @@ export function ruleSheet(kind) {
       el("p", { class: "small muted", text: e.cite })));
   }
   modal({
-    title: def.title, body,
+    title: def.title, body, overlay: true,
     actions: [{ label: "Got it" }, { label: "Open in the rules", kind: "ghost", onClick: () => go(`rules?rule=${entries[0] ? entries[0].id : ""}`) }],
   });
 }
@@ -237,11 +238,17 @@ export async function useKeywordFlow(keyword) {
     });
     return;
   }
+  const at = Story.mark();
   Store.begin("use keyword");
   const events = await Roller.useKeyword(keyword, action, payload);
-  Store.journal("keyword", `Used the keyword "${keyword.text}" to ${action}.`);
+  Store.journal("keyword", `Used the keyword "${keyword.text}" to ${action}.`, { prose: `${(Store.investigator.name || "").split(" ")[0]} spends \u201c${keyword.text}\u201d.` });
+  Story.tell(events || []);
   Store.commit();
-  if (events) modal({ title: "Keyword spent", body: eventList(events) || el("p", { text: "Done." }), actions: [{ label: "Back" }] });
+  if (events) {
+    Story.hold(at);
+    modal({ title: "Keyword spent", body: eventList(events) || el("p", { text: "Done." }), actions: [{ label: "Back" }],
+      onClose: () => { Story.release(); import("./router.js").then((r) => r.render()); } });
+  }
 }
 
 export function renderSheet(host) {

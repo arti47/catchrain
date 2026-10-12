@@ -371,23 +371,54 @@ Feature flags are switches whose whole row is the target. A row that scrolls
 sideways fades only the edge it is actually cutting (`ui.edgeFade`).
 
 **The Table and the Moment.** Three tabs — **Table** (play), **Notebook**
-(the journal, story first) and **Book** (rules, tables and oracles behind one
+(every case, kept as its story) and **Book** (rules, tables and oracles behind one
 three-way switch) — and Settings behind a gear in the header. Everything else
 is a *drawer* off the Table: the case, the investigator, the clues, the mystery
 sheet, the solve and both wizards open from something on the Table and carry a
 **‹ Table** link back (`a.drawer-back`); Careers and the tutorial open from the
-Book and lead back to it. There are no sub-tab bars. The Table itself is a case
-strip (the genre's glyph, the case number and the premise, leading to the
-mystery sheet) over a *desk* of four objects — the investigator, the clue deck,
+Book and lead back to it. There are no sub-tab bars. The Table itself is a
+slim *desk* riding at the top over a case strip (the genre's glyph, the case
+number and the premise, leading to the mystery sheet) and the story below it —
+the desk is four objects — the investigator, the clue deck,
 the clock and danger — each a tap into its drawer or its rule; the numbers bar
 is left off the Table, because the desk is the numbers, and everywhere else it
-is drawings with figures and no words. The scene picker is four tiles, the
-recommended one marked. A roll, a scene opening, the day's turn and the solve
-are **Moments**: dialogs that take the whole screen, with the outcome set as one
-large word, events dealt in one after another like cards, the dawn on its own
-tone, and the reveal on black. The investigator is a card that turns over
+is drawings with figures and no words. The scene picker is four tiles at the
+foot of the story, the recommended one marked. A roll and a scene opening are
+cards in the page with the outcome set as one large word and events dealt in
+like cards; the day's turn and the solve are **Moments** that take the whole
+screen, the dawn on its own tone and the reveal on black. The investigator is a card that turns over
 (attributes and fatigue on the front, keywords and obligations on the back);
 clue sets are pinned to a corkboard.
+
+**The Story: the scene is the journal.** Playing and writing were two places —
+the Table pressed buttons and the Notebook kept a log of them — so the record
+was paperwork done after the game rather than the game itself. Now the Table
+tells the case as it is played (`src/story.js`). Every roll, consequence, clue,
+threat and event the engine produces is written into the journal as a *beat*:
+the entry's `text` stays the exact mechanical line it always was, and its
+`meta` carries a short sentence built from the case's own nouns (`meta.prose`),
+whether it is a beat worth writing under (`meta.major`), the dice as a small
+chip (`meta.chip`, a tap shows the arithmetic) and a two-word oracle prompt
+(`meta.prompt`, action + descriptor as A25 reads it). The sentences are
+presentation only: every figure in them is read off the event, and none of them
+states a rule. Under each beat of the scene in play is a faint **Add a line…**
+seeded with that prompt; it saves as you type (`Store.setLine`, no undo step, no
+redraw) and an undo of a later roll keeps it. Older chapters show what was
+written and open a line on a tap. Each scene opens a chapter with its mark and
+day, and ends with the clock; the book's two questions are the scene's opening
+beat, the oracle's words already on the table as tiles to use or throw again
+(`scene.frameWords`), and the answer is the scene's first paragraph. The pen at
+the foot keeps your own line, asks the oracle or a yes/no, and lands each in the
+story. **Dialogs on the Table are cards in the page:** `ui.modal` renders into
+`#live` — a node that outlives a re-render, put back at the foot of the story
+each time — still `.modal-overlay` so every flow and harness finds it, while the
+Next button and the foot step aside. A card that shows what just happened holds
+its beats back from the story above it (`Story.hold`) until it is closed, so
+nothing is told twice. Only the day turning, the case ending and a reference
+sheet (a rule, the guide's Why?) stay whole-screen, by `tone` or `overlay`.
+Every entry now carries `meta.case`, so the Notebook files the journal by case:
+the one in play points back to the Table, and each closed one opens to its story,
+read-only. The text export is the same story.
 
 **A word budget.** A section shows its title, its drawing and its controls;
 its helper prose and its links fold under one **More** (`ui.foldHelp`,
@@ -461,6 +492,7 @@ in the README rather than hidden behind an encoding.
 | `src/lifecycle.js` | Scenes, stages, the clock, the day boundary, rest, obligations, truths, rivals. |
 | `src/prompts.js` | The engine's player decisions wired to real dialogs; one event → one sentence. |
 | `src/framing.js` | Setting the scene: the book's two questions, an oracle to hand, and the answer kept in the journal. |
+| `src/story.js` | The Story: the case as beats on the Table — the sentence for each engine event, the dice chip, the player's line, chapters, the scene's opening beat, the pen, and the Notebook's filing by case. Presentation only; no rule. |
 | `src/coach.js` | The guide: what to do next and what it costs, derived from live state, on every screen. Holds no rules of its own. |
 | `src/art.js` | Every drawing that is not a die, a card face or the clock: glyphs, illustrations, genre watermarks, the data graphics, and the motion helpers. Reads resolution tables from `data.js`; knows no rule of its own. |
 | `src/paper.js` | The book's two sheets: the mystery sheet as a read-only screen, and both sheets rendered as a standalone document to print or hand over. |
@@ -499,7 +531,9 @@ citr:v1
     history[{problem,correct,difficulty,answers,closedAt,danger,clues}]
     questions[{id,text,from}]       // lingering questions
     cast[{id,name,note}]            // house aid (§4): who and where you invented
-    journal[{id,ts,kind,text,day,scene}]   // capped 500
+    journal[{id,ts,kind,text,day,scene,meta}]   // capped 2000
+      meta: { case, prose, major, chip{dice,attrName,attrValue,plus,total,what},
+              prompt, line, start, framing, t, outcome }   // all optional
     rollLog[{id,ts,kind,dice,attrValue,total,outcome,label,manual}]  // capped 200
       each: { id, name, trait, notes, xp, attributes{power,insight,method},
               struck{attrId:true}, fatigue, clock, day,
@@ -509,7 +543,7 @@ citr:v1
                clueDeck[], clueDiscard[], truthDeck[], truthRevealed[], setAside[],
                clueSets{rank:{rank,cards[],entries[],description,prompts[],truth,falseLead,truthCards[]}},
                threats[{id,name,level,marks,removed,rivalId,justIntroduced,attachedTo}],
-               scene{id,type,stage,order[],index,done,forceEscape,actorId,participants[],rolls{},framing},
+               scene{id,type,stage,order[],index,done,forceEscape,actorId,participants[],rolls{},framing,frameWords[]},
                round{mode:"shared"|"individual", scenes{invId:{type,done}}},
                jokersDrawn, ended, endTrigger, guesses[], results[], solved, correct, answers[], xpGained }
 citr:v1:settings  { theme, textScale, manualDice, multiplayer, rivals, career,
@@ -665,6 +699,7 @@ this whole document exists to prevent.
 | Co-op: everyone earns the mystery's experience | Cost | `DIFFICULTIES` | `solve.reveal` | Solve results | `everyone who worked the case earns its experience` |
 | Solo: open a scene by saying where it is and who is there | Permission | `SCENE_FRAMING` | `framing.framingCard`, `framingLines`, `framingAction` | Top of every scene; rest and obligation dialogs | smoke: setting the scene, `a rest or obligation scene can be set, asked about, and written down` |
 | Solo: ask the game when you do not know | Permission | oracles | `framing.framingCard` buttons | Oracle and yes/no on the framing card | smoke: the oracle button produces words |
+| The case told as it is played, with a line for your own words under every beat | Permission | — | `story.tell`, `storyColumn`, `pen` | The Table's story, the Notebook's cases | `the scene is the journal: beats, lines, cards in the page, the pen, the Notebook's cases` |
 | Solo: keep the record however you like | Permission | `RECORDING_METHODS` | `screens.renderJournal` | Journal screen, rules library | guidance only |
 | The mystery sheet, whole, on one page | Lookup | — | `paper.renderMysterySheet` | Case › Mystery | `the mystery sheet is one page that only shows, and both sheets save as a document` |
 | Both sheets as something you can print or hand over | Permission | — | `paper.sheetsHtml`, `saveSheets` | Mystery sheet and investigator sheet | (same row) |

@@ -3083,6 +3083,148 @@ for (const width of WIDTHS) {
   await ctx.close();
 }
 
+// 8ak. the Story: the scene is the journal
+// Playing and journalling were two places: the Table pressed buttons and the
+// Notebook kept a log of them. The case is now told on the Table as it is
+// played — every beat a sentence with its dice, a line for your own words under
+// it, the dialogs as cards in the page — and the Notebook files the cases.
+{
+  const { ctx, page, errors } = await newPage(390);
+  const q = (fn, arg) => page.evaluate(fn, arg);
+  const at = async (route, ms = 400) => { await page.goto(`${base}#/${route}`); await page.waitForTimeout(ms); };
+  await seed(page, base, "mid-session", { career: true, sceneFraming: true });
+  await at("play");
+
+  const first = await q(() => ({
+    story: !!document.querySelector("#screen .story"),
+    deskSticky: getComputedStyle(document.querySelector("#screen .desk-wrap, #screen > .desk")).position,
+    pen: !!document.querySelector("#screen .pen .pen-input"),
+    framing: document.querySelectorAll("#screen .framing-beat .framing-tiles .word-tile").length,
+  }));
+  if (!first.story) fail("the Table does not tell the case as a story");
+  if (first.deskSticky !== "sticky") fail(`the desk does not ride at the top of the story (${first.deskSticky})`);
+  if (!first.pen) fail("there is no pen at the foot of the story");
+  if (first.framing < 2) fail("the scene does not open on the book's two questions with words to hand");
+
+  // The opening beat: a tile goes into the answer, the answer becomes the scene's first paragraph.
+  if (first.framing >= 2) {
+    const word = (await page.locator("#screen .framing-tiles .word-tile").first().innerText()).trim();
+    await page.locator("#screen .framing-tiles .word-tile").first().click();
+    const typed = await page.locator("#screen .framing-input").inputValue();
+    if (!typed.includes(word)) fail("tapping an oracle word does not put it into the scene");
+    await page.locator("#screen .framing-input").fill("Rain on the glass. A guard who will not look up.");
+    await page.getByRole("button", { name: "Set the scene" }).click();
+    await page.waitForTimeout(350);
+    const own = await q(() => [...document.querySelectorAll("#screen .story .beat.own")].map((b) => b.textContent));
+    if (!own.some((t) => t.includes("A guard who will not look up"))) fail("the scene's opening paragraph is not in the story");
+    if (await page.locator("#screen .framing-beat").count()) fail("the two questions are still asked once the scene is set");
+  }
+
+  // A roll is the newest beat: a card in the page, the Next button out of the way.
+  const before = await q(() => document.querySelectorAll("#screen .story .beat.test").length);
+  await page.locator(".action-bar .btn").first().click();
+  await page.waitForTimeout(250);
+  let guard = 0;
+  while (guard++ < 8) {
+    const live = await q(() => {
+      const card = document.querySelector("#live .modal-overlay");
+      if (!card) return null;
+      return {
+        inScreen: !!card.closest("#screen"),
+        fixed: getComputedStyle(card).position === "fixed",
+        dock: getComputedStyle(document.querySelector("#action-host")).display,
+        outcome: !!card.querySelector(".outcome-big"),
+        choices: card.querySelectorAll(".choice").length,
+        field: !!card.querySelector(".input"),
+      };
+    });
+    if (!live) break;
+    if (live.fixed || !live.inScreen) fail("a card on the Table is laid over the page instead of in it");
+    if (live.dock !== "none") fail("the Next button stays up while a card in the story waits for you");
+    if (live.outcome) {
+      const held = await q(() => document.querySelectorAll("#screen .story .beat.test").length);
+      if (held !== before) fail("the roll is told twice: in its card and already in the story above it");
+      await page.locator("#live .modal-actions .btn").first().click();
+      await page.waitForTimeout(400);
+      break;
+    }
+    if (live.choices) await page.locator("#live .choice").first().click();
+    else await page.locator("#live .modal-actions .btn").first().click();
+    await page.waitForTimeout(300);
+  }
+  const told = await q(() => {
+    const beats = [...document.querySelectorAll("#screen .story .beat.test")];
+    const last = beats[beats.length - 1];
+    return {
+      count: beats.length,
+      prose: last ? last.querySelector(".beat-prose > span:not(.glyph)").textContent : "",
+      chip: last ? !!last.querySelector(".dice-chip summary .d66-die, .dice-chip summary .chip-die") : false,
+      full: last && last.querySelector(".dice-chip-full") ? last.querySelector(".dice-chip-full").textContent : "",
+      input: last && last.querySelector(".beat-input") ? last.querySelector(".beat-input").getAttribute("placeholder") : null,
+      id: last ? last.dataset.beat : null,
+    };
+  });
+  if (told.count !== before + 1) fail(`the roll did not join the story (${before} → ${told.count} test beats)`);
+  if (/=|\d\s*\+\s*\d/.test(told.prose)) fail(`a roll reads as arithmetic, not story: "${told.prose}"`);
+  if (!told.chip) fail("a roll's beat has no dice chip");
+  if (!/=/.test(told.full)) fail("the dice chip does not keep the exact arithmetic");
+  if (!told.input || !/^Add a line/.test(told.input)) fail("there is no line for your own words under the roll");
+
+  // Your line saves itself, and survives an undo of a later roll.
+  if (told.id) {
+    const box = page.locator(`#screen .story [data-beat="${told.id}"] .beat-input`);
+    await box.fill("She keeps her hand on the railing.");
+    await box.blur();
+    await page.waitForTimeout(150);
+    const kept = await q((id) => JSON.parse(localStorage.getItem("citr:v1")).careers[JSON.parse(localStorage.getItem("citr:v1")).activeId].journal.find((j) => j.id === id), told.id);
+    if (!kept || !kept.meta || kept.meta.line !== "She keeps her hand on the railing.") fail("a line written under a beat is not kept");
+    if (!kept || !kept.meta || !kept.meta.case) fail("a beat does not know which case it belongs to");
+    await q(async () => { const { Store } = await import("../src/store.js"); Store.update("probe", () => { Store.mystery.danger += 0; }); Store.undo(); });
+    const after = await q((id) => JSON.parse(localStorage.getItem("citr:v1")).careers[JSON.parse(localStorage.getItem("citr:v1")).activeId].journal.find((j) => j.id === id), told.id);
+    if (!after || !after.meta || after.meta.line !== "She keeps her hand on the railing.") fail("undo took back a line the player wrote");
+  }
+
+  // The pen: your own words and the oracle, landing in the story.
+  await at("play");
+  await page.locator("#screen .pen-input").fill("The lift is out. Six flights.");
+  await page.getByRole("button", { name: "Keep" }).click();
+  await page.waitForTimeout(300);
+  if (!(await q(() => [...document.querySelectorAll("#screen .story .beat.own")].some((b) => b.textContent.includes("Six flights"))))) fail("a line from the pen does not land in the story");
+  await page.getByRole("button", { name: "Oracle" }).click();
+  await page.waitForTimeout(300);
+  if (!(await page.locator("#screen .story .beat.oracle").count())) fail("the oracle's answer does not land in the story");
+
+  // The day turning is still a whole-screen moment; a rules sheet is still a sheet.
+  await page.locator("#screen .desk-item", { hasText: "Danger" }).click();
+  await page.waitForTimeout(250);
+  if (!(await page.locator("body > .modal-overlay.moment").count())) fail("a rules sheet from the desk opened in the story instead of over it");
+  await page.keyboard.press("Escape");
+
+  // The Notebook files the cases; the one in play points back to the Table.
+  await seed(page, base, "stress", { career: true });
+  await at("journal");
+  const nb = await q(() => ({
+    h1: document.querySelector("#screen h1").textContent.trim(),
+    folders: document.querySelectorAll("#screen .case-folder").length,
+    open: !!document.querySelector('#screen a.case-folder.open[href="#/play"]'),
+  }));
+  if (nb.h1 !== "Notebook") fail(`the Notebook is headed "${nb.h1}"`);
+  if (!nb.folders) fail("the Notebook does not file the cases");
+  if (!nb.open) fail("the case in play is not a way back to the Table from the Notebook");
+  const closed = page.locator("#screen details.case-folder > summary");
+  if (await closed.count()) {
+    await closed.first().click();
+    await page.waitForTimeout(200);
+    const read = await q(() => ({ story: !!document.querySelector("#screen details.case-folder[open] .story"), inputs: document.querySelectorAll("#screen details.case-folder[open] .beat-input").length }));
+    if (!read.story) fail("a closed case does not open to its story");
+    if (read.inputs) fail("a closed case's story is open for writing");
+  }
+
+  if (errors.length) fail(`console error in the Story: ${errors[0].slice(0, 160)}`);
+  if (!failures.length) ok("the scene is the journal: beats, lines, cards in the page, the pen, the Notebook's cases");
+  await ctx.close();
+}
+
 // 8aj. a toast goes away, and never sits on the button it is about
 // A toast used to "hide" by sliding down 150% of its own height — less than the
 // height it was lifted above the dock — so it stayed on the Next button for good.

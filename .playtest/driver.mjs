@@ -130,7 +130,7 @@ async function findControl(page, label, { inModal }) {
     }
 
     // The guide's own line is what a player reads, not a control the guide names.
-    const all = [...scope.querySelectorAll(sel)].filter((n) => !n.closest(".coach-toggle") && (n.offsetParent !== null || n.getClientRects().length));
+    const all = [...scope.querySelectorAll(sel)].filter((n) => !n.closest(".coach-toggle, .story, .framing-tiles") && (n.offsetParent !== null || n.getClientRects().length));
     const texts = all.map((n) => norm(n.innerText || n.textContent));
     const w = want.toLowerCase();
     let i = texts.findIndex((t) => t.toLowerCase() === w);
@@ -164,6 +164,16 @@ export async function typeText(s, text) {
   if (!(await box.count())) return { ok: false, error: "no field is open to type into" };
   await box.fill(text);
   return { ok: true, typed: text };
+}
+
+/** Writing is done where the case is told: the pen at the foot of the Table's story. */
+export async function writeLine(s, text) {
+  await goScreen(s, "play");
+  const pen = s.page.locator("#screen .pen-input");
+  if (!(await pen.count())) return { ok: false, error: "no pen on the Table to write with" };
+  await pen.fill(text);
+  const r = await doIt(s, "Keep");
+  return r.ok ? { ok: true, wrote: text } : r;
 }
 
 /** Typed dice are tapped: one face per die, found by the number it reads as. */
@@ -297,6 +307,9 @@ export async function readState(s) {
       });
       out.cards = [...document.querySelectorAll("#screen .pick-card")].map((n) => n.getAttribute("aria-label"));
       out.controls = [...document.querySelectorAll(`#screen ${sel}, #action-host ${sel}`)]
+        // The story is read, not pressed: its chips and beats move nothing on,
+        // and the scene's word tiles are writing aids, not choices.
+        .filter((n) => !n.closest(".story, .framing-tiles"))
         .filter(visible).map((n) => norm(n.innerText) + (n.getAttribute("aria-disabled") === "true" || n.disabled ? " [dimmed]" : ""))
         .filter(Boolean);
     }
@@ -382,12 +395,7 @@ export async function runVerbs(s, argv, show) {
     else if (verb === "pick") show(await pick(s, argv.shift()));
     else if (verb === "roll") show(await tapDice(s, argv.shift()));
     else if (verb === "card") show(await tapCard(s, argv.shift()));
-    else if (verb === "write") {
-      await goScreen(s, "journal");
-      const a = await doIt(s, "Add a note"); if (!a.ok) { show(a); continue; }
-      const t = await typeText(s, argv.shift()); if (!t.ok) { show(t); continue; }
-      show(await choose(s, "Save"));
-    }
+    else if (verb === "write") show(await writeLine(s, argv.shift()));
     else show({ ok: false, error: `unknown verb: ${verb}` });
   }
   return true;
@@ -443,12 +451,7 @@ if (isMain) {
     else if (verb === "pick") { const r = await pick(s, argv.shift()); show(r); if (!r.ok) bad = true; }
     else if (verb === "roll") { const r = await tapDice(s, argv.shift()); show(r); if (!r.ok) bad = true; }
     else if (verb === "card") { const r = await tapCard(s, argv.shift()); show(r); if (!r.ok) bad = true; }
-    else if (verb === "write") {
-      await goScreen(s, "journal");
-      const a = await doIt(s, "Add a note"); if (!a.ok) { show(a); bad = true; break; }
-      const t = await typeText(s, argv.shift()); if (!t.ok) { show(t); bad = true; break; }
-      const c2 = await choose(s, "Save"); show(c2); if (!c2.ok) bad = true;
-    }
+    else if (verb === "write") { const r = await writeLine(s, argv.shift()); show(r); if (!r.ok) bad = true; }
     else { console.log(`unknown verb: ${verb}`); bad = true; }
   }
   if (s.errors.length) { console.log("console errors:"); s.errors.forEach((e) => console.log("  " + e)); bad = true; }

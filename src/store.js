@@ -9,7 +9,9 @@ let state = null;
 let undoStack = [];
 const UNDO_LIMIT = 20;
 const LOG_CAP = 200;
-const JOURNAL_CAP = 500;
+// The journal is the case told as a story, beat by beat: a long case runs to
+// several hundred beats, and the cases before it are the Notebook.
+const JOURNAL_CAP = 2000;
 
 function read() {
   try { return normalize(JSON.parse(localStorage.getItem(APP.storageKey) || "{}")); }
@@ -123,7 +125,16 @@ export const Store = {
   undo() {
     const step = undoStack.pop();
     if (!step) return null;
+    // Lines the player wrote since the snapshot are kept: undo takes back a
+    // roll, not the sentence written under an earlier beat.
+    const lines = new Map();
+    for (const car of Object.values((state && state.careers) || {})) {
+      for (const j of car.journal || []) if (j.meta && j.meta.line) lines.set(j.id, j.meta.line);
+    }
     state = normalize(JSON.parse(step.snapshot));
+    for (const car of Object.values(state.careers || {})) {
+      for (const j of car.journal || []) if (lines.has(j.id)) j.meta = { ...(j.meta || {}), line: lines.get(j.id) };
+    }
     write();
     Store.emit();
     return step.label;
@@ -150,10 +161,31 @@ export const Store = {
   journal(kind, text, meta) {
     const c = Store.career;
     if (!c) return;
-    c.journal.push({ id: uid(), ts: Date.now(), kind, text, meta: meta || null, day: (Store.investigator || {}).day || 1, scene: c.mystery && c.mystery.scene ? c.mystery.scene.type : null });
+    // Each entry knows which case it belongs to, so the Table tells this case
+    // and the Notebook can file the ones before it.
+    const tagged = c.mystery ? { ...(meta || {}), case: c.mystery.id } : meta || null;
+    const entry = { id: uid(), ts: Date.now(), kind, text, meta: tagged, day: (Store.investigator || {}).day || 1, scene: c.mystery && c.mystery.scene ? c.mystery.scene.type : null };
+    c.journal.push(entry);
     if (c.journal.length > JOURNAL_CAP) c.journal.splice(0, c.journal.length - JOURNAL_CAP);
     write();
+    return entry;
   },
+  /**
+   * The player's own line under a beat. It is prose, not play: it saves
+   * without an undo step and without redrawing the page under the pen, and
+   * an undo of the roll above it does not take it away (see undo()).
+   */
+  setLine(id, text) {
+    const c = Store.career;
+    const e = c && c.journal.find((j) => j.id === id);
+    if (!e) return false;
+    e.meta = { ...(e.meta || {}), line: text || "" };
+    if (!e.meta.line) delete e.meta.line;
+    write();
+    return true;
+  },
+  /** A change that is bookkeeping, not play: saved, never undone, never redrawn. */
+  quietly(fn) { const r = fn(Store.state); write(); return r; },
   log(entry) {
     const c = Store.career;
     if (!c) return;
