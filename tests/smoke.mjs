@@ -250,12 +250,11 @@ for (const width of WIDTHS) {
   await page.waitForTimeout(200);
   const text = await page.locator("#screen").innerText();
   if (!/Yorinna Wilder/.test(text)) fail("an old save does not reach the screen");
-  await page.goto(`${base}#/journal`);
-  await page.getByRole("button", { name: "Add a note" }).click();
-  const box = page.locator(".modal-overlay textarea").first();
+  await page.goto(`${base}#/play`);
+  const box = page.locator("#screen .pen-input");
   await box.waitFor({ timeout: 2000 });
   await box.fill("Migrated and still playing.");
-  await page.locator(".modal-actions .btn").first().click();
+  await page.getByRole("button", { name: "Keep" }).click();
   await page.waitForTimeout(250);
   const shape = await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem("citr:v1"));
@@ -275,23 +274,19 @@ for (const width of WIDTHS) {
   await seed(page, base, "mid-session");
   await page.goto(`${base}#/play`);
   await page.waitForTimeout(150);
-  const framing = page.locator("#screen details.framing");
+  // The scene opens on the book's two questions, the oracle's words already out.
+  const framing = page.locator("#screen .framing-beat");
   if (!(await framing.count())) fail("an investigation scene does not ask where it takes place");
   else {
-    // Folded to one line on the Table (the word budget); opened, the book's questions.
-    if (await framing.evaluate((n) => n.open)) fail("the framing card opens across the Table instead of folding to a line");
-    await framing.locator("summary").click();
     const text = await framing.innerText();
-    if (!/where is this scene taking place/i.test(text)) fail("the framing card does not carry the book's questions");
-    await page.getByRole("button", { name: "Ask the oracle" }).click();
+    if (!/where is this scene taking place/i.test(text)) fail("the opening beat does not carry the book's questions");
+    const words = await framing.locator(".word-tile").count();
+    if (words < 2) fail("the opening beat has no oracle words to hand");
+    await page.getByRole("button", { name: "Other words" }).click();
     await page.waitForTimeout(120);
-    const oracle = await framing.locator(".mono").innerText();
-    if (!oracle.trim()) fail("the oracle button produced no words");
-    await page.getByRole("button", { name: "Write it down" }).click();
-    const input = page.locator(".modal-overlay textarea").first();
-    await input.waitFor({ timeout: 2000 });
-    await input.fill("The shutters are half down and the crowd will not move.");
-    await page.locator(".modal-actions .btn").first().click();
+    if ((await framing.locator(".word-tile").count()) < 2) fail("throwing the oracle again left no words");
+    await framing.locator(".framing-input").fill("The shutters are half down and the crowd will not move.");
+    await page.getByRole("button", { name: "Set the scene" }).click();
     await page.waitForTimeout(250);
     const saved = await page.evaluate(() => {
       const s = JSON.parse(localStorage.getItem("citr:v1"));
@@ -566,7 +561,7 @@ for (const width of WIDTHS) {
 
     if (/^End the scene/.test(after)) fail(`after ending a scene the play screen still offers "${after}" — the same scene can be ended again`);
     if (/this scene is finished/i.test(screen)) fail('after ending a scene the play screen still says "This scene is finished"');
-    if (!/choose a scene/i.test(screen)) fail("after ending a scene the play screen never offers the next one");
+    if (!/what next/i.test(screen)) fail("after ending a scene the play screen never offers the next one");
     if (choices !== 4) fail(`the scene picker came back with ${choices} scene(s) instead of four`);
     if (clock !== before + 1 && clock !== 0) fail(`ending one scene moved the clock from ${before} to ${clock}`);
     if (errors.length) fail(`console error while ending a scene: ${errors[0].slice(0, 120)}`);
@@ -709,7 +704,7 @@ for (const width of WIDTHS) {
       await page.waitForTimeout(80);
     }
     const screen = await page.locator("#screen").innerText();
-    if (!/choose a scene/i.test(screen)) fail("after leaving a scene spent, the picker never came back");
+    if (!/what next/i.test(screen)) fail("after leaving a scene spent, the picker never came back");
     const rest = page.locator("#screen .choice", { hasText: "Rest" }).first();
     if (!(await rest.count())) fail("the rest the app asked for is not on the picker");
     else if (await rest.getAttribute("aria-disabled")) fail("the rest the app asked for is offered but dimmed");
@@ -822,22 +817,16 @@ for (const width of WIDTHS) {
     await page.waitForTimeout(250);
     if (await page.locator(".modal-overlay .choice").count()) { await page.locator(".modal-overlay .choice").first().click(); await page.waitForTimeout(250); }
 
-    const body = await page.locator(".modal-body").innerText().catch(() => "");
+    // The scene's card shows what it did; closed, the scene opens on its questions.
+    await page.locator("#live .modal-actions .btn").last().click();
+    await page.waitForTimeout(300);
+    const beat = page.locator("#screen .framing-beat");
+    const body = await beat.innerText().catch(() => "");
     if (!/where is this scene taking place/i.test(body)) { fail(`the ${which.toLowerCase()} scene never asks where it takes place`); continue; }
-    const actions = await page.locator(".modal-actions .btn").allInnerTexts();
-    const canWrite = actions.some((a) => /write it down/i.test(a));
-    const canAsk = await page.locator(".modal-body .btn", { hasText: "Ask the oracle" }).count();
-    if (!canWrite) fail(`the ${which.toLowerCase()} scene asks the two questions and offers only ${actions.map((a) => `"${a.trim()}"`).join(", ")}`);
-    if (!canAsk) fail(`the ${which.toLowerCase()} scene asks the two questions with no oracle to hand`);
-    if (!canWrite) { await page.locator(".modal-actions .btn").last().click(); await page.waitForTimeout(150); continue; }
-
-    await page.locator(".modal-actions .btn", { hasText: "Write it down" }).click();
-    await page.waitForTimeout(250);
-    const field = page.locator(".modal-overlay .input").first();
-    if (!(await field.count())) { fail(`"Write it down" in the ${which.toLowerCase()} scene opens no field`); continue; }
+    if ((await beat.locator(".word-tile").count()) < 2) fail(`the ${which.toLowerCase()} scene asks the two questions with no oracle to hand`);
     const line = `The ${which.toLowerCase()} scene, set at the table.`;
-    await field.fill(line);
-    await page.locator(".modal-actions .btn").first().click();
+    await beat.locator(".framing-input").fill(line);
+    await page.getByRole("button", { name: "Set the scene" }).click();
     await page.waitForTimeout(250);
     const kept = await page.evaluate((t) => {
       const s = JSON.parse(localStorage.getItem("citr:v1"));
@@ -975,10 +964,8 @@ for (const width of WIDTHS) {
   });
   const before = (await oracles()).length;
 
-  // The framing card is one folded line on the Table; open it to ask.
-  const fold = page.locator("#screen details.framing:not([open]) > summary");
-  if (await fold.count()) { await fold.first().click(); await page.waitForTimeout(80); }
-  const askBtn = page.locator("#screen .btn", { hasText: "Ask the oracle" }).first();
+  // The oracle is at the foot of the story, in the pen.
+  const askBtn = page.locator("#screen .pen .btn", { hasText: "Oracle" }).first();
   if (!(await askBtn.count())) fail("no oracle to hand inside a scene");
   else {
     await askBtn.click();
@@ -986,8 +973,8 @@ for (const width of WIDTHS) {
     const after = await oracles();
     if (after.length <= before) fail("the oracle answered and the record never heard it");
     else {
-      const shown = await page.locator("#screen .framing .mono").first().innerText();
-      const words = shown.split("\u00b7").map((w) => w.trim()).filter(Boolean);
+      const shown = await page.locator("#screen .story .beat.oracle > span").last().innerText();
+      const words = shown.replace(/^Asked the oracle:\s*/, "").split("\u00b7").map((w) => w.trim()).filter(Boolean);
       const kept = after[after.length - 1];
       if (!words.every((w) => kept.includes(w))) fail(`the oracle said "${shown}" and the record kept "${kept}"`);
     }
@@ -1045,23 +1032,25 @@ for (const width of WIDTHS) {
   if (!/went back to the flat/.test(recap)) fail("the recap does not carry what actually happened");
   if (/Scene ended\./.test(recap)) fail("the recap is padded with machinery instead of the story");
 
-  // The journal reads as a story, oldest first, and saves as a file.
-  await page.goto(`${base}#/journal`);
-  await page.waitForTimeout(250);
-  const storyLines = await page.locator("#screen .story-line").allInnerTexts();
-  if (!storyLines.length) fail("the journal has no story view");
+  // The case reads as a story on the Table, oldest first, and saves as a file.
+  await page.goto(`${base}#/play`);
+  await page.waitForTimeout(300);
+  const storyLines = await page.locator("#screen .story .beat.own").allInnerTexts();
+  if (!storyLines.length) fail("the case is not told as a story on the Table");
   else {
     const first = storyLines.findIndex((t) => /went back to the flat/.test(t));
     const last = storyLines.length - 1;
-    if (first < 0) fail("the story view drops what was written");
+    if (first < 0) fail("the story drops what was written");
     else if (first !== last) fail("the story does not read oldest first");
   }
-  const all = await page.locator("#screen").innerText();
-  if (/Scene ended\./.test(all)) fail("the story view shows the machinery it is meant to leave out");
+  const all = await page.locator("#screen .story").innerText();
+  if (/Scene ended\./.test(all)) fail("the story shows the machinery it is meant to leave out");
+  await page.goto(`${base}#/journal`);
+  await page.waitForTimeout(250);
   if (!(await page.locator("#screen .btn", { hasText: "Save the story as text" }).count())) fail("the story cannot be taken out of the app");
 
   // The cast: a labelled house aid, and it persists.
-  if (!/house aid/i.test(all)) fail("the cast list is not labelled as a house aid");
+  if (!/house aid/i.test(await page.locator("#screen").innerText())) fail("the cast list is not labelled as a house aid");
   await page.locator("#screen .btn", { hasText: "Add someone" }).click();
   await page.waitForTimeout(200);
   await page.locator(".modal-overlay .input").fill("The night supervisor");
@@ -2090,15 +2079,19 @@ for (const width of WIDTHS) {
   if (!sig.seal) fail("a signature keyword has no drawn seal");
   if (sig.star) fail("a typed ★ is still standing in for the signature mark");
 
-  // The journal: a glyph on each day, and a drop cap opening it.
-  await page.goto(`${base}#/journal`);
+  // The story: each scene a chapter, headed by its mark and its day.
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("citr:v1")); const c = s.careers[s.activeId];
+    c.journal.push({ id: "jx", ts: Date.now(), kind: "scene", text: "Investigation scene: rolled 3 + 1 danger = 4.", meta: { start: "investigation" }, day: 2 });
+    localStorage.setItem("citr:v1", JSON.stringify(s)); });
+  await page.reload();
+  await page.goto(`${base}#/play`);
   await page.waitForTimeout(300);
   const journal = await q(() => ({
-    days: document.querySelectorAll("#screen .story-day .glyph-day").length,
-    dropcap: !!document.querySelector("#screen .story-line.opens"),
+    marks: document.querySelectorAll("#screen .chapter-head .chapter-glyph").length,
+    days: [...document.querySelectorAll("#screen .chapter-head .chapter-day")].map((d) => d.textContent),
   }));
-  if (!journal.days) fail("the story's days are dividers with no mark");
-  if (!journal.dropcap) fail("a day in the story opens without a drop cap");
+  if (!journal.marks) fail("a chapter of the story opens with no mark of its scene");
+  if (!journal.days.some((d) => /Day 2/.test(d))) fail("a chapter of the story does not say which day it is");
 
   // The oracle: the yes/no lands on a die and a banded strip.
   await page.goto(`${base}#/oracle`);
@@ -2398,9 +2391,13 @@ for (const width of WIDTHS) {
   if (/null/.test(rolled)) fail(`a table roll prints its missing notes as text: ${JSON.stringify(rolled.slice(-40))}`);
 
   // 17. the story: scenes open with their glyph
-  await page.goto(`${base}#/journal`);
+  await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("citr:v1")); const c = s.careers[s.activeId];
+    c.journal.push({ id: "jy", ts: Date.now(), kind: "scene", text: "Investigation scene: rolled 3 + 1 danger = 4.", meta: { start: "investigation" }, day: 1 });
+    localStorage.setItem("citr:v1", JSON.stringify(s)); });
+  await page.reload();
+  await page.goto(`${base}#/play`);
   await page.waitForTimeout(300);
-  if (!(await page.locator("#screen .story-scene .glyph").count())) fail("a scene in the story opens with no mark of what kind it was");
+  if (!(await page.locator("#screen .chapter-head .glyph").count())) fail("a scene in the story opens with no mark of what kind it was");
 
   // 22. the active tab is drawn filled
   const tabFill = await q(() => { const p = document.querySelector('.tab[aria-current="page"] svg'); return p ? getComputedStyle(p).fill : "none"; });
@@ -2561,7 +2558,7 @@ for (const width of WIDTHS) {
     eyes: document.querySelectorAll("#screen .threat .threat-head .glyph-threat").length,
     threats: document.querySelectorAll("#screen .threat").length,
     h1: !!document.querySelector("#screen h1 .glyph"),
-    framing: document.querySelectorAll("#screen .framing .btn .glyph").length,
+    framing: document.querySelectorAll("#screen .pen .btn .glyph, #screen .framing-beat .btn .glyph").length,
     kw: [...document.querySelectorAll("#screen .card")].filter((c) => /keywords ready/i.test(c.querySelector(".card-title, h2, h3")?.textContent || ""))
       .flatMap((c) => [...c.querySelectorAll(".chip")]).map((c) => !!c.querySelector(".glyph")),
   }));
@@ -2888,10 +2885,9 @@ for (const width of WIDTHS) {
       { id: "j2", ts: Date.now(), kind: "oracle", text: "Asked the oracle: Hide · old", day: 99, scene: "investigation" });
     localStorage.setItem("citr:v1", JSON.stringify(s)); });
   await page.reload();
-  await at("journal");
-  const jr = await q(() => ({ scenes: document.querySelectorAll("#screen .story-scene").length, linked: document.querySelectorAll('#screen .story-scene a.xlink[href="#/play"]').length,
-    oracles: document.querySelectorAll("#screen .story-oracle").length, oracleLinked: document.querySelectorAll('#screen .story-oracle a.xlink[href="#/oracle"]').length }));
-  if (!jr.scenes || jr.linked !== jr.scenes) fail(`${jr.linked} of ${jr.scenes} scenes in the story lead back to Play`);
+  await at("play");
+  const jr = await q(() => ({
+    oracles: document.querySelectorAll("#screen .story .beat.oracle").length, oracleLinked: document.querySelectorAll('#screen .story .beat.oracle a.xlink[href="#/oracle"]').length }));
   if (!jr.oracles || jr.oracleLinked !== jr.oracles) fail(`${jr.oracleLinked} of ${jr.oracles} oracle lines lead to the Oracles`);
 
   if (errors.length) fail(`console error in the links pass: ${errors[0].slice(0, 140)}`);
@@ -2953,8 +2949,9 @@ for (const width of WIDTHS) {
   await at("play");
   await page.locator(".action-bar .btn").first().click();
   await page.waitForTimeout(300);
-  const moment = await q(() => { const c = document.querySelector(".modal-overlay .modal-card"); return c ? { full: c.getBoundingClientRect().height >= innerHeight * 0.9, moment: !!document.querySelector(".modal-overlay.moment") } : null; });
-  if (!moment || !moment.full || !moment.moment) fail("a decision is a small dialog, not a full-screen moment");
+  // On the Table a decision is the newest beat: a card in the page, not a box over it.
+  const moment = await q(() => { const c = document.querySelector(".modal-overlay .modal-card"); return c ? { inPage: !!c.closest("#screen #live"), over: !!document.querySelector("body > .modal-overlay") } : null; });
+  if (!moment || !moment.inPage || moment.over) fail("a decision on the Table is laid over the page instead of told in it");
   await page.locator(".modal-overlay .choice").first().click();
   let result = null;
   for (let i = 0; i < 10 && !result; i++) {

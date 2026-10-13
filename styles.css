@@ -2101,3 +2101,8 @@ body.has-live[data-route="play"] .now, body.has-live[data-route="play"] .pen { d
 .case-date { font-size: .78rem; color: var(--ink-2); white-space: nowrap; }
 .case-folder[open] { background: var(--panel); }
 .case-folder > .story { padding: 0 .75rem .6rem; }
+.story-earlier { display: flex; align-items: center; gap: .4rem; margin: 0 auto .6rem; }
+.story-earlier .glyph svg { transform: rotate(-90deg); }
+/* The opening beat redraws with the page: its tiles are simply there. */
+:root:not([data-depth="off"]) .framing-tiles .word-tile { animation: none; }
+body[data-route="play"] .danger-art b { font-size: 1.2rem; font-weight: 700; }

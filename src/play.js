@@ -514,7 +514,7 @@ export function renderPlay(host) {
   const seen = told.caseId === m.id ? told.count : entries.length;
   const grew = told.caseId === m.id && entries.length !== told.count;
   told = { caseId: m.id, count: Story.held() === null ? entries.length : Math.min(entries.length, Story.held()) };
-  add(host, Story.storyColumn(entries, { hideFrom: Story.held(), seen, skipPremise: true }));
+  add(host, Story.storyColumn(entries, { hideFrom: Story.held(), seen, skipPremise: true, recent: true }));
   const follow = grew || document.querySelector("#live > *") ? "grew" : true;
 
   const now = el("div", { class: "now" });
@@ -532,9 +532,8 @@ function renderNow(host, m, scene, inScene) {
     return { action: actionBar("Resolve the mystery", () => go("solve"), "Name the three truth cards") };
   }
   // A scene opens on the book's two questions, until they are answered.
-  if (scene) add(host, Story.framingBeat(scene, Store.investigator.name));
-
   if (inScene && scene.type === "investigation") return renderInvestigation(host, m, scene);
+  if (scene) add(host, Story.framingBeat(scene, Store.investigator.name));
 
   const party = Store.party;
   const waiting = Life.pendingInvestigators();
@@ -693,7 +692,8 @@ function renderInvestigation(host, m, scene) {
   const stages = section("Stages", stagePath(scene),
     el("p", { class: "small muted", text: R.stage(scene.stage).note }),
     scene.forceEscape ? el("p", { class: "small", text: "The track filled — you are running for the door." }) : null);
-  add(host, stages);
+  // Where you are in the scene first; then, until it is set, the scene's opening beat.
+  add(host, stages, Story.framingBeat(scene, Store.investigator.name));
 
   const threats = D.activeThreats(m);
   const tl = el("div", {});

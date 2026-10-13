@@ -359,8 +359,8 @@ applied after every render: a section that automates a rule links to it in the
 library, and a section that only shows state another screen owns links to that
 screen (the mystery sheet to Clues, Play and Home; Home's problem to the sheet;
 Play's keywords to the investigator). Every rules entry links back to the screen
-that does it (`RULE_HOMES`), each tutorial step to its screen, and the story's
-scene marks and oracle lines to Play and the Oracles. They are real links
+that does it (`RULE_HOMES`), each tutorial step to its screen, and every oracle line
+in the story to the Oracles. They are real links
 (`ui.xlink`), so the back button returns. Navigation only: no link changes state.
 
 **One primary per screen, and one control per set of options.** Blue means the
@@ -409,7 +409,11 @@ day, and ends with the clock; the book's two questions are the scene's opening
 beat, the oracle's words already on the table as tiles to use or throw again
 (`scene.frameWords`), and the answer is the scene's first paragraph. The pen at
 the foot keeps your own line, asks the oracle or a yes/no, and lands each in the
-story. **Dialogs on the Table are cards in the page:** `ui.modal` renders into
+story; its Keep, like Set the scene, waits until there is something to keep. A
+long case is told from its last three scenes, with **Earlier in the case** a tap
+above them. Arriving at the Table, or when something new has been told, the
+page puts the foot of the story two fifths of the way down the screen — the
+latest beats above, the stage rail and the scene below. **Dialogs on the Table are cards in the page:** `ui.modal` renders into
 `#live` — a node that outlives a re-render, put back at the foot of the story
 each time — still `.modal-overlay` so every flow and harness finds it, while the
 Next button and the foot step aside. A card that shows what just happened holds
@@ -491,7 +495,7 @@ in the README rather than hidden behind an encoding.
 | `src/roller.js` | Attribute tests, consequences, fatigue, threats, keyword actions, clue draws. |
 | `src/lifecycle.js` | Scenes, stages, the clock, the day boundary, rest, obligations, truths, rivals. |
 | `src/prompts.js` | The engine's player decisions wired to real dialogs; one event → one sentence. |
-| `src/framing.js` | Setting the scene: the book's two questions, an oracle to hand, and the answer kept in the journal. |
+| `src/framing.js` | The oracle's half of the record (`keepOracle`). The book's two questions are asked by `story.framingBeat`. |
 | `src/story.js` | The Story: the case as beats on the Table — the sentence for each engine event, the dice chip, the player's line, chapters, the scene's opening beat, the pen, and the Notebook's filing by case. Presentation only; no rule. |
 | `src/coach.js` | The guide: what to do next and what it costs, derived from live state, on every screen. Holds no rules of its own. |
 | `src/art.js` | Every drawing that is not a die, a card face or the clock: glyphs, illustrations, genre watermarks, the data graphics, and the motion helpers. Reads resolution tables from `data.js`; knows no rule of its own. |
@@ -697,8 +701,8 @@ this whole document exists to prevent.
 | Co-op: acting against a threat turns it on you | Conversion | — | `roller.attributeTest` | Threat card | `acting against a threat turns its attention on you` |
 | Co-op: give everyone something to do | Permission | — | `play.chooseActor` | "Who acts?" chooser, with who has acted | guidance: the chooser names who has not acted |
 | Co-op: everyone earns the mystery's experience | Cost | `DIFFICULTIES` | `solve.reveal` | Solve results | `everyone who worked the case earns its experience` |
-| Solo: open a scene by saying where it is and who is there | Permission | `SCENE_FRAMING` | `framing.framingCard`, `framingLines`, `framingAction` | Top of every scene; rest and obligation dialogs | smoke: setting the scene, `a rest or obligation scene can be set, asked about, and written down` |
-| Solo: ask the game when you do not know | Permission | oracles | `framing.framingCard` buttons | Oracle and yes/no on the framing card | smoke: the oracle button produces words |
+| Solo: open a scene by saying where it is and who is there | Permission | `SCENE_FRAMING` | `story.framingBeat` | The opening beat of every scene, rest and obligation included | smoke: setting the scene, `a rest or obligation scene can be set, asked about, and written down` |
+| Solo: ask the game when you do not know | Permission | oracles | `story.pen`, `framingBeat` tiles | The pen at the foot of the story; the words on the opening beat | smoke: the oracle button produces words |
 | The case told as it is played, with a line for your own words under every beat | Permission | — | `story.tell`, `storyColumn`, `pen` | The Table's story, the Notebook's cases | `the scene is the journal: beats, lines, cards in the page, the pen, the Notebook's cases` |
 | Solo: keep the record however you like | Permission | `RECORDING_METHODS` | `screens.renderJournal` | Journal screen, rules library | guidance only |
 | The mystery sheet, whole, on one page | Lookup | — | `paper.renderMysterySheet` | Case › Mystery | `the mystery sheet is one page that only shows, and both sheets save as a document` |
@@ -756,6 +760,7 @@ this whole document exists to prevent.
 
 | Date | Change | Verification | Cache |
 |---|---|---|---|
+| 2026-10-13 | **The Story: the scene is the journal.** Playing and journalling were two places — the Table pressed buttons, the Notebook logged them — so writing was paperwork after the game. Now the Table tells the case as it is played (new `src/story.js`): every engine event becomes a beat with a sentence in the case's own nouns and its dice as a chip that opens to the exact arithmetic; under each beat of the scene in play is an **Add a line…** seeded with a two-word oracle prompt, saved as you type and kept through an undo; each scene is a chapter with its mark and day, ended by the clock; the book's two questions are the scene's opening beat with the oracle's words already out as tiles; the pen at the foot keeps your line or asks the oracle. Dialogs on the Table are cards in the page (`#live`) — choices, rolls, prompts — with the Next button stepping aside, and a card holds its beats back until it closes so nothing is told twice; only the day turning, the case ending and reference sheets stay whole-screen. The Notebook files every case as its story, the one in play pointing back to the Table; the text export reads the same. Journal entries carry `meta.case`, the cap rises to 2,000, and the old framing card and its helpers are gone. Engine untouched: every sentence's figures are read off the event, and the mechanical line is kept as the entry's text. | one smoke block (8ak), watched failing against v25; ~20 older checks moved from the framing card, journal story view and full-screen decisions to the story; full smoke with the floors sweep; unit 69; interaction, walk, scan, deploy path; probe; solo, guided, manual-dice and co-op playtests (the driver writes with the pen and reads no story text as a control); eyes-on in both themes | citr-v26 |
 | 2026-10-08 | A toast never went away. Its hidden state slid it down 150% of its own height, which is less than the height it is lifted to clear the dock, so "Everything erased." and every other toast stayed parked on the Next button for good. Hidden is now invisible (opacity and visibility, after the slide), and both toasts sit above the dock by its measured `--dock` height instead of a fixed 84px that an opened or warning guide outgrew. | one smoke block (8aj), all four checks watched failing; full smoke; unit 69; deploy path; interaction, scan, walk; probe; solo and guided playtests | citr-v25 |
 | 2026-10-08 | **The Table and the Moment** — the interface rethought, the engine untouched. Three tabs (Table · Notebook · Book) and a gear; every other screen a drawer with a way back, no sub-tab bars. The Table is a case strip over a desk of four drawn objects; the scene picker is four tiles. Rolls, scene openings, the day's turn and the solve are full-screen Moments: the outcome as one big word, events dealt like cards, the dawn and the reveal on their own ground. The guide is one line above the Next button, which a first session points at; the numbers are drawings with no labels; helper prose and links fold under one **More**; the investigator is a card that turns over; clue sets sit on a corkboard; a blank app is three illustrated panels; Settings is Game rules and Look with the rest folded; night is the default theme. Found on the way: a guide that warned or was opened grew the dock over the foot of the page (now measured into `--dock`, guard watched failing), and a toast could cover the button you scrolled to; `centreInScroller` lost its last reader and went. | one smoke block of 30 checks (8ai), watched failing; the dock guard watched failing; ~60 older smoke checks rewritten to the new shell without dropping a rule check; unit 69; interaction, walk, scan, deploy path; probe 15 routes at 44px, 0 overflow; solo, guided, manual-dice and co-op playtests; eyes-on in both themes | citr-v24 |
 | 2026-10-08 | The parts linked to each other. The Rules screen claimed "where a screen automates something, it links back here" and only the numbers bar did — now every screen that automates a rule links to it, and every rule links to the screen that does it. The mystery sheet showed clue sets, the truth, threats, the scene, rivals and decks with no way to any of them; Home's problem and clue sets, Play's problem and keywords, the tutorial's ten steps and the story's scenes and oracle lines were the same. One `LINKS` table in the router, `ui.xlink`/`ruleLink`/`attachLinks`, `RULE_HOMES` in the rules screen. Engine untouched. | one smoke block of 19 checks, all watched failing against v22; unit 69; full smoke; layout probe (links held to the 44px floor); interaction, walk, scan, deploy path; guided, solo, manual-dice and co-op playtests | citr-v23 |

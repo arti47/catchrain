@@ -232,7 +232,8 @@ function beatNode(e, { readOnly, fresh, open = true }) {
       lineField(e, readOnly, open));
   }
   if (e.kind === "oracle") {
-    return el("p", { class: cls("oracle"), "data-beat": e.id }, glyph("tiles", 15, "beat-glyph"), el("span", { text: e.text }));
+    return el("p", { class: cls("oracle"), "data-beat": e.id },
+      el("a", { class: "xlink bare", href: "#/oracle", "aria-label": "Ask the oracles again" }, glyph("tiles", 15, "beat-glyph")), el("span", { text: e.text }));
   }
   if (e.kind === "note" || (e.kind === "scene" && meta.framing)) {
     return el("p", { class: cls("own"), "data-beat": e.id, text: e.text });
@@ -246,14 +247,30 @@ function beatNode(e, { readOnly, fresh, open = true }) {
  * and its day; a scene's end closes it with the clock. `hideFrom` holds back
  * the entries a live card is still showing, so nothing is told twice.
  */
-export function storyColumn(entries, { readOnly = false, hideFrom = null, seen = 0, skipPremise = false } = {}) {
+let showEarlier = false;
+/** How many of the latest scenes the Table tells before "Earlier in the case". */
+const RECENT_SCENES = 3;
+
+export function storyColumn(entries, { readOnly = false, hideFrom = null, seen = 0, skipPremise = false, recent = false } = {}) {
   const col = el("div", { class: "story", role: "log", "aria-label": "The story so far" });
   let chapter = el("section", { class: "chapter prologue" });
   // The scene in play is the one written under as it happens.
   let current = 0;
-  entries.forEach((e, i) => { if (sceneStart(e)) current = i; });
+  const starts = [];
+  entries.forEach((e, i) => { if (sceneStart(e)) { current = i; starts.push(i); } });
+  // A long case is told from its last few scenes; the rest is a tap away.
+  let from = 0;
+  if (recent && !showEarlier) {
+    if (starts.length > RECENT_SCENES) from = starts[starts.length - RECENT_SCENES];
+    else if (entries.length > 60) from = entries.length - 40; // a record written before scenes were marked
+  }
+  if (from) {
+    add(col, el("button", { class: "btn ghost story-earlier", type: "button", onclick: () => { showEarlier = true; rerender(); } },
+      glyph("arrow", 15), el("span", { text: "Earlier in the case" })));
+  }
   add(col, chapter);
   entries.forEach((e, i) => {
+    if (i < from) return;
     if (hideFrom !== null && i >= hideFrom) return;
     if (skipPremise && i === 0 && isCaseStart(e)) return;
     const start = sceneStart(e);
@@ -320,18 +337,22 @@ export function framingBeat(scene, who) {
     }, w)));
   };
   paint();
+  const set = el("button", { class: "btn", type: "button", disabled: true, onclick: () => {
+    const text = ta.value.trim();
+    if (!text) return;
+    Store.update("set the scene", () => { scene.framing = text; });
+    Store.journal("scene", text, { framing: true });
+    rerender();
+  } }, "Set the scene");
+  ta.addEventListener("input", () => { set.disabled = !ta.value.trim(); });
+  // A tile put into the answer counts as writing it.
+  tiles.addEventListener("click", () => { set.disabled = !ta.value.trim(); });
   return el("div", { class: "beat framing-beat" },
     el("p", { class: "framing-ask" }, glyph("pen", 15, "beat-glyph"),
       el("span", { text: `${SCENE_FRAMING.questions.join(" ")}${who ? ` ${first(who)} is at the centre of it.` : ""}` })),
     tiles, ta,
     el("div", { class: "btn-row" },
-      el("button", { class: "btn primary", type: "button", onclick: () => {
-        const text = ta.value.trim();
-        if (!text) { ta.focus(); return; }
-        Store.update("set the scene", () => { scene.framing = text; });
-        Store.journal("scene", text, { framing: true });
-        rerender();
-      } }, "Set the scene"),
+      set,
       el("button", { class: "btn ghost", type: "button", onclick: () => {
         Store.quietly(() => { scene.frameWords = R.subjectWords(R.rollSubject(true)); });
         paint();
@@ -361,10 +382,12 @@ export function pen() {
     rerender();
   };
   ta.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); keep(); } });
+  const keepBtn = el("button", { class: "btn ghost pen-btn", type: "button", disabled: true, onclick: keep }, glyph("pen", 15), el("span", { text: "Keep" }));
+  ta.addEventListener("input", () => { keepBtn.disabled = !ta.value.trim(); });
   return el("div", { class: "pen", role: "group", "aria-label": "Your pen" },
     ta,
     el("div", { class: "pen-row" },
-      el("button", { class: "btn ghost pen-btn", type: "button", onclick: keep }, glyph("pen", 15), el("span", { text: "Keep" })),
+      keepBtn,
       el("button", { class: "btn ghost pen-btn", type: "button", onclick: () => ask("words") }, glyph("tiles", 15), el("span", { text: "Oracle" })),
       el("button", { class: "btn ghost pen-btn", type: "button", onclick: () => ask("yesno") }, glyph("die", 15), el("span", { text: "Yes / no" }))));
 }

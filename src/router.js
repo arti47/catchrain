@@ -65,7 +65,7 @@ const LINKS = {
     "Stages": [ruleLink("stages")],
     "Threats": [ruleLink("threats")],
     "Keywords ready": [xlink("sheet", "Your keywords on the sheet"), ruleLink("keywords")],
-    "Choose a scene": [ruleLink("scenes")],
+    "What next": [ruleLink("scenes")],
   }),
   clues: () => ({
     "Where the case stands": [ruleLink("truths"), xlink("solve", "The solve")],
@@ -191,8 +191,17 @@ export async function render() {
   // The Story reads downward and play happens at its foot: arriving, or when
   // something new has been told, the page goes to where the story has got to.
   if (out && out.follow && (!sameScreen || out.follow === "grew")) {
-    if (document.querySelector("#live > *")) showLive();
-    else window.scrollTo(0, document.documentElement.scrollHeight);
+    // The latest beats above, where the scene is played below: the foot of
+    // the story sits two fifths of the way down the screen. Done again once
+    // the frame has laid out, since a first render can measure a short page.
+    const follow = () => {
+      if (document.querySelector("#live > *")) { showLive(); return; }
+      const now = host.querySelector(".now");
+      const y = now ? now.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.4 : document.documentElement.scrollHeight;
+      window.scrollTo(0, Math.max(0, y));
+    };
+    follow();
+    requestAnimationFrame(() => requestAnimationFrame(follow));
   } else window.scrollTo(0, keepTo); // the browser clamps if the screen got shorter
   lastRoute = name;
   document.title = `${def.title} · Caught in the Rain`;
