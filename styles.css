@@ -2062,7 +2062,7 @@ body[data-route="play"] .desk-label { font-size: .72rem; }
 /* The scene's opening beat: the book's two questions, words to hand. */
 .framing-beat { border: 1px dashed var(--line); border-radius: var(--r); padding: .75rem .85rem; margin: .4rem 0 .9rem; background: var(--panel); }
 .framing-ask { display: flex; gap: .45rem; margin: 0 0 .4rem; font-family: var(--serif); font-size: 1.04rem; }
-.framing-tiles .word-tile { cursor: pointer; min-height: var(--tap); font: inherit; }
+.framing-tiles .word-tile { cursor: pointer; min-height: var(--tap); font: inherit; font-family: var(--serif); }
 .framing-input { margin: .2rem 0 .5rem; }
 
 /* The foot of the story, where the scene is played. */
